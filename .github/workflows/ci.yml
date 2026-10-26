@@ -11,6 +11,8 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
+      - name: Benchmark tooling regression tests
+        run: python3 -m unittest discover -s tests -p 'test_*.py'
       - name: Generate dependency lockfile
         run: cargo generate-lockfile
       - name: Format source before validation
