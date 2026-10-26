@@ -11,8 +11,7 @@ fn inside_quad(quad: &[[f32; 2]; 4], point: (f32, f32)) -> bool {
     for index in 0..4 {
         let a = quad[index];
         let b = quad[(index + 1) % 4];
-        let cross = (b[0] - a[0]) * (point.1 - a[1])
-            - (b[1] - a[1]) * (point.0 - a[0]);
+        let cross = (b[0] - a[0]) * (point.1 - a[1]) - (b[1] - a[1]) * (point.0 - a[0]);
         if !cross.is_finite() {
             return false;
         }
