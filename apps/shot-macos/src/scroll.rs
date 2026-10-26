@@ -1,8 +1,8 @@
 //! macOS manual long screenshot worker. Neither file I/O nor ScreenCaptureKit
 //! runs on the egui/AppKit event thread.
 use eframe::egui;
-use shot_core::RectPx;
 use shot_core::platform::{DisplayId, ScreenCapture, ScrollAxis};
+use shot_core::{RectPx, RgbaFrame};
 use shot_platform::macos::MacCapture;
 use shot_scroll::stitch::match_scroll_frame;
 use shot_scroll::tile_store::TileStore;
@@ -41,9 +41,11 @@ impl Drop for ScrollCaptureControl {
     }
 }
 
-pub struct ScrollCompletion {
-    pub path: PathBuf,
-    pub segments: usize,
+/// A trusted, still-editable draft. Temporary strips survive until
+/// the user explicitly saves or discards this review.
+pub struct ScrollReview {
+    pub store: TileStore,
+    pub preview: RgbaFrame,
     pub partial: bool,
 }
 
@@ -53,7 +55,7 @@ pub enum ScrollEvent {
         width: u32,
         height: u32,
     },
-    Finished(Result<Option<ScrollCompletion>, String>),
+    Finished(Result<Option<ScrollReview>, String>),
 }
 
 fn output_path(partial: bool) -> Result<PathBuf, String> {
@@ -69,13 +71,24 @@ fn output_path(partial: bool) -> Result<PathBuf, String> {
     Ok(root.join(format!("PicPaste-scroll-{label}{now}.png")))
 }
 
+/// Publish an explicitly approved long screenshot. Failed exports retain
+/// the source TileStore in the caller, so the user can retry.
+pub fn export_review(review: &ScrollReview) -> Result<PathBuf, String> {
+    let path = output_path(review.partial)?;
+    review
+        .store
+        .save_png_no_clobber(&path)
+        .map_err(|error| format!("scroll PNG export failed: {error}"))?;
+    Ok(path)
+}
+
 fn capture_loop(
     display: DisplayId,
     roi: RectPx,
     axis: ScrollAxis,
     sender: &Sender<ScrollEvent>,
     command: &AtomicU8,
-) -> Result<Option<ScrollCompletion>, String> {
+) -> Result<Option<ScrollReview>, String> {
     // The main viewport is hidden before this delay. A new frame is taken
     // rather than trusting the earlier selection screenshot as the first tile.
     thread::sleep(Duration::from_millis(270));
@@ -136,13 +149,12 @@ fn capture_loop(
         // Dropping TileStore removes its private raw strips. No PNG is emitted.
         return Ok(None);
     }
-    let path = output_path(partial)?;
-    store
-        .save_png_no_clobber(&path)
-        .map_err(|error| format!("scroll PNG export failed: {error}"))?;
-    Ok(Some(ScrollCompletion {
-        path,
-        segments: store.strip_count(),
+    let preview = store
+        .preview(720, 900)
+        .map_err(|error| format!("cannot build scroll review thumbnail: {error}"))?;
+    Ok(Some(ScrollReview {
+        store,
+        preview,
         partial,
     }))
 }

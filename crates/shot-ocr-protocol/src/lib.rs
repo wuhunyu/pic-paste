@@ -1,4 +1,5 @@
 #![forbid(unsafe_code)]
+pub mod hit_test;
 pub mod response;
 pub use response::{OcrDocument, OcrLine, OcrResponse, OcrWord, read_response};
 pub mod request;

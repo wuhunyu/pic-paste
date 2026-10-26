@@ -1,17 +1,30 @@
 name: Rust CI
+# Build pull requests once, and run on push only for main. Cancel superseded
+# commits on a branch so only its latest state consumes the macOS runner.
+concurrency:
+  group: rust-ci-${{ github.event_name }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
 on:
   push:
-    branches:
-      - main
+    branches: [main]
   pull_request:
   workflow_dispatch:
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
-
 jobs:
+  core:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Check source format
+        run: cargo fmt --all -- --check
+      - name: Test platform-independent crates
+        run: cargo test -p shot-core -p shot-image -p shot-scroll -p shot-ocr-protocol --locked
+      - name: Strict core lints
+        run: cargo clippy -p shot-core -p shot-image -p shot-scroll -p shot-ocr-protocol --all-targets --locked -- -D warnings
   rust:
+    needs: core
     runs-on: macos-26
     env:
       MACOSX_DEPLOYMENT_TARGET: '14.0'

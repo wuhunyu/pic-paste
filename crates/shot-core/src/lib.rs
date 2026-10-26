@@ -1,5 +1,7 @@
 #![forbid(unsafe_code)]
+pub mod async_ticket;
 pub mod input;
+pub mod overlay;
 pub mod pins;
 pub mod platform;
 pub mod selection;

@@ -1,51 +1,44 @@
-# PicPaste implementation status · 2026-10-26
+# PicPaste development ledger · 2026-10-26
 
-Source specification: [Rust screenshot development package v1.2](../README.md). Current branch: `feat/macos-capture-png-pin-20261026`.
+## Confirmed successful checkpoints
 
-## Verified automatic build gates
+- Main merged prototype: [CI #111](https://github.com/wuhunyu/pic-paste/actions/runs/40270735124) — **green** on commit `ddf121c125230829f15651819222d0fbfdd1d435`.
+- Earlier PR #1 [merged](https://github.com/wuhunyu/pic-paste/pull/1): native ScreenCaptureKit capture, selected PNG, image pinning, hotkeys and status menu.
+- Earlier PR #2 [merged](https://github.com/wuhunyu/pic-paste/pull/2): draw/pixelate/blur, independent pin zoom, manual vertical/horizontal scroll capture and local Apple Vision Full helper; [CI #109](https://github.com/wuhunyu/pic-paste/actions/runs/40270117959) also compiled Swift, exercised real SHOC pipe IPC, and assembled Lite/Full.
+- Current [PR #3](https://github.com/wuhunyu/pic-paste/pull/3) is **in progress**, not an accepted release. It adds bounded long screenshot review, OCR polygon clicking and the fullscreen editor viewport. Check PR-head CI before marking these complete.
 
-- Main baseline: [CI #31](https://github.com/wuhunyu/pic-paste/actions/runs/40263680159) — green.
-- Pixel crop and atomic PNG save: [CI #34](https://github.com/wuhunyu/pic-paste/actions/runs/40264536444) — green; preceding TDD red #33 documented unresolved imports.
-- ScreenCaptureKit native adapter on macOS-26 SDK: [CI #36](https://github.com/wuhunyu/pic-paste/actions/runs/40264846742) — green.
-- Screenshot selection UI, global hotkeys, pasted and independent pinned viewports: [CI #38](https://github.com/wuhunyu/pic-paste/actions/runs/40265276885) — green.
-- Later menu and packaging builds: pending final separate CI status. Do not claim green before results.
+## Current implementation by stage
 
-## Stage ledger
-
-| Stage | Code status | Acceptance gap |
+| Stage | Implemented in repository | Still required before completion |
 | --- | --- | --- |
-| P0-T1 Workspace | Build/test/lint green; `Cargo.lock` not yet tracked | Commit lock and CI check-only formatting |
-| P0-T2 Status bar/hotkeys | Implemented mac menu, hotkeys and dispatch | Menu bar real-world run and hotkey conflicts |
-| P0-T3 Screen capture | Native ScreenCaptureKit, pixel crop and preview box | Full-screen overlay, multi-display and mixed-DPI checks |
-| P0-T4 Pins | Multiple native egui top-level viewports, always-on-top, passthrough/recover UI | Spaces, always-on-top, mouse passthrough and latency measurements |
-| P1 Selection/annotation | Inline selection, command history, line/rect/pixelate compositor, undo/redo unit tests | In-app annotation UI, ellipse/arrow/blur/text, eyedropper/magnifier |
-| P1 PNG | PNG-only export, non-clobber atomic save, corner alpha, clipboard interface | Mainstream target-app paste and color management |
-| P2 Pins | Independent viewport, shared image Arc, opacity | Zoom, texture cache and drag/input-router real-world tests |
-| P3 OCR | Versioned bounded SHOC transport | Vision provider, helper lifecycle, text selection, Lite/Full |
-| P4 Scroll | Session, bounds, vertical matcher, PNG row writer | Live/manual/auto scroll capture, horizontal, tile store, review |
-| P5 Delivery | Unsigned development .app script | Developer ID sign, notarize, measurements and release gates |
-| P6 Windows | Shared interfaces only | Native Windows capture/overlay/windowing/OCR/packaging |
+| P0 workspace | Rust workspace, tracked `Cargo.lock`, macOS CI fmt/test/clippy/Release + dev bundle | Real macOS 14 host, cold/warm startup and idle RSS/CPU |
+| P0 screenshot | ScreenCaptureKit primary display; display ID and image physical pixels; fullscreen root editor in PR #3 | Actual AppKit overlay multi-display, TCC/Spaces/Retina/DPI correctness |
+| P0 menu/hotkeys | Status bar, Ctrl+Option+1/2/3/4, recover passthrough | Hotkey settings/conflict, 30 restart tests, performance |
+| P1 annotation | Line/rectangle/ellipse/arrow/brush/pixelate/blur, undo/redo; PR #3 adds eight selection handles, drag-to-move, an exact physical-pixel 9x9 magnifier and HEX copy | Text with Chinese fonts, automatic window candidates, real-device mixed-DPI magnifier verification |
+| P1 PNG | PNG-only atomic no-clobber export, rounded transparent alpha and clipboard | Paste tests in common native apps, color profile fidelity |
+| P2 pins | Multiple independent egui viewports, zoom, opacity, passthrough/recovery | Native Spaces and drag/scroll/selection routing tests, texture budget |
+| P3 OCR | Optional offline Apple Vision helper in Full, SHOC framing, 20s timeout, Lite missing-helper degrade; PR #3 adds OCR line click and capture/edit/selection ticket validation to discard stale responses | Pin text mode, real 400-image CER benchmark, word boxes/provider cache, Add-on signed installer |
+| P4 scroll | Manual vertical/horizontal sampling, confidence reject, disk tile strips, streamed PNG, size limits; thumbnail and review in PR #3 | True real-time preview, automatic scrolling, seam edit, sticky-header mask, scene accuracy ≥95% |
+| P5 packaging | ARM64 ad-hoc-signed Lite/Full development zips and CI SHA256 | x86_64, Developer ID, notarization, device release matrix, rollback drills |
+| P6 Windows | Shared Rust interfaces only | Windows platform adaptation **after** macOS release |
 
-## Security and acceptance
+## Risk / acceptance evidence
 
-- No telemetry or cloud dependencies are intentionally added; image data is kept local.
-- Image paths are always `.png`; no public end-user format selector.
-- Screen Recording permission on macOS is still required and CI cannot provide it for interactive capture.
-- The macOS 26 SDK is a **build-time** requirement imposed by a Swift/Metal dependency; the deployment target remains 14.0. The minimum runtime version is not independently proven without real-device testing.
-- Current CI auto-formats its checkout before running fmt check. This is tracked tech debt and should be replaced by a check-only formatting gate once formatting is committed.
-- `Cargo.lock` is generated during CI but is not yet committed, so dependency resolution is not fully reproducible.
-- Unsigned development artifacts are **not** suitable for distribution as a public release.
+- macOS CI cannot grant interactive Screen Recording, Accessibility or Automation permissions; no TCC or frame-latency claims are proven by these builds.
+- The deployment target is macOS 14, but the dependency toolchain currently uses a macOS 26 SDK; minimum supported runtime must be tested.
+- OCR is offline. Full's bundled helper is launched on demand; application must keep taking screenshots when helper is absent.
+- Long screenshot uses a private scratch directory and remains vulnerable to animated content and low-information matches: ambiguous motion must not be appended.
+- All image file output paths must have a `.png` extension. Temporary `.part` / raw `.rgba` files are scratch only and never user-exportable.
+- Developer-only bundles have ad-hoc signatures; they are **not** valid publicly notarized releases.
 
-## Reproducible commands
+## Commands
 
 ```sh
-cargo generate-lockfile
-cargo fmt --all
 cargo fmt --all -- --check
-cargo test --workspace
-cargo clippy --workspace --all-targets -- -D warnings
-cargo build --release -p shot-macos
-bash scripts/package-macos.sh
+cargo test --workspace --locked
+cargo clippy --workspace --all-targets --locked -- -D warnings
+cargo build --release -p shot-macos --locked
+python3 -m unittest discover -s tests -p 'test_*.py'
 ```
 
-Nothing in this ledger means P0–P6 is complete or macOS real-device behavior has been validated.
+Do not mark PR #3 completed until its own Actions jobs have passed all required gates. P0–P6 is not considered finished while the real-device and release quality checks remain outstanding.

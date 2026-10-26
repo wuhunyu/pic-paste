@@ -5,6 +5,7 @@ mod export;
 pub use export::{atomic_save_png, crop_rgba};
 pub mod composite;
 pub mod history;
+pub mod pixel_tools;
 pub mod stream_png;
 use shot_core::RgbaFrame;
 use std::io::Write;
