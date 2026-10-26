@@ -58,3 +58,7 @@ GitHub Actions publishes `picpaste-macos-dev-ARM64` with **Lite and Full** unsig
 | `packaging/macos/PicPasteOCR.swift` | Optional isolated system-Vision offline OCR helper in Full package |
 
 For precise delivery and acceptance gaps, see [development status](docs/STATUS.md). The original v1.2 specification remains the authority for P0–P6 goals; green CI is not a substitute for its measured device acceptance criteria.
+
+### Configurable global hotkeys
+
+In the settings window, expand **全局快捷键设置** to assign four distinct Ctrl+Option+digit (1–9) bindings. Changes apply immediately after clicking **应用快捷键** and persist in `~/Library/Application Support/PicPaste/hotkeys.conf`. If another app holds a shortcut, PicPaste attempts to restore the previous registrations and does not save the rejected configuration. Full modifier editing, repeated launch/hotkey conflict tests, and multi-Space behavior remain system-device acceptance work.

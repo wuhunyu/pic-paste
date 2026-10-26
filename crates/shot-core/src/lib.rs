@@ -6,6 +6,7 @@ pub mod overlay;
 pub mod pins;
 pub mod platform;
 pub mod selection;
+pub mod shortcuts;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct RectPx {

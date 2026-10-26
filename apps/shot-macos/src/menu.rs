@@ -44,10 +44,10 @@ fn pin_icon() -> Vec<u8> {
 impl MenuBar {
     pub fn install(ctx: egui::Context, queue: Sender<MenuAction>) -> Result<Self, String> {
         let menu = Menu::new();
-        let capture = MenuItem::new("截图 · Ctrl+Option+1", true, None);
-        let pin = MenuItem::new("贴图 · Ctrl+Option+2", true, None);
-        let recover = MenuItem::new("恢复鼠标交互 · Ctrl+Option+3", true, None);
-        let finish_scroll = MenuItem::new("完成长截图 · Ctrl+Option+4", true, None);
+        let capture = MenuItem::new("截图", true, None);
+        let pin = MenuItem::new("贴图", true, None);
+        let recover = MenuItem::new("恢复鼠标交互", true, None);
+        let finish_scroll = MenuItem::new("完成长截图", true, None);
         let cancel_scroll = MenuItem::new("取消长截图", true, None);
         let show = MenuItem::new("显示 PicPaste", true, None);
         let quit = MenuItem::new("退出 PicPaste", true, None);
