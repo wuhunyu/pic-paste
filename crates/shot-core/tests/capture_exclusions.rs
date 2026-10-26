@@ -17,7 +17,12 @@ fn absent_or_invalid_process_ids_cannot_hide_unrelated_windows() {
 
 #[test]
 fn separate_pins_and_preview_windows_with_same_pid_are_both_excluded() {
-    let ids = [(10_u64, Some(4287)), (11, Some(4287)), (12, Some(7777)), (13, None)];
+    let ids = [
+        (10_u64, Some(4287)),
+        (11, Some(4287)),
+        (12, Some(7777)),
+        (13, None),
+    ];
     let excluded: Vec<u64> = ids
         .into_iter()
         .filter(|(_, pid)| is_self_capture_window(*pid, 4287))
