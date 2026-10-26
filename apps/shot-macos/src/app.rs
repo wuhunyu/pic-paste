@@ -827,7 +827,8 @@ impl eframe::App for PicPasteApp {
             if let Some(action) = selected_action {
                 self.request_prepared(ui.ctx(), action);
                 if self.overlay.accept() {
-                    ui.ctx().send_viewport_cmd(egui::ViewportCommand::Fullscreen(false));
+                    ui.ctx()
+                        .send_viewport_cmd(egui::ViewportCommand::Fullscreen(false));
                 }
             }
             if let Some(axis) = start_scroll {
