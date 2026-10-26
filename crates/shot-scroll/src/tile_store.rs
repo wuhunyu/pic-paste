@@ -246,6 +246,45 @@ impl TileStore {
         Ok(())
     }
 
+    /// Stream this canvas into a private .part file, sync it, then atomically
+    /// publish an immutable PNG hard link without overwriting existing output.
+    pub fn save_png_no_clobber(&self, destination: &Path) -> io::Result<()> {
+        if destination.extension().and_then(|value| value.to_str()) != Some("png") {
+            return Err(invalid("PNG export only"));
+        }
+        let filename = destination
+            .file_name()
+            .and_then(|value| value.to_str())
+            .ok_or_else(|| invalid("invalid output filename"))?;
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_nanos();
+        let serial = NEXT_SESSION.fetch_add(1, Ordering::Relaxed);
+        let part = destination.with_file_name(format!(
+            ".{filename}.{}-{nonce}-{serial}.part",
+            std::process::id(),
+        ));
+        let result = (|| {
+            let mut options = OpenOptions::new();
+            options.write(true).create_new(true);
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::OpenOptionsExt;
+                options.mode(0o600);
+            }
+            let file = options.open(&part)?;
+            let mut writer = io::BufWriter::new(file);
+            self.encode_png(&mut writer)?;
+            writer.flush()?;
+            writer.get_ref().sync_all()?;
+            drop(writer);
+            fs::hard_link(&part, destination)
+        })();
+        let _ = fs::remove_file(&part);
+        result
+    }
+
     pub fn encode_png<W: Write>(&self, output: W) -> io::Result<()> {
         // Reuse open file handles across all output rows.
         let mut readers: Vec<File> = self
