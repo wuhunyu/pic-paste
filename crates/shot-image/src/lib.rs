@@ -1,5 +1,6 @@
 #![forbid(unsafe_code)]
 mod advanced_composite;
+mod text_composite;
 pub mod annotation_tools;
 mod export;
 pub use export::{atomic_save_png, crop_rgba};

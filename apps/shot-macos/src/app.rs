@@ -58,6 +58,8 @@ struct SelectionView {
     window_candidates: Vec<WindowCandidate>,
     annotations: AnnotationDocument,
     tool: Tool,
+    text_buffer: String,
+    text_size: f32,
     render_error: Option<String>,
     texture: egui::TextureHandle,
     magnifier_texture: egui::TextureHandle,
@@ -101,6 +103,8 @@ impl SelectionView {
             window_candidates,
             annotations: AnnotationDocument::new(Arc::clone(&source)),
             tool: Tool::Select,
+            text_buffer: String::from("文字"),
+            text_size: 26.0,
             render_error: None,
             source,
             texture,
@@ -242,6 +246,21 @@ impl SelectionView {
         let response = ui.add(
             egui::Image::new((self.texture.id(), displayed)).sense(egui::Sense::click_and_drag()),
         );
+        if !self.ocr_mode
+            && self.tool == Tool::Text
+            && response.clicked()
+            && !self.text_buffer.trim().is_empty()
+            && let Some(pointer) = response.interact_pointer_pos()
+        {
+            let (x, y) = point_to_pixel(&response.rect, &self.source, pointer);
+            self.annotations.apply(Annotation::Text {
+                at: (x as f32, y as f32),
+                content: self.text_buffer.clone(),
+                size: self.text_size,
+                rgba: [39, 178, 231, 255],
+            });
+            self.refresh_preview();
+        }
 
         if !self.ocr_mode
             && self.tool == Tool::Select
@@ -274,7 +293,7 @@ impl SelectionView {
                 }
             }
         }
-        if !self.ocr_mode {
+        if !self.ocr_mode && self.tool != Tool::Text {
             if response.drag_started() {
                 self.drag_anchor = response.interact_pointer_pos();
                 self.brush_points.clear();
@@ -1304,6 +1323,7 @@ impl PicPasteApp {
                 ui.separator();
                 ui.horizontal_wrapped(|ui| {
                     ui.selectable_value(&mut screen.tool, Tool::Select, "选区");
+                    ui.selectable_value(&mut screen.tool, Tool::Text, "文字");
                     ui.selectable_value(&mut screen.tool, Tool::Line, "线条");
                     ui.selectable_value(&mut screen.tool, Tool::Arrow, "箭头");
                     ui.selectable_value(&mut screen.tool, Tool::Brush, "画笔");
@@ -1318,6 +1338,14 @@ impl PicPasteApp {
                         screen.redo();
                     }
                 });
+                if screen.tool == Tool::Text {
+                    ui.horizontal(|ui| {
+                        ui.label("文字内容：");
+                        ui.add(egui::TextEdit::singleline(&mut screen.text_buffer).desired_width(230.0));
+                        ui.add(egui::Slider::new(&mut screen.text_size, 12.0..=64.0).text("字号"));
+                        ui.label("单击截图定位");
+                    });
+                }
                 if ui
                     .ctx()
                     .input(|input| input.modifiers.command && input.key_pressed(egui::Key::Z))
