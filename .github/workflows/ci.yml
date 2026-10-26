@@ -1,12 +1,12 @@
 name: Rust CI
-# Keep only the latest commit build for each event + branch. This prevents
-# stale development CI runs from consuming macOS runners and hides no failure:
-# the latest head must complete every required gate before a merge.
+# Build pull requests once, and run on push only for main. Cancel superseded
+# commits on a branch so only its latest state consumes the macOS runner.
 concurrency:
   group: rust-ci-${{ github.event_name }}-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
 on:
   push:
+    branches: [main]
   pull_request:
   workflow_dispatch:
 jobs:
