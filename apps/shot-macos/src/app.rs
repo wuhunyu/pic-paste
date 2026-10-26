@@ -1,5 +1,6 @@
 use crate::hotkey::{HotkeyAction, HotkeyController};
 use crate::menu::{MenuAction, MenuBar};
+use crate::ocr;
 use crate::pin::PinnedImage;
 use crate::scroll::{self, ScrollCaptureControl, ScrollEvent};
 use arboard::{Clipboard, ImageData};
@@ -21,6 +22,7 @@ enum WorkerResult {
     Captured(Result<CapturedFrame, PlatformError>),
     Prepared(PrepareAction, Result<RgbaFrame, String>),
     Saved(Result<PathBuf, String>),
+    Ocr(Result<shot_ocr_protocol::OcrDocument, String>),
 }
 
 #[derive(Clone, Copy)]
@@ -222,6 +224,9 @@ pub struct PicPasteApp {
     radius: u32,
     capturing: bool,
     processing: bool,
+    ocr_waiting: bool,
+    ocr_text: String,
+    ocr_lines: usize,
     pending_frame: Option<CapturedFrame>,
     prepared: Vec<(PrepareAction, RgbaFrame)>,
     screen: Option<SelectionView>,
@@ -258,6 +263,9 @@ impl PicPasteApp {
             radius: 16,
             capturing: false,
             processing: false,
+            ocr_waiting: false,
+            ocr_text: String::new(),
+            ocr_lines: 0,
             pending_frame: None,
             prepared: Vec::new(),
             screen: None,
@@ -283,6 +291,8 @@ impl PicPasteApp {
         self.capturing = true;
         self.status = String::from("正在获取屏幕快照…");
         self.screen = None;
+        self.ocr_text.clear();
+        self.ocr_lines = 0;
         // Hide our own window first, so it cannot contaminate the screenshot.
         ctx.send_viewport_cmd(egui::ViewportCommand::Visible(false));
         let sender = self.work_tx.clone();
@@ -367,6 +377,28 @@ impl PicPasteApp {
                 });
             let _ = sender.send(WorkerResult::Prepared(action, result));
             wake.request_repaint();
+        });
+    }
+
+    fn request_ocr(&mut self, ctx: &egui::Context) {
+        if self.ocr_waiting || self.processing || self.scroll_control.is_some() {
+            return;
+        }
+        let Some(screen) = &self.screen else { return };
+        self.ocr_waiting = true;
+        self.ocr_text.clear();
+        self.ocr_lines = 0;
+        self.status = String::from("正在使用离线 Vision Accurate 识别文字…");
+        let source = Arc::clone(&screen.rendered);
+        let region = screen.selected_region();
+        let sender = self.work_tx.clone();
+        let ctx = ctx.clone();
+        thread::spawn(move || {
+            let result = shot_image::crop_rgba(&source, region)
+                .map_err(|error| format!("OCR 区域无效：{error:?}"))
+                .and_then(ocr::recognize);
+            let _ = sender.send(WorkerResult::Ocr(result));
+            ctx.request_repaint();
         });
     }
 
@@ -455,6 +487,23 @@ impl PicPasteApp {
                     match result {
                         Ok(frame) => self.prepared.push((action, frame)),
                         Err(error) => self.status = format!("图像处理失败: {error}"),
+                    }
+                }
+                WorkerResult::Ocr(outcome) => {
+                    self.ocr_waiting = false;
+                    match outcome {
+                        Ok(document) => {
+                            self.ocr_lines = document.lines.len();
+                            self.ocr_text = document.lines.iter()
+                                .map(|line| line.text.as_str())
+                                .collect::<Vec<_>>()
+                                .join("\n");
+                            self.status = format!(
+                                "Vision OCR 完成，共识别 {} 行；可以选择或复制文本",
+                                self.ocr_lines
+                            );
+                        }
+                        Err(error) => self.status = format!("文字识别失败：{error}"),
                     }
                 }
                 WorkerResult::Saved(result) => {
@@ -588,6 +637,7 @@ impl eframe::App for PicPasteApp {
 
             let mut selected_action = None;
             let mut start_scroll = None;
+            let mut recognize_text = false;
             if let Some(screen) = &mut self.screen {
                 ui.horizontal(|ui| {
                     if ui.button("保存 PNG").clicked() {
@@ -607,6 +657,9 @@ impl eframe::App for PicPasteApp {
                     }
                     if ui.button("手动长截图 →").clicked() {
                         start_scroll = Some(ScrollAxis::Horizontal);
+                    }
+                    if ui.button("识别文字 (Full)").clicked() {
+                        recognize_text = true;
                     }
                 });
                 ui.separator();
@@ -648,6 +701,28 @@ impl eframe::App for PicPasteApp {
             }
             if let Some(axis) = start_scroll {
                 self.start_manual_scroll(ui.ctx(), axis);
+            }
+            if recognize_text {
+                self.request_ocr(ui.ctx());
+            }
+            if self.ocr_waiting {
+                ui.horizontal(|ui| {
+                    ui.spinner();
+                    ui.label("Vision OCR 正在独立进程中运行");
+                });
+            }
+            if self.ocr_lines > 0 {
+                ui.separator();
+                ui.heading(format!("识别文字 · {} 行", self.ocr_lines));
+                if ui.button("复制全部文字").clicked() {
+                    self.status = match Clipboard::new()
+                        .and_then(|mut clipboard| clipboard.set_text(self.ocr_text.clone()))
+                    {
+                        Ok(()) => String::from("识别文字已复制到剪贴板"),
+                        Err(error) => format!("文本复制失败：{error}"),
+                    };
+                }
+                ui.add(egui::TextEdit::multiline(&mut self.ocr_text).desired_rows(7));
             }
             if !self.pins.is_empty() {
                 ui.separator();
