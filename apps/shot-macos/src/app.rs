@@ -12,6 +12,7 @@ use shot_core::overlay::OverlayState;
 use shot_core::platform::{CapturedFrame, DisplayId, PlatformError, ScrollAxis};
 use shot_core::selection::{ResizeHandle, adjust_selection, from_drag, hit_selection_handle};
 use shot_core::shortcuts::{HotkeyBindings, ShortcutAction};
+use shot_core::window_candidates::{WindowCandidate, candidate_at};
 use shot_core::{RectPx, RgbaFrame};
 use shot_image::annotation_tools::{Tool, annotation_for_drag};
 use shot_image::history::{Annotation, AnnotationDocument};
@@ -29,7 +30,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 enum WorkerResult {
     Captured {
         selection: DisplaySelection,
-        outcome: Result<(CapturedFrame, OverlayPlacement), PlatformError>,
+        outcome: Result<(CapturedFrame, OverlayPlacement, Vec<WindowCandidate>), PlatformError>,
     },
     Prepared(PrepareAction, Result<RgbaFrame, String>),
     Saved(Result<PathBuf, String>),
@@ -54,6 +55,7 @@ struct SelectionView {
     edit_revision: u64,
     source: Arc<RgbaFrame>,
     rendered: Arc<RgbaFrame>,
+    window_candidates: Vec<WindowCandidate>,
     annotations: AnnotationDocument,
     tool: Tool,
     render_error: Option<String>,
@@ -76,6 +78,7 @@ impl SelectionView {
         display_id: DisplayId,
         capture_revision: u64,
         source: Arc<RgbaFrame>,
+        window_candidates: Vec<WindowCandidate>,
     ) -> Self {
         let texture = ctx.load_texture(
             "capture-preview",
@@ -95,6 +98,7 @@ impl SelectionView {
             capture_revision,
             edit_revision: 0,
             rendered: Arc::clone(&source),
+            window_candidates,
             annotations: AnnotationDocument::new(Arc::clone(&source)),
             tool: Tool::Select,
             render_error: None,
@@ -226,7 +230,7 @@ impl SelectionView {
         if self.ocr_mode {
             ui.label("文字选择模式：点击高亮的识别行以选中；仅当明确启用时才响应文字点击。");
         } else {
-            ui.label("拖动框选；拖动选区内部可移动，拖动四角和边缘可调整。Esc 取消。");
+            ui.label("单击黄色窗口边框快速选区，或拖动自由框选；可调整边缘和四角。Esc 取消。");
         }
         let width = self.source.width as f32;
         let height = self.source.height as f32;
@@ -239,6 +243,37 @@ impl SelectionView {
             egui::Image::new((self.texture.id(), displayed)).sense(egui::Sense::click_and_drag()),
         );
 
+        if !self.ocr_mode
+            && self.tool == Tool::Select
+            && self.selection.is_none()
+            && !response.dragged()
+            && let Some(pointer) = response.hover_pos()
+        {
+            let point = point_to_pixel(&response.rect, &self.source, pointer);
+            if let Some(candidate) = candidate_at(&self.window_candidates, point) {
+                let scale_x = response.rect.width() / self.source.width as f32;
+                let scale_y = response.rect.height() / self.source.height as f32;
+                let rect = egui::Rect::from_min_size(
+                    egui::pos2(
+                        response.rect.left() + candidate.rect.x as f32 * scale_x,
+                        response.rect.top() + candidate.rect.y as f32 * scale_y,
+                    ),
+                    egui::vec2(
+                        candidate.rect.width as f32 * scale_x,
+                        candidate.rect.height as f32 * scale_y,
+                    ),
+                );
+                ui.painter().rect_stroke(
+                    rect,
+                    0.0,
+                    egui::Stroke::new(2.0, egui::Color32::YELLOW),
+                    egui::StrokeKind::Inside,
+                );
+                if response.clicked() {
+                    self.set_selection(Some(candidate.rect));
+                }
+            }
+        }
         if !self.ocr_mode {
             if response.drag_started() {
                 self.drag_anchor = response.interact_pointer_pos();
@@ -468,6 +503,7 @@ pub struct PicPasteApp {
     ocr_text: String,
     ocr_lines: usize,
     pending_frame: Option<CapturedFrame>,
+    pending_window_candidates: Vec<WindowCandidate>,
     overlay_placement: Option<OverlayPlacement>,
     prepared: Vec<(PrepareAction, RgbaFrame)>,
     screen: Option<SelectionView>,
@@ -527,6 +563,7 @@ impl PicPasteApp {
             ocr_text: String::new(),
             ocr_lines: 0,
             pending_frame: None,
+            pending_window_candidates: Vec::new(),
             overlay_placement: None,
             prepared: Vec::new(),
             screen: None,
@@ -592,6 +629,7 @@ impl PicPasteApp {
         self.capturing = true;
         self.status = String::from("正在获取屏幕快照…");
         self.screen = None;
+        self.pending_window_candidates.clear();
         self.ocr_text.clear();
         self.ocr_lines = 0;
         // UI must hide before ScreenCaptureKit captures; discovery stays off
@@ -854,9 +892,10 @@ impl PicPasteApp {
                 WorkerResult::Captured { selection, outcome } => {
                     self.capturing = false;
                     match outcome {
-                        Ok((frame, placement)) if self.overlay.captured(true) => {
+                        Ok((frame, placement, windows)) if self.overlay.captured(true) => {
                             self.display_selection = selection;
                             self.pending_frame = Some(frame);
+                            self.pending_window_candidates = windows;
                             self.overlay_placement = Some(placement);
                             self.status =
                                 String::from("已打开目标屏幕截图窗口；拖动选择，Esc 取消");
@@ -1004,6 +1043,7 @@ impl PicPasteApp {
                 captured.display_id,
                 self.capture_revision,
                 Arc::new(captured.image),
+                std::mem::take(&mut self.pending_window_candidates),
             ));
         }
         if let Some(image) = self.scroll_preview_pending.take() {
@@ -1439,7 +1479,7 @@ mod tests {
     fn test_screen(capture_id: u64) -> SelectionView {
         let ctx = egui::Context::default();
         let image = Arc::new(RgbaFrame::new(80, 60, vec![255; 80 * 60 * 4]).unwrap());
-        SelectionView::new(&ctx, DisplayId(1), capture_id, image)
+        SelectionView::new(&ctx, DisplayId(1), capture_id, image, Vec::new())
     }
 
     #[test]
