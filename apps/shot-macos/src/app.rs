@@ -5,12 +5,15 @@ use crate::pin::PinnedImage;
 use crate::scroll::{self, ScrollCaptureControl, ScrollEvent};
 use arboard::{Clipboard, ImageData};
 use eframe::egui;
+use shot_core::overlay::OverlayState;
 use shot_core::platform::{CapturedFrame, DisplayId, PlatformError, ScrollAxis};
 use shot_core::selection::from_drag;
 use shot_core::{RectPx, RgbaFrame};
 use shot_image::annotation_tools::{Tool, annotation_for_drag};
 use shot_image::history::{Annotation, AnnotationDocument};
 use shot_platform::macos::MacCapture;
+use shot_ocr_protocol::hit_test::{hit_line_in_capture, selected_text};
+use shot_ocr_protocol::OcrDocument;
 use std::borrow::Cow;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -22,7 +25,10 @@ enum WorkerResult {
     Captured(Result<CapturedFrame, PlatformError>),
     Prepared(PrepareAction, Result<RgbaFrame, String>),
     Saved(Result<PathBuf, String>),
-    Ocr(Result<shot_ocr_protocol::OcrDocument, String>),
+    Ocr {
+        region: RectPx,
+        outcome: Result<OcrDocument, String>,
+    },
 }
 
 #[derive(Clone, Copy)]
@@ -43,6 +49,10 @@ struct SelectionView {
     drag_anchor: Option<egui::Pos2>,
     brush_points: Vec<(f32, f32)>,
     selection: Option<RectPx>,
+    ocr_result: Option<OcrDocument>,
+    ocr_origin: (u32, u32),
+    ocr_mode: bool,
+    ocr_line: Option<usize>,
 }
 
 impl SelectionView {
@@ -66,10 +76,19 @@ impl SelectionView {
             drag_anchor: None,
             brush_points: Vec::new(),
             selection: None,
+            ocr_result: None,
+            ocr_origin: (0, 0),
+            ocr_mode: false,
+            ocr_line: None,
         }
     }
 
     fn refresh_preview(&mut self) {
+        // OCR positions belong to the specific composed image. Any raster edit
+        // invalidates them; a new explicit OCR action is required.
+        self.ocr_result = None;
+        self.ocr_line = None;
+        self.ocr_mode = false;
         match shot_image::composite::composite(&self.source, self.annotations.visible()) {
             Ok(image) => {
                 self.texture.set(
@@ -108,7 +127,11 @@ impl SelectionView {
     }
 
     fn show(&mut self, ui: &mut egui::Ui) {
-        ui.label("在预览中拖动选择区域；不选择则处理整个显示器。Esc 取消。");
+        if self.ocr_mode {
+            ui.label("文字选择模式：点击高亮的识别行以选中；仅当明确启用时才响应文字点击。");
+        } else {
+            ui.label("在预览中拖动选择区域；不选择则处理整个显示器。Esc 取消。");
+        }
         let width = self.source.width as f32;
         let height = self.source.height as f32;
         let available = ui.available_size() - egui::vec2(0.0, 12.0);
@@ -120,45 +143,86 @@ impl SelectionView {
             egui::Image::new((self.texture.id(), displayed)).sense(egui::Sense::click_and_drag()),
         );
 
-        if response.drag_started() {
-            self.drag_anchor = response.interact_pointer_pos();
-            self.brush_points.clear();
-            if self.tool == Tool::Brush
-                && let Some(start) = self.drag_anchor
-            {
-                let (x, y) = point_to_pixel(&response.rect, &self.source, start);
-                self.brush_points.push((x as f32, y as f32));
-            }
-        }
-        if (response.dragged() || response.drag_stopped())
-            && let (Some(start), Some(end)) = (self.drag_anchor, response.interact_pointer_pos())
-        {
-            let a = point_to_pixel(&response.rect, &self.source, start);
-            let b = point_to_pixel(&response.rect, &self.source, end);
-            if self.tool == Tool::Select {
-                self.selection = from_drag(a, b).ok();
-            } else if self.tool == Tool::Brush {
-                let last = (b.0 as f32, b.1 as f32);
-                if self.brush_points.last() != Some(&last) && self.brush_points.len() < 20_000 {
-                    self.brush_points.push(last);
+        if !self.ocr_mode {
+            if response.drag_started() {
+                self.drag_anchor = response.interact_pointer_pos();
+                self.brush_points.clear();
+                if self.tool == Tool::Brush
+                    && let Some(start) = self.drag_anchor
+                {
+                    let (x, y) = point_to_pixel(&response.rect, &self.source, start);
+                    self.brush_points.push((x as f32, y as f32));
                 }
-                if response.drag_stopped() && !self.brush_points.is_empty() {
-                    self.annotations.apply(Annotation::Brush {
-                        points: std::mem::take(&mut self.brush_points),
-                        rgba: [39, 178, 231, 255],
-                        width: 3.0,
-                    });
+            }
+            if (response.dragged() || response.drag_stopped())
+                && let (Some(start), Some(end)) = (self.drag_anchor, response.interact_pointer_pos())
+            {
+                let a = point_to_pixel(&response.rect, &self.source, start);
+                let b = point_to_pixel(&response.rect, &self.source, end);
+                if self.tool == Tool::Select {
+                    self.selection = from_drag(a, b).ok();
+                } else if self.tool == Tool::Brush {
+                    let last = (b.0 as f32, b.1 as f32);
+                    if self.brush_points.last() != Some(&last) && self.brush_points.len() < 20_000 {
+                        self.brush_points.push(last);
+                    }
+                    if response.drag_stopped() && !self.brush_points.is_empty() {
+                        self.annotations.apply(Annotation::Brush {
+                            points: std::mem::take(&mut self.brush_points),
+                            rgba: [39, 178, 231, 255],
+                            width: 3.0,
+                        });
+                        self.refresh_preview();
+                    }
+                } else if response.drag_stopped()
+                    && let Some(annotation) = annotation_for_drag(self.tool, a, b)
+                {
+                    self.annotations.apply(annotation);
                     self.refresh_preview();
                 }
-            } else if response.drag_stopped()
-                && let Some(annotation) = annotation_for_drag(self.tool, a, b)
-            {
-                self.annotations.apply(annotation);
-                self.refresh_preview();
+            }
+            if response.drag_stopped() {
+                self.drag_anchor = None;
             }
         }
-        if response.drag_stopped() {
-            self.drag_anchor = None;
+
+        if self.ocr_mode {
+            if response.clicked()
+                && let Some(pointer) = response.interact_pointer_pos()
+                && let Some(document) = self.ocr_result.as_ref()
+            {
+                let (x, y) = point_to_pixel(&response.rect, &self.source, pointer);
+                self.ocr_line = hit_line_in_capture(
+                    document,
+                    self.ocr_origin,
+                    (x as f32, y as f32),
+                );
+            }
+            if let Some(document) = self.ocr_result.as_ref() {
+                let sx = response.rect.width() / self.source.width as f32;
+                let sy = response.rect.height() / self.source.height as f32;
+                for (index, line) in document.lines.iter().enumerate() {
+                    let color = if self.ocr_line == Some(index) {
+                        egui::Color32::from_rgb(30, 230, 160)
+                    } else {
+                        egui::Color32::from_rgb(72, 192, 245)
+                    };
+                    for edge in 0..4 {
+                        let a = line.polygon_px[edge];
+                        let b = line.polygon_px[(edge + 1) % 4];
+                        let screen_pos = |p: [f32; 2]| {
+                            egui::pos2(
+                                response.rect.left() + (self.ocr_origin.0 as f32 + p[0]) * sx,
+                                response.rect.top() + (self.ocr_origin.1 as f32 + p[1]) * sy,
+                            )
+                        };
+                        ui.painter().line_segment(
+                            [screen_pos(a), screen_pos(b)],
+                            egui::Stroke::new(2.0, color),
+                        );
+                    }
+                }
+            }
         }
         if let Some(selection) = self.selection {
             let clip = egui::Rect::from_min_size(
@@ -224,6 +288,7 @@ pub struct PicPasteApp {
     radius: u32,
     capturing: bool,
     processing: bool,
+    overlay: OverlayState,
     ocr_waiting: bool,
     ocr_text: String,
     ocr_lines: usize,
@@ -263,6 +328,7 @@ impl PicPasteApp {
             radius: 16,
             capturing: false,
             processing: false,
+            overlay: OverlayState::default(),
             ocr_waiting: false,
             ocr_text: String::new(),
             ocr_lines: 0,
@@ -285,7 +351,12 @@ impl PicPasteApp {
     }
 
     fn begin_capture(&mut self, ctx: &egui::Context) {
-        if self.capturing || self.processing || self.scroll_control.is_some() {
+        if self.capturing
+            || self.processing
+            || self.ocr_waiting
+            || self.scroll_control.is_some()
+            || !self.overlay.begin_capture()
+        {
             return;
         }
         self.capturing = true;
@@ -339,6 +410,8 @@ impl PicPasteApp {
             ctx.clone(),
         );
         self.scroll_control = Some(control);
+        self.overlay.dismiss();
+        ctx.send_viewport_cmd(egui::ViewportCommand::Fullscreen(false));
         ctx.send_viewport_cmd(egui::ViewportCommand::Visible(false));
     }
 
@@ -397,7 +470,10 @@ impl PicPasteApp {
             let result = shot_image::crop_rgba(&source, region)
                 .map_err(|error| format!("OCR 区域无效：{error:?}"))
                 .and_then(ocr::recognize);
-            let _ = sender.send(WorkerResult::Ocr(result));
+            let _ = sender.send(WorkerResult::Ocr {
+                region,
+                outcome: result,
+            });
             ctx.request_repaint();
         });
     }
@@ -472,11 +548,17 @@ impl PicPasteApp {
                     self.capturing = false;
                     ctx.send_viewport_cmd(egui::ViewportCommand::Visible(true));
                     match result {
-                        Ok(frame) => {
+                        Ok(frame) if self.overlay.captured(true) => {
                             self.pending_frame = Some(frame);
-                            self.status = String::from("截图已完成，请拖动框选区域");
+                            ctx.send_viewport_cmd(egui::ViewportCommand::Fullscreen(true));
+                            self.status = String::from("全屏截图选区已打开；拖动选择，Esc 取消");
+                        }
+                        Ok(_) => {
+                            self.status = String::from("截图已取消，丢弃迟到的捕获结果");
                         }
                         Err(error) => {
+                            self.overlay.captured(false);
+                            ctx.send_viewport_cmd(egui::ViewportCommand::Fullscreen(false));
                             self.status =
                                 format!("截图失败: {error:?}。请检查系统设置→隐私与安全→屏幕录制");
                         }
@@ -489,7 +571,7 @@ impl PicPasteApp {
                         Err(error) => self.status = format!("图像处理失败: {error}"),
                     }
                 }
-                WorkerResult::Ocr(outcome) => {
+                WorkerResult::Ocr { region, outcome } => {
                     self.ocr_waiting = false;
                     match outcome {
                         Ok(document) => {
@@ -500,8 +582,14 @@ impl PicPasteApp {
                                 .map(|line| line.text.as_str())
                                 .collect::<Vec<_>>()
                                 .join("\n");
+                            if let Some(screen) = self.screen.as_mut() {
+                                screen.ocr_origin = (region.x as u32, region.y as u32);
+                                screen.ocr_mode = true;
+                                screen.ocr_line = None;
+                                screen.ocr_result = Some(document);
+                            }
                             self.status = format!(
-                                "Vision OCR 完成，共识别 {} 行；可以选择或复制文本",
+                                "Vision OCR 完成，共 {} 行；可点击原图上的文字框选行",
                                 self.ocr_lines
                             );
                         }
@@ -592,6 +680,10 @@ impl eframe::App for PicPasteApp {
             && !self.quit_requested
             && ctx.input(|input| input.viewport().close_requested())
         {
+            if self.overlay.dismiss() {
+                self.screen = None;
+                ctx.send_viewport_cmd(egui::ViewportCommand::Fullscreen(false));
+            }
             ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
             ctx.send_viewport_cmd(egui::ViewportCommand::Visible(false));
         }
@@ -600,9 +692,15 @@ impl eframe::App for PicPasteApp {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         self.process_ui_images(ui.ctx());
         egui::CentralPanel::default().show(ui, |ui| {
-            ui.heading("PicPaste");
-            ui.label("离线截图 · PNG 透明圆角 · 多贴图");
-            ui.horizontal(|ui| {
+            if self.overlay.is_fullscreen() {
+                ui.heading("PicPaste · 全屏截图");
+                ui.label("拖动框选或标注 · 复制/保存后返回窗口 · Esc 放弃截图");
+            } else {
+                ui.heading("PicPaste");
+                ui.label("离线截图 · PNG 透明圆角 · 多贴图");
+            }
+            if !self.overlay.is_fullscreen() {
+                ui.horizontal(|ui| {
                 if ui.button("截图  Ctrl+Option+1").clicked() {
                     self.begin_capture(ui.ctx());
                 }
@@ -612,7 +710,8 @@ impl eframe::App for PicPasteApp {
                 if ui.button("解除穿透 Ctrl+Option+3").clicked() {
                     self.recover_pins();
                 }
-            });
+                });
+            }
             ui.horizontal(|ui| {
                 ui.label("PNG 圆角（物理像素）");
                 ui.add(egui::Slider::new(&mut self.radius, 0..=64));
@@ -635,6 +734,9 @@ impl eframe::App for PicPasteApp {
 
             if ui.ctx().input(|i| i.key_pressed(egui::Key::Escape)) {
                 self.screen = None;
+                if self.overlay.dismiss() {
+                    ui.ctx().send_viewport_cmd(egui::ViewportCommand::Fullscreen(false));
+                }
             }
 
             let mut selected_action = None;
@@ -695,11 +797,39 @@ impl eframe::App for PicPasteApp {
                     ui.colored_label(egui::Color32::RED, format!("预览渲染失败：{error}"));
                 }
                 screen.show(ui);
+                if screen.ocr_result.is_some() {
+                    let picked = screen.ocr_line.and_then(|index| {
+                        screen
+                            .ocr_result
+                            .as_ref()
+                            .map(|document| selected_text(document, &[index]))
+                    });
+                    ui.horizontal(|ui| {
+                        ui.checkbox(&mut screen.ocr_mode, "文字选择模式");
+                        if let Some(text) = picked
+                            && !text.is_empty()
+                            && ui.button("复制选中的文字行").clicked()
+                        {
+                            self.status = match Clipboard::new()
+                                .and_then(|mut clipboard| clipboard.set_text(text))
+                            {
+                                Ok(()) => String::from("已复制选中的 OCR 文字行"),
+                                Err(error) => format!("复制选中行失败：{error}"),
+                            };
+                        }
+                    });
+                } else if self.ocr_lines > 0 {
+                    self.ocr_lines = 0;
+                    self.ocr_text.clear();
+                }
             } else {
                 ui.label("按 Ctrl+Option+1 开始截图；或点击“截图”。");
             }
             if let Some(action) = selected_action {
                 self.request_prepared(ui.ctx(), action);
+                if self.overlay.accept() {
+                    ui.ctx().send_viewport_cmd(egui::ViewportCommand::Fullscreen(false));
+                }
             }
             if let Some(axis) = start_scroll {
                 self.start_manual_scroll(ui.ctx(), axis);
