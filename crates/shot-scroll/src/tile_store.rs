@@ -232,6 +232,22 @@ impl TileStore {
         Ok(true)
     }
 
+    /// Retain exactly the first `keep_count` trusted strips and delete the tail.
+    ///
+    /// Removing a middle strip while retaining later strips would break the
+    /// overlap geometry, so this operation discards only a contiguous suffix.
+    pub fn keep_first(&mut self, keep_count: usize) -> io::Result<usize> {
+        if keep_count == 0 || keep_count > self.strips.len() {
+            return Err(invalid("trusted strip prefix is out of bounds"));
+        }
+        let mut removed = 0;
+        while self.strips.len() > keep_count {
+            self.undo_last()?;
+            removed += 1;
+        }
+        Ok(removed)
+    }
+
     /// Build a bounded, nearest-neighbor preview from trusted disk strips.
     ///
     /// The full scroll image remains on disk; scratch memory is one source
