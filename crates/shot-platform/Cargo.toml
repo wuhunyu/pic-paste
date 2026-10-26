@@ -1,0 +1,6 @@
+[package]
+name = "shot-platform"
+version.workspace = true
+edition.workspace = true
+[dependencies]
+shot-core = { path = "../shot-core" }
