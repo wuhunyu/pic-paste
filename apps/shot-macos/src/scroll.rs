@@ -5,6 +5,7 @@ use shot_core::platform::{DisplayId, ScreenCapture, ScrollAxis};
 use shot_core::{RectPx, RgbaFrame};
 use shot_platform::macos::MacCapture;
 use shot_scroll::live_preview::LatestPreview;
+use shot_scroll::recovery::{FrameObservation, RecoveryDecision, RecoveryTracker};
 use shot_scroll::stitch::match_scroll_frame;
 use shot_scroll::tile_store::TileStore;
 use std::path::PathBuf;
@@ -17,6 +18,8 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 const RUNNING: u8 = 0;
 const FINISH: u8 = 1;
 const CANCEL: u8 = 2;
+const PAUSED: u8 = 3;
+const RETRY: u8 = 4;
 
 pub struct ScrollCaptureControl {
     command: Arc<AtomicU8>,
@@ -28,10 +31,31 @@ impl ScrollCaptureControl {
         self.live_preview.take()
     }
 
+    /// Finish works both while capturing and while waiting for manual retry.
+    /// A previous cancellation must never be overwritten.
     pub fn finish(&self) {
-        let _ = self
-            .command
-            .compare_exchange(RUNNING, FINISH, Ordering::SeqCst, Ordering::SeqCst);
+        let mut state = self.command.load(Ordering::SeqCst);
+        while matches!(state, RUNNING | PAUSED | RETRY) {
+            match self
+                .command
+                .compare_exchange(state, FINISH, Ordering::SeqCst, Ordering::SeqCst)
+            {
+                Ok(_) => return,
+                Err(actual) => state = actual,
+            }
+        }
+    }
+
+    pub fn is_paused(&self) -> bool {
+        self.command.load(Ordering::SeqCst) == PAUSED
+    }
+
+    /// Only an explicit user action can resume sampling. No page scrolling is
+    /// ever injected; the user must manually backtrack and scroll slowly.
+    pub fn resume(&self) -> bool {
+        self.command
+            .compare_exchange(PAUSED, RETRY, Ordering::SeqCst, Ordering::SeqCst)
+            .is_ok()
     }
 
     pub fn cancel(&self) {
@@ -41,7 +65,10 @@ impl ScrollCaptureControl {
 
 impl Drop for ScrollCaptureControl {
     fn drop(&mut self) {
-        if self.command.load(Ordering::SeqCst) == RUNNING {
+        if matches!(
+            self.command.load(Ordering::SeqCst),
+            RUNNING | PAUSED | RETRY
+        ) {
             self.cancel();
         }
     }
@@ -61,6 +88,12 @@ pub enum ScrollEvent {
         width: u32,
         height: u32,
     },
+    RecoveryNeeded {
+        segments: usize,
+        width: u32,
+        height: u32,
+    },
+    RecoveryResumed,
     Finished(Result<Option<ScrollReview>, String>),
 }
 
@@ -123,25 +156,51 @@ fn capture_loop(
         });
         wake.request_repaint();
     }
-    let mut mismatches = 0u32;
+    let mut recovery = RecoveryTracker::default();
     let mut partial = false;
-    while command.load(Ordering::SeqCst) == RUNNING {
+    loop {
+        match command.load(Ordering::SeqCst) {
+            FINISH | CANCEL => break,
+            PAUSED => {
+                // Keep trusted frames on disk without taking any screenshots.
+                // The user can scroll backward while the preview stays passive.
+                thread::sleep(Duration::from_millis(100));
+                continue;
+            }
+            RETRY => {
+                if command
+                    .compare_exchange(RETRY, RUNNING, Ordering::SeqCst, Ordering::SeqCst)
+                    .is_ok()
+                {
+                    let _ = recovery.resume();
+                    let _ = sender.send(ScrollEvent::RecoveryResumed);
+                    wake.request_repaint();
+                }
+                continue;
+            }
+            RUNNING => {}
+            _ => return Err(String::from("invalid manual scroll command")),
+        }
         thread::sleep(Duration::from_millis(260));
         if command.load(Ordering::SeqCst) != RUNNING {
-            break;
+            continue;
         }
         let next = capturer
             .capture_region(display, roi)
             .map_err(|error| format!("continuous capture failed: {error:?}"))?;
+        if command.load(Ordering::SeqCst) != RUNNING {
+            continue;
+        }
         if next.image.rgba == previous.rgba {
-            // The target has not moved. Do not add duplicate rows/columns.
+            // No motion: neither create duplicate strips nor increase failures.
+            let _ = recovery.observe(FrameObservation::Unchanged);
             continue;
         }
         if let Some(displacement) = match_scroll_frame(&previous, &next.image, axis) {
             match store.append(&next.image, displacement) {
                 Ok(()) => {
                     previous = next.image;
-                    mismatches = 0;
+                    let _ = recovery.observe(FrameObservation::Matched);
                     if let Ok(image) = store.preview(420, 600) {
                         live_preview.publish(image);
                     }
@@ -160,13 +219,20 @@ fn capture_loop(
                 }
                 Err(error) => return Err(format!("scroll tile write failed: {error}")),
             }
-        } else {
-            mismatches += 1;
-            if mismatches >= 3 {
-                // Do not advance the trusted anchor after ambiguous motion.
-                partial = true;
-                break;
-            }
+        } else if recovery.observe(FrameObservation::Untrusted) == RecoveryDecision::Pause
+            && command
+                .compare_exchange(RUNNING, PAUSED, Ordering::SeqCst, Ordering::SeqCst)
+                .is_ok()
+        {
+            // Keep the last trusted frame and all previous strips. The user
+            // must backtrack and explicitly request slow manual retry.
+            let (width, height) = store.canvas();
+            let _ = sender.send(ScrollEvent::RecoveryNeeded {
+                segments: store.strip_count(),
+                width,
+                height,
+            });
+            wake.request_repaint();
         }
     }
     if command.load(Ordering::SeqCst) == CANCEL {
@@ -179,7 +245,7 @@ fn capture_loop(
     Ok(Some(ScrollReview {
         store,
         preview,
-        partial,
+        partial: partial || recovery.needs_partial_review(),
     }))
 }
 
@@ -210,5 +276,43 @@ pub fn launch(
     ScrollCaptureControl {
         command,
         live_preview,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn test_control(state: u8) -> ScrollCaptureControl {
+        ScrollCaptureControl {
+            command: Arc::new(AtomicU8::new(state)),
+            live_preview: LatestPreview::default(),
+        }
+    }
+
+    #[test]
+    fn retry_is_only_available_while_paused() {
+        let control = test_control(PAUSED);
+        assert!(control.is_paused());
+        assert!(control.resume());
+        assert_eq!(control.command.load(Ordering::SeqCst), RETRY);
+        assert!(!control.resume());
+        assert!(!control.is_paused());
+    }
+
+    #[test]
+    fn paused_capture_can_finish_without_discarding_trusted_segments() {
+        let control = test_control(PAUSED);
+        control.finish();
+        assert_eq!(control.command.load(Ordering::SeqCst), FINISH);
+    }
+
+    #[test]
+    fn cancel_cannot_be_overwritten_by_finish_or_retry() {
+        let control = test_control(PAUSED);
+        control.cancel();
+        control.finish();
+        assert!(!control.resume());
+        assert_eq!(control.command.load(Ordering::SeqCst), CANCEL);
     }
 }
