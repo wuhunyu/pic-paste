@@ -7,6 +7,7 @@ pub mod pins;
 pub mod platform;
 pub mod selection;
 pub mod shortcuts;
+pub mod window_candidates;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct RectPx {

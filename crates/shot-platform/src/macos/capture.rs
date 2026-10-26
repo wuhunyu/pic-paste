@@ -3,6 +3,7 @@ use screencapturekit::screenshot_manager::{CGImageExt, SCScreenshotManager};
 use screencapturekit::shareable_content::{SCDisplay, SCShareableContentInfo};
 use shot_core::display::OverlayPlacement;
 use shot_core::platform::{CapturedFrame, DisplayId, PlatformError, ScreenCapture};
+use shot_core::window_candidates::{WindowBounds, WindowCandidate, candidates_for_capture};
 use shot_core::{RectPx, RgbaFrame};
 
 /// macOS 14+ ScreenCaptureKit adapter. Capture calls must run on a worker thread,
@@ -39,7 +40,7 @@ impl MacCapture {
     /// Logical monitor coordinates are not scaled by Retina pixel density.
     pub fn capture_with_placement(
         display: DisplayId,
-    ) -> Result<(CapturedFrame, OverlayPlacement), PlatformError> {
+    ) -> Result<(CapturedFrame, OverlayPlacement, Vec<WindowCandidate>), PlatformError> {
         let content = SCShareableContent::get().map_err(map_capture_error)?;
         let target = content
             .displays()
@@ -53,7 +54,32 @@ impl MacCapture {
             (frame.size.width, frame.size.height),
         )?;
         let capture = Self::capture_native(&target)?;
-        Ok((capture, placement))
+        let windows = content
+            .windows()
+            .iter()
+            .filter(|window| {
+                window
+                    .owning_application()
+                    .is_none_or(|app| app.process_id() != std::process::id() as i32)
+            })
+            .map(|window| {
+                let bounds = window.frame();
+                WindowBounds {
+                    id: u64::from(window.window_id()),
+                    origin_pt: (bounds.origin.x, bounds.origin.y),
+                    size_pt: (bounds.size.width, bounds.size.height),
+                    layer: window.window_layer() as i32,
+                    on_screen: window.is_on_screen(),
+                }
+            })
+            .collect::<Vec<_>>();
+        let candidates = candidates_for_capture(
+            (frame.origin.x, frame.origin.y),
+            (frame.size.width, frame.size.height),
+            (capture.image.width, capture.image.height),
+            &windows,
+        );
+        Ok((capture, placement, candidates))
     }
 
     fn capture_native(display: &SCDisplay) -> Result<CapturedFrame, PlatformError> {
