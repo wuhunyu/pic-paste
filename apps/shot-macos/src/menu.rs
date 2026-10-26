@@ -91,6 +91,6 @@ mod tests {
         let icon = pin_icon();
         assert_eq!(icon.len(), 24 * 24 * 4);
         assert_eq!(icon[3], 0);
-        assert!(icon.chunks_exact(4).any(|pixel| pixel[3] == 255));
+        assert!(icon.as_chunks::<4>().0.iter().any(|pixel| pixel[3] == 255));
     }
 }
