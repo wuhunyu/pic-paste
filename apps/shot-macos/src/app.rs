@@ -1374,9 +1374,9 @@ impl PicPasteApp {
                     };
             }
             if self.screen.is_some()
-                && ui.ctx().input(|input| {
-                    input.modifiers.command && input.key_pressed(egui::Key::S)
-                })
+                && ui
+                    .ctx()
+                    .input(|input| input.modifiers.command && input.key_pressed(egui::Key::S))
             {
                 selected_action = Some(PrepareAction::Save);
             }
