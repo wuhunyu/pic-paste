@@ -1,0 +1,6 @@
+[package]
+name = "shot-ocr-helper"
+version.workspace = true
+edition.workspace = true
+[dependencies]
+shot-ocr-protocol = { path = "../../crates/shot-ocr-protocol" }
