@@ -1,5 +1,8 @@
 #![forbid(unsafe_code)]
 pub mod platform;
+pub mod pins;
+pub mod selection;
+pub mod input;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct RectPx {
