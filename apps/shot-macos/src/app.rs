@@ -5,6 +5,7 @@ use crate::pin::PinnedImage;
 use crate::scroll::{self, ScrollCaptureControl, ScrollEvent};
 use arboard::{Clipboard, ImageData};
 use eframe::egui;
+use shot_core::async_ticket::OcrTicket;
 use shot_core::overlay::OverlayState;
 use shot_core::platform::{CapturedFrame, DisplayId, PlatformError, ScrollAxis};
 use shot_core::selection::from_drag;
@@ -28,7 +29,7 @@ enum WorkerResult {
     ScrollSaved(Result<PathBuf, (String, scroll::ScrollReview)>),
     ScrollEdited(Result<scroll::ScrollReview, (String, scroll::ScrollReview)>),
     Ocr {
-        region: RectPx,
+        ticket: OcrTicket,
         outcome: Result<OcrDocument, String>,
     },
 }
@@ -42,6 +43,8 @@ enum PrepareAction {
 
 struct SelectionView {
     display_id: DisplayId,
+    capture_revision: u64,
+    edit_revision: u64,
     source: Arc<RgbaFrame>,
     rendered: Arc<RgbaFrame>,
     annotations: AnnotationDocument,
@@ -58,7 +61,12 @@ struct SelectionView {
 }
 
 impl SelectionView {
-    fn new(ctx: &egui::Context, display_id: DisplayId, source: Arc<RgbaFrame>) -> Self {
+    fn new(
+        ctx: &egui::Context,
+        display_id: DisplayId,
+        capture_revision: u64,
+        source: Arc<RgbaFrame>,
+    ) -> Self {
         let texture = ctx.load_texture(
             "capture-preview",
             egui::ColorImage::from_rgba_unmultiplied(
@@ -69,6 +77,8 @@ impl SelectionView {
         );
         Self {
             display_id,
+            capture_revision,
+            edit_revision: 0,
             rendered: Arc::clone(&source),
             annotations: AnnotationDocument::new(Arc::clone(&source)),
             tool: Tool::Select,
@@ -85,12 +95,39 @@ impl SelectionView {
         }
     }
 
-    fn refresh_preview(&mut self) {
-        // OCR positions belong to the specific composed image. Any raster edit
-        // invalidates them; a new explicit OCR action is required.
+    fn invalidate_ocr(&mut self) {
+        self.edit_revision = self.edit_revision.saturating_add(1);
         self.ocr_result = None;
         self.ocr_line = None;
         self.ocr_mode = false;
+    }
+
+    fn set_selection(&mut self, selection: Option<RectPx>) {
+        if self.selection != selection {
+            self.selection = selection;
+            self.invalidate_ocr();
+        }
+    }
+
+    fn ocr_ticket(&self) -> OcrTicket {
+        OcrTicket::new(
+            self.capture_revision,
+            self.edit_revision,
+            self.selected_region(),
+        )
+    }
+
+    fn accepts_ocr(&self, ticket: OcrTicket) -> bool {
+        ticket.matches(
+            self.capture_revision,
+            self.edit_revision,
+            self.selected_region(),
+        )
+    }
+
+    fn refresh_preview(&mut self) {
+        // OCR coordinates belong to a particular immutable screenshot revision.
+        self.invalidate_ocr();
         match shot_image::composite::composite(&self.source, self.annotations.visible()) {
             Ok(image) => {
                 self.texture.set(
@@ -163,7 +200,7 @@ impl SelectionView {
                 let a = point_to_pixel(&response.rect, &self.source, start);
                 let b = point_to_pixel(&response.rect, &self.source, end);
                 if self.tool == Tool::Select {
-                    self.selection = from_drag(a, b).ok();
+                    self.set_selection(from_drag(a, b).ok());
                 } else if self.tool == Tool::Brush {
                     let last = (b.0 as f32, b.1 as f32);
                     if self.brush_points.last() != Some(&last) && self.brush_points.len() < 20_000 {
@@ -289,6 +326,7 @@ pub struct PicPasteApp {
     capturing: bool,
     processing: bool,
     overlay: OverlayState,
+    capture_revision: u64,
     ocr_waiting: bool,
     ocr_text: String,
     ocr_lines: usize,
@@ -332,6 +370,7 @@ impl PicPasteApp {
             capturing: false,
             processing: false,
             overlay: OverlayState::default(),
+            capture_revision: 0,
             ocr_waiting: false,
             ocr_text: String::new(),
             ocr_lines: 0,
@@ -386,6 +425,7 @@ impl PicPasteApp {
     fn start_manual_scroll(&mut self, ctx: &egui::Context, axis: ScrollAxis) {
         if self.capturing
             || self.processing
+            || self.ocr_waiting
             || self.scroll_control.is_some()
             || self.scroll_review.is_some()
         {
@@ -474,6 +514,7 @@ impl PicPasteApp {
         self.ocr_lines = 0;
         self.status = String::from("正在使用离线 Vision Accurate 识别文字…");
         let source = Arc::clone(&screen.rendered);
+        let ticket = screen.ocr_ticket();
         let region = screen.selected_region();
         let sender = self.work_tx.clone();
         let ctx = ctx.clone();
@@ -482,7 +523,7 @@ impl PicPasteApp {
                 .map_err(|error| format!("OCR 区域无效：{error:?}"))
                 .and_then(ocr::recognize);
             let _ = sender.send(WorkerResult::Ocr {
-                region,
+                ticket,
                 outcome: result,
             });
             ctx.request_repaint();
@@ -640,8 +681,14 @@ impl PicPasteApp {
                         Err(error) => self.status = format!("图像处理失败: {error}"),
                     }
                 }
-                WorkerResult::Ocr { region, outcome } => {
+                WorkerResult::Ocr { ticket, outcome } => {
                     self.ocr_waiting = false;
+                    if !self.screen.as_ref().is_some_and(|screen| screen.accepts_ocr(ticket)) {
+                        self.ocr_text.clear();
+                        self.ocr_lines = 0;
+                        self.status = String::from("截图或选区已变化，已丢弃过期 OCR 结果");
+                        continue;
+                    }
                     match outcome {
                         Ok(document) => {
                             self.ocr_lines = document.lines.len();
@@ -652,6 +699,7 @@ impl PicPasteApp {
                                 .collect::<Vec<_>>()
                                 .join("\n");
                             if let Some(screen) = self.screen.as_mut() {
+                                let region = screen.selected_region();
                                 screen.ocr_origin = (region.x as u32, region.y as u32);
                                 screen.ocr_mode = true;
                                 screen.ocr_line = None;
@@ -745,9 +793,11 @@ impl PicPasteApp {
 
     fn process_ui_images(&mut self, ctx: &egui::Context) {
         if let Some(captured) = self.pending_frame.take() {
+            self.capture_revision = self.capture_revision.saturating_add(1);
             self.screen = Some(SelectionView::new(
                 ctx,
                 captured.display_id,
+                self.capture_revision,
                 Arc::new(captured.image),
             ));
         }
@@ -868,7 +918,7 @@ impl eframe::App for PicPasteApp {
                         selected_action = Some(PrepareAction::Pin);
                     }
                     if ui.button("重置选区").clicked() {
-                        screen.selection = None;
+                        screen.set_selection(None);
                     }
                     if ui.button("手动长截图 ↓").clicked() {
                         start_scroll = Some(ScrollAxis::Vertical);
