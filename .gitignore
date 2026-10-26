@@ -6,3 +6,5 @@
 # Never commit locally captured images or runtime private data
 /local-data/
 /captures/
+
+/dist/

@@ -27,3 +27,15 @@ jobs:
         run: cargo test --workspace
       - name: Lint workspace
         run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: Build macOS development binary
+        run: cargo build --release -p shot-macos
+      - name: Assemble development app
+        run: bash scripts/package-macos.sh
+      - name: Upload unsigned development package
+        uses: actions/upload-artifact@v4
+        with:
+          name: picpaste-macos-dev-${{ runner.arch }}
+          path: |
+            dist/PicPaste-macos-*-UNSIGNED-DEV.zip
+            dist/PicPaste-macos-*-UNSIGNED-DEV.zip.sha256
+          if-no-files-found: error
