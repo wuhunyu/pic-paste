@@ -97,3 +97,53 @@ impl DisplayMapping {
         ))
     }
 }
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct OverlayPlacement {
+    display_id: DisplayId,
+    origin_pt: (f32, f32),
+    size_pt: (f32, f32),
+}
+
+impl OverlayPlacement {
+    pub fn new(
+        display_id: DisplayId,
+        origin_pt: (f64, f64),
+        size_pt: (f64, f64),
+    ) -> Result<Self, PlatformError> {
+        let numbers = [origin_pt.0, origin_pt.1, size_pt.0, size_pt.1];
+        if !numbers.iter().all(|n| n.is_finite())
+            || size_pt.0 <= 0.0
+            || size_pt.1 <= 0.0
+            || !numbers.iter().all(|n| (*n as f32).is_finite())
+        {
+            return Err(PlatformError::InvalidInput);
+        }
+        let origin = (origin_pt.0 as f32, origin_pt.1 as f32);
+        let size = (size_pt.0 as f32, size_pt.1 as f32);
+        if size.0 <= 0.0 || size.1 <= 0.0 {
+            return Err(PlatformError::InvalidInput);
+        }
+        Ok(Self {
+            display_id,
+            origin_pt: origin,
+            size_pt: size,
+        })
+    }
+
+    pub fn display_id(self) -> DisplayId {
+        self.display_id
+    }
+
+    pub fn origin_pt(self) -> (f32, f32) {
+        self.origin_pt
+    }
+
+    pub fn size_pt(self) -> (f32, f32) {
+        self.size_pt
+    }
+
+    pub fn belongs_to(self, display: DisplayId) -> bool {
+        self.display_id == display
+    }
+}

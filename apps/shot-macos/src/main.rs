@@ -7,6 +7,8 @@ mod menu;
 #[cfg(target_os = "macos")]
 mod ocr;
 #[cfg(target_os = "macos")]
+mod overlay;
+#[cfg(target_os = "macos")]
 mod pin;
 #[cfg(target_os = "macos")]
 mod scroll;

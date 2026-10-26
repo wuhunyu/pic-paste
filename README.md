@@ -18,7 +18,7 @@ A small, offline screenshot and pinned-image utility. **macOS-first**, Rust 2024
 
 ### Preview limitations
 
-- The fullscreen screenshot editor uses the main eframe viewport. It is **not yet** a separate AppKit NSPanel, and only the primary display is currently captured. Mixed-DPI/negative-origin and fullscreen Spaces behavior remain real-device acceptance gates.
+- The screenshot editor now opens in a dedicated borderless native macOS window positioned using the chosen display's logical bounds. This is **not yet** a dedicated AppKit NSPanel; mixed-DPI positioning and fullscreen Spaces still require real-device validation. Mixed-DPI/negative-origin and fullscreen Spaces behavior remain real-device acceptance gates.
 - OCR line hit-testing is being integrated for screenshot previews; *pin text-selection mode*, exact word/character hit testing without provider word boxes, and independent offline OCR Add-on installation remain incomplete.
 - Manual scroll capture and post-capture review are implemented at the code level, but automatic scroll injection, live continually updated preview, adjustable sticky-header masks, middle-segment editing and empirical 50-scene accuracy verification are pending.
 - Window candidate recognition, true native cross-display magnifier geometry, text annotations, configurable global hotkeys and Windows support are not delivered. The basic 9x9 screenshot-local magnifier/eyedropper in PR #3 is not a substitute for mixed-DPI real-device acceptance.
