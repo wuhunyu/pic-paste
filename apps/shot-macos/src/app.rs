@@ -1779,7 +1779,11 @@ impl PicPasteApp {
                             .selected_text(current)
                             .show_ui(ui, |ui| {
                                 ui.selectable_value(&mut next_mode, PinMode::Move, "移动");
-                                ui.selectable_value(&mut next_mode, PinMode::TextSelect, "文字选择");
+                                ui.selectable_value(
+                                    &mut next_mode,
+                                    PinMode::TextSelect,
+                                    "文字选择",
+                                );
                                 ui.selectable_value(
                                     &mut next_mode,
                                     PinMode::Passthrough,
