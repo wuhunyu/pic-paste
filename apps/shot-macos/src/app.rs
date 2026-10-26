@@ -25,6 +25,8 @@ enum WorkerResult {
     Captured(Result<CapturedFrame, PlatformError>),
     Prepared(PrepareAction, Result<RgbaFrame, String>),
     Saved(Result<PathBuf, String>),
+    ScrollSaved(Result<PathBuf, (String, scroll::ScrollReview)>),
+    ScrollEdited(Result<scroll::ScrollReview, (String, scroll::ScrollReview)>),
     Ocr {
         region: RectPx,
         outcome: Result<OcrDocument, String>,
@@ -301,6 +303,9 @@ pub struct PicPasteApp {
     scroll_tx: Sender<ScrollEvent>,
     scroll_rx: Receiver<ScrollEvent>,
     scroll_control: Option<ScrollCaptureControl>,
+    scroll_review: Option<scroll::ScrollReview>,
+    scroll_preview_pending: Option<RgbaFrame>,
+    scroll_preview_texture: Option<egui::TextureHandle>,
     menu_rx: Receiver<MenuAction>,
     _menu: Option<MenuBar>,
     quit_requested: bool,
@@ -341,6 +346,9 @@ impl PicPasteApp {
             scroll_tx,
             scroll_rx,
             scroll_control: None,
+            scroll_review: None,
+            scroll_preview_pending: None,
+            scroll_preview_texture: None,
             menu_rx,
             _menu: menu,
             quit_requested: false,
@@ -353,6 +361,7 @@ impl PicPasteApp {
             || self.processing
             || self.ocr_waiting
             || self.scroll_control.is_some()
+            || self.scroll_review.is_some()
             || !self.overlay.begin_capture()
         {
             return;
@@ -375,8 +384,12 @@ impl PicPasteApp {
     }
 
     fn start_manual_scroll(&mut self, ctx: &egui::Context, axis: ScrollAxis) {
-        if self.capturing || self.processing || self.scroll_control.is_some() {
-            self.status = String::from("已有截图任务正在执行，请先完成或取消");
+        if self.capturing
+            || self.processing
+            || self.scroll_control.is_some()
+            || self.scroll_review.is_some()
+        {
+            self.status = String::from("已有截图或长图复核任务，请先完成或放弃");
             return;
         }
         let Some(screen) = &self.screen else {
@@ -511,6 +524,64 @@ impl PicPasteApp {
         self.status = String::from("所有贴图已解除鼠标穿透");
     }
 
+    fn save_scroll_review(&mut self, ctx: &egui::Context) {
+        if self.processing {
+            return;
+        }
+        let Some(review) = self.scroll_review.take() else {
+            return;
+        };
+        self.processing = true;
+        self.status = String::from("正在从磁盘分块导出长图 PNG…");
+        let sender = self.work_tx.clone();
+        let wake = ctx.clone();
+        thread::spawn(move || {
+            let result = scroll::export_review(&review).map_err(|error| (error, review));
+            let _ = sender.send(WorkerResult::ScrollSaved(result));
+            wake.request_repaint();
+        });
+    }
+
+    fn undo_scroll_review(&mut self, ctx: &egui::Context) {
+        if self.processing {
+            return;
+        }
+        let Some(mut review) = self.scroll_review.take() else {
+            return;
+        };
+        self.processing = true;
+        self.status = String::from("正在移除最后一段并重新生成预览…");
+        let sender = self.work_tx.clone();
+        let wake = ctx.clone();
+        thread::spawn(move || {
+            let result = match review.store.undo_last() {
+                Ok(true) => review
+                    .store
+                    .preview(720, 900)
+                    .map_err(|error| format!("重新预览失败：{error}"))
+                    .map(|image| {
+                        review.preview = image;
+                    }),
+                Ok(false) => Err(String::from("已经是第一段，不能删除")),
+                Err(error) => Err(format!("撤销最后一段失败：{error}")),
+            };
+            let event = match result {
+                Ok(()) => WorkerResult::ScrollEdited(Ok(review)),
+                Err(error) => WorkerResult::ScrollEdited(Err((error, review))),
+            };
+            let _ = sender.send(event);
+            wake.request_repaint();
+        });
+    }
+
+    fn discard_scroll_review(&mut self) {
+        // Dropping TileStore removes only its own private tile directory.
+        self.scroll_review.take();
+        self.scroll_preview_pending = None;
+        self.scroll_preview_texture = None;
+        self.status = String::from("已放弃长截图，临时分块已清理");
+    }
+
     fn process_events(&mut self, ctx: &egui::Context) {
         let menu_actions: Vec<_> = self.menu_rx.try_iter().collect();
         for action in menu_actions {
@@ -594,6 +665,36 @@ impl PicPasteApp {
                         Err(error) => self.status = format!("文字识别失败：{error}"),
                     }
                 }
+                WorkerResult::ScrollSaved(outcome) => {
+                    self.processing = false;
+                    match outcome {
+                        Ok(path) => {
+                            self.scroll_preview_texture = None;
+                            self.status = format!("长图 PNG 已确认保存：{}", path.display());
+                        }
+                        Err((error, review)) => {
+                            self.scroll_review = Some(review);
+                            self.status = format!("长图导出失败，可重新保存：{error}");
+                        }
+                    }
+                }
+                WorkerResult::ScrollEdited(outcome) => {
+                    self.processing = false;
+                    match outcome {
+                        Ok(review) => {
+                            self.scroll_preview_pending = Some(review.preview.clone());
+                            self.status = format!(
+                                "已移除最后一段，当前有 {} 段可信截图",
+                                review.store.strip_count()
+                            );
+                            self.scroll_review = Some(review);
+                        }
+                        Err((error, review)) => {
+                            self.scroll_review = Some(review);
+                            self.status = error;
+                        }
+                    }
+                }
                 WorkerResult::Saved(result) => {
                     self.status = match result {
                         Ok(path) => format!("PNG 已保存: {}", path.display()),
@@ -619,16 +720,20 @@ impl PicPasteApp {
                     ctx.send_viewport_cmd(egui::ViewportCommand::Visible(true));
                     ctx.send_viewport_cmd(egui::ViewportCommand::Focus);
                     self.status = match outcome {
-                        Ok(Some(completion)) if completion.partial => format!(
-                            "滚动位置匹配失败或达到限制，已安全保存前 {} 段为部分 PNG：{}",
-                            completion.segments,
-                            completion.path.display()
-                        ),
-                        Ok(Some(completion)) => format!(
-                            "长截图完成：{} 段，PNG 位于 {}",
-                            completion.segments,
-                            completion.path.display()
-                        ),
+                        Ok(Some(review)) => {
+                            let (width, height) = review.store.canvas();
+                            let segments = review.store.strip_count();
+                            let prefix = if review.partial {
+                                "匹配不确定或达到限制，已保留可信部分"
+                            } else {
+                                "采集结束"
+                            };
+                            self.scroll_preview_pending = Some(review.preview.clone());
+                            self.scroll_review = Some(review);
+                            format!(
+                                "{prefix}：{segments} 段，{width}×{height}px。请复核后保存或放弃"
+                            )
+                        }
                         Ok(None) => String::from("已取消长截图，所有临时分块已清理"),
                         Err(error) => format!("长截图失败：{error}"),
                     };
@@ -644,6 +749,16 @@ impl PicPasteApp {
                 ctx,
                 captured.display_id,
                 Arc::new(captured.image),
+            ));
+        }
+        if let Some(image) = self.scroll_preview_pending.take() {
+            self.scroll_preview_texture = Some(ctx.load_texture(
+                "scroll-review-preview",
+                egui::ColorImage::from_rgba_unmultiplied(
+                    [image.width as usize, image.height as usize],
+                    &image.rgba,
+                ),
+                egui::TextureOptions::LINEAR,
             ));
         }
         for (action, image) in std::mem::take(&mut self.prepared) {
@@ -855,6 +970,49 @@ impl eframe::App for PicPasteApp {
                     };
                 }
                 ui.add(egui::TextEdit::multiline(&mut self.ocr_text).desired_rows(7));
+            }
+            let mut review_action = None;
+            if let Some(review) = self.scroll_review.as_ref() {
+                let (width, height) = review.store.canvas();
+                ui.separator();
+                ui.heading("长截图复核");
+                if review.partial {
+                    ui.colored_label(
+                        egui::Color32::YELLOW,
+                        "拼接未全部确认：只能保存已匹配的可信片段",
+                    );
+                }
+                ui.label(format!(
+                    "{} 段可信片段 · 原图 {}×{} px · 缩略图不影响导出分辨率",
+                    review.store.strip_count(),
+                    width,
+                    height
+                ));
+                if let Some(texture) = self.scroll_preview_texture.as_ref() {
+                    let full = texture.size_vec2();
+                    let available = ui.available_size();
+                    let scale = (available.x / full.x)
+                        .min((available.y - 42.0).max(1.0) / full.y)
+                        .min(1.0);
+                    ui.add(egui::Image::new((texture.id(), full * scale)));
+                }
+                ui.horizontal(|ui| {
+                    if ui.button("确认保存 PNG").clicked() {
+                        review_action = Some(0);
+                    }
+                    if ui.button("移除最后一个拼接段").clicked() {
+                        review_action = Some(1);
+                    }
+                    if ui.button("放弃并清理").clicked() {
+                        review_action = Some(2);
+                    }
+                });
+            }
+            match review_action {
+                Some(0) => self.save_scroll_review(ui.ctx()),
+                Some(1) => self.undo_scroll_review(ui.ctx()),
+                Some(2) => self.discard_scroll_review(),
+                _ => {}
             }
             if !self.pins.is_empty() {
                 ui.separator();
