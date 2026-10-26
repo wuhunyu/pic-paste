@@ -34,7 +34,7 @@ mod tests {
     fn streams_png_without_full_rgba_image() {
         let mut output = Vec::new();
         encode_png_rows(&mut output, 4, 10, |y, row| {
-            for pixel in row.chunks_exact_mut(4) {
+            for pixel in row.as_chunks_mut::<4>().0 {
                 pixel.copy_from_slice(&[y as u8, 80, 120, 255]);
             }
             Ok(())
