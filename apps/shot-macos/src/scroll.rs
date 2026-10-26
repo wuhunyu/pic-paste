@@ -23,9 +23,9 @@ pub struct ScrollCaptureControl {
 
 impl ScrollCaptureControl {
     pub fn finish(&self) {
-        let _ = self.command.compare_exchange(
-            RUNNING, FINISH, Ordering::SeqCst, Ordering::SeqCst,
-        );
+        let _ = self
+            .command
+            .compare_exchange(RUNNING, FINISH, Ordering::SeqCst, Ordering::SeqCst);
     }
 
     pub fn cancel(&self) {

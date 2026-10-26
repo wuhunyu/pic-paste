@@ -503,7 +503,11 @@ impl PicPasteApp {
 
     fn process_ui_images(&mut self, ctx: &egui::Context) {
         if let Some(captured) = self.pending_frame.take() {
-            self.screen = Some(SelectionView::new(ctx, captured.display_id, Arc::new(captured.image)));
+            self.screen = Some(SelectionView::new(
+                ctx,
+                captured.display_id,
+                Arc::new(captured.image),
+            ));
         }
         for (action, image) in std::mem::take(&mut self.prepared) {
             match action {

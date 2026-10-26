@@ -51,7 +51,15 @@ impl MenuBar {
         let cancel_scroll = MenuItem::new("取消长截图", true, None);
         let show = MenuItem::new("显示 PicPaste", true, None);
         let quit = MenuItem::new("退出 PicPaste", true, None);
-        for item in [&capture, &pin, &recover, &finish_scroll, &cancel_scroll, &show, &quit] {
+        for item in [
+            &capture,
+            &pin,
+            &recover,
+            &finish_scroll,
+            &cancel_scroll,
+            &show,
+            &quit,
+        ] {
             menu.append(item).map_err(|e| e.to_string())?;
         }
         let icon = Icon::from_rgba(pin_icon(), 24, 24).map_err(|e| e.to_string())?;
