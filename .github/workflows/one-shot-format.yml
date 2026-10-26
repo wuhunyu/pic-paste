@@ -1,0 +1,29 @@
+name: Canonicalize branch dependencies and Rust formatting
+on:
+  push:
+    paths:
+      - .github/workflows/one-shot-format.yml
+permissions:
+  contents: write
+jobs:
+  canonicalize:
+    if: github.ref == 'refs/heads/feat/annotation-pins-scroll-20261026'
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - name: Generate tracked lockfile and format Rust
+        run: |
+          cargo generate-lockfile
+          cargo fmt --all
+          git add Cargo.lock Cargo.toml crates apps
+          if ! git diff --cached --quiet; then
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git commit -m 'chore: commit Cargo.lock and canonical Rust formatting'
+            git push origin HEAD:feat/annotation-pins-scroll-20261026
+          fi
