@@ -12,3 +12,4 @@ shot-platform = { path = "../../crates/shot-platform" }
 [target.'cfg(target_os = "macos")'.dependencies]
 global-hotkey = "=0.8.0"
 arboard = "=3.7.0"
+tray-icon = "=0.24.0"
