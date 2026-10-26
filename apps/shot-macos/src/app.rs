@@ -741,7 +741,19 @@ impl PicPasteApp {
     fn finish_manual_scroll(&mut self) {
         if let Some(control) = &self.scroll_control {
             control.finish();
-            self.status = String::from("结束滚动，正在写入 PNG 文件");
+            self.status = String::from("正在整理已确认的长截图分段，稍后复核保存 PNG");
+        }
+    }
+
+    fn resume_manual_scroll(&mut self) {
+        if let Some(control) = &self.scroll_control {
+            if control.resume() {
+                self.status = String::from(
+                    "已请求继续采集：请手动滚回有共同内容的位置，再按原方向慢慢滚动",
+                );
+            } else {
+                self.status = String::from("长截图未处于暂停状态，无需重试");
+            }
         }
     }
 
@@ -1031,6 +1043,7 @@ impl PicPasteApp {
                 MenuAction::Paste => self.paste_clipboard_as_pin(ctx),
                 MenuAction::Recover => self.recover_pins(),
                 MenuAction::FinishScroll => self.finish_manual_scroll(),
+                MenuAction::ResumeScroll => self.resume_manual_scroll(),
                 MenuAction::CancelScroll => self.cancel_manual_scroll(),
                 MenuAction::Show => {
                     ctx.send_viewport_cmd(egui::ViewportCommand::Visible(true));
@@ -1207,6 +1220,20 @@ impl PicPasteApp {
                         self.shortcuts.label(ShortcutAction::FinishScroll)
                     );
                 }
+                ScrollEvent::RecoveryNeeded {
+                    segments,
+                    width,
+                    height,
+                } => {
+                    self.status = format!(
+                        "长截图匹配暂停：已保留 {segments} 段可信内容（{width}×{height}px）。请把页面滚回有重叠的画面，再通过菜单栏选择“长截图慢速重试”，慢慢向原方向滚动"
+                    );
+                }
+                ScrollEvent::RecoveryResumed => {
+                    self.status = String::from(
+                        "长截图继续尝试：请慢慢滚动；只有确认重叠才会继续拼接",
+                    );
+                }
                 ScrollEvent::Finished(outcome) => {
                     self.scroll_control.take();
                     ctx.send_viewport_cmd(egui::ViewportCommand::Visible(true));
@@ -1305,6 +1332,10 @@ impl eframe::App for PicPasteApp {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         self.process_ui_images(ui.ctx());
         if self.scroll_control.is_some() {
+            let paused = self
+                .scroll_control
+                .as_ref()
+                .is_some_and(ScrollCaptureControl::is_paused);
             let context = ui.ctx().clone();
             let texture = self.scroll_preview_texture.as_ref();
             context.show_viewport_immediate(
@@ -1320,8 +1351,20 @@ impl eframe::App for PicPasteApp {
                     .with_mouse_passthrough(true),
                 |preview_ui, _class| {
                     egui::CentralPanel::default().show(preview_ui, |ui| {
-                        ui.heading("长截图实时预览");
-                        ui.label("可鼠标穿透；滚动目标应用，结束请按全局快捷键");
+                        if paused {
+                            ui.heading("长截图匹配暂停");
+                            ui.colored_label(
+                                egui::Color32::YELLOW,
+                                "画面变化太大，未添加不可信内容",
+                            );
+                            ui.label(
+                                "请手动滚回上次重叠的位置，再从菜单栏选择“长截图慢速重试”",
+                            );
+                            ui.label("重试后慢慢滚动；也可以从菜单栏结束，保存可信部分");
+                        } else {
+                            ui.heading("长截图实时预览");
+                            ui.label("可鼠标穿透；由你手动滚动，软件只负责自动拼接");
+                        }
                         if let Some(texture) = texture {
                             let full = texture.size_vec2();
                             let scale = (240.0 / full.x).min(290.0 / full.y).min(1.0);
@@ -1476,7 +1519,14 @@ impl PicPasteApp {
             });
             ui.label(&self.status);
             if self.scroll_control.is_some() {
+                let paused = self
+                    .scroll_control
+                    .as_ref()
+                    .is_some_and(ScrollCaptureControl::is_paused);
                 ui.horizontal(|ui| {
+                    if paused && ui.button("已回滚，继续慢速重试").clicked() {
+                        self.resume_manual_scroll();
+                    }
                     if ui
                         .button(format!(
                             "完成长截图 {}",
