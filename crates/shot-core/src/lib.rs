@@ -22,7 +22,7 @@ impl RectPx {
     }
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum CoreError { EmptyRegion, PixelSizeMismatch, Overflow, InvalidTransition }
+pub enum CoreError { EmptyRegion, PixelSizeMismatch, Overflow, OutOfBounds, InvalidTransition }
 #[derive(Clone, Debug)]
 pub struct RgbaFrame { pub width: u32, pub height: u32, pub rgba: Vec<u8> }
 impl RgbaFrame {

@@ -48,8 +48,11 @@ fn png_atomic_save_does_not_replace_previous_file_on_failure() {
     let entries = std::fs::read_dir(&dir).unwrap().count();
     assert_eq!(entries, 1, "failed save left temporary artifacts");
 
-    atomic_save_png(&tiny(), &output).unwrap();
-    let bytes = std::fs::read(&output).unwrap();
+    assert!(atomic_save_png(&tiny(), &output).is_err(), "must not overwrite existing files");
+    assert_eq!(std::fs::read(&output).unwrap(), b"original");
+    let fresh = dir.join("fresh.png");
+    atomic_save_png(&tiny(), &fresh).unwrap();
+    let bytes = std::fs::read(&fresh).unwrap();
     assert_eq!(&bytes[..8], b"\x89PNG\r\n\x1a\n");
     std::fs::remove_dir_all(dir).unwrap();
 }

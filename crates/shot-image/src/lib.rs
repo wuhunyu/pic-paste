@@ -1,4 +1,6 @@
 #![forbid(unsafe_code)]
+mod export;
+pub use export::{atomic_save_png, crop_rgba};
 pub mod composite;
 pub mod stream_png;
 pub mod history;
