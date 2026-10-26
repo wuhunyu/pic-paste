@@ -2,7 +2,7 @@
 
 An offline, macOS-first screenshot and pinned-image utility written in Rust 2024, egui/eframe + wgpu and native ScreenCaptureKit. No Electron or WebView. **Development preview, not a signed/notarized public release.** Windows integration is planned after the macOS acceptance gates.
 
-> **Progress truth:** [Current status](docs/STATUS.md) · [Original 20-task acceptance tracker](docs/TASKS.md) · [Open work](https://github.com/wuhunyu/pic-paste/issues). This README describes the code on `main`, not work in an unmerged PR. As of 2026-10-26, live preview (#18), self-window exclusions (#20), trusted-prefix trimming (#21), pinned-image offline OCR line selection (#22), and **manual slow-scroll failure recovery (#23)** are merged with green PR CI. Physical mixed-DPI, Spaces, Screen Recording TCC, click-through preview and performance tests remain **unverified**.
+> **Progress truth:** [Current status](docs/STATUS.md) · [Original 20-task acceptance tracker](docs/TASKS.md) · [Open work](https://github.com/wuhunyu/pic-paste/issues). This README describes the code on `main`, not work in an unmerged PR. As of 2026-10-26, live preview (#18), self-window exclusions (#20), trusted-prefix trimming (#21), pinned-image offline OCR line selection (#22), and **manual slow-scroll failure recovery (#23)** and **fixed-band exclusion (#24)** are merged with green PR CI. Physical mixed-DPI, Spaces, Screen Recording TCC, click-through preview and performance tests remain **unverified**.
 
 ## Implemented macOS development workflow
 

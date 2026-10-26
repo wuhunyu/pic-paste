@@ -4,10 +4,10 @@
 
 ## 当前基线
 
-- 已合并：PR [#1](https://github.com/wuhunyu/pic-paste/pull/1)、[#2](https://github.com/wuhunyu/pic-paste/pull/2)、[#3](https://github.com/wuhunyu/pic-paste/pull/3)、[#12](https://github.com/wuhunyu/pic-paste/pull/12)–[#23](https://github.com/wuhunyu/pic-paste/pull/23)。截至本次核验共 **15 个已合并 PR**。
-- 最新功能合并：[#23 手动长截图失败恢复](https://github.com/wuhunyu/pic-paste/pull/23)，合并提交 `32afacba153e51c5a84cccce08860d9ec548d10e`，完整 [CI #40314126081](https://github.com/wuhunyu/pic-paste/actions/runs/40314126081) **success**：Linux core tests/Clippy、macOS workspace tests/Clippy/Release、Swift OCR IPC、Lite/Full 开发包。此前 [#22](https://github.com/wuhunyu/pic-paste/pull/22) 贴图行级 OCR [CI #40309834503](https://github.com/wuhunyu/pic-paste/actions/runs/40309834503) success。
+- 已合并：PR [#1](https://github.com/wuhunyu/pic-paste/pull/1)、[#2](https://github.com/wuhunyu/pic-paste/pull/2)、[#3](https://github.com/wuhunyu/pic-paste/pull/3)、[#12](https://github.com/wuhunyu/pic-paste/pull/12)–[#24](https://github.com/wuhunyu/pic-paste/pull/24)。截至本次核验共 **16 个已合并 PR**.
+- 最新功能合并：[#24 手动长截图固定区域排除](https://github.com/wuhunyu/pic-paste/pull/24)，合并提交 `141767c6fac8915e199231e969ae24a24875511c`，完整 [CI #40317451349](https://github.com/wuhunyu/pic-paste/actions/runs/40317451349) **success**：Linux core、macOS workspace tests/Clippy/Release、Swift OCR IPC、Lite/Full 开发包。此前 [#23](https://github.com/wuhunyu/pic-paste/pull/23) 手动失败恢复 [CI #40314126081](https://github.com/wuhunyu/pic-paste/actions/runs/40314126081) success。
 - #17 合并提交 `7e492a4bb91f6062c225dfb33f524cc51756e556`；[main CI #40297130672](https://github.com/wuhunyu/pic-paste/actions/runs/40297130672) **success**。
-- #23 合并及文档同步后 [main CI #40315393621](https://github.com/wuhunyu/pic-paste/actions/runs/40315393621) **success**；#24 固定区域排除仍在 PR 验证中，尚未并入 main。
+- #23 合并及文档同步后 [main CI #40315393621](https://github.com/wuhunyu/pic-paste/actions/runs/40315393621) **success**；#24 及本次文档同步后的最新 main CI 仍需单独核验。
 - 跟踪 Issues：[#5 原生窗口和多屏](https://github.com/wuhunyu/pic-paste/issues/5)、[#6 标注与贴图](https://github.com/wuhunyu/pic-paste/issues/6)、[#7 长截图](https://github.com/wuhunyu/pic-paste/issues/7)、[#8 OCR/二维码/Add-on](https://github.com/wuhunyu/pic-paste/issues/8)、[#10 真机与性能](https://github.com/wuhunyu/pic-paste/issues/10)、[#9 macOS 正式发布](https://github.com/wuhunyu/pic-paste/issues/9)、[#11 Windows](https://github.com/wuhunyu/pic-paste/issues/11)。[#4](https://github.com/wuhunyu/pic-paste/issues/4) 已关闭。
 - **GitHub Releases：0。** 目前只有 ARM64 Lite/Full ad-hoc 签名开发 ZIP，非正式发行件。
 
@@ -19,7 +19,7 @@
 | P1 标注与 PNG | 线、箭头、画笔、矩形、椭圆、马赛克、模糊、**中英文离线文字**（[#17](https://github.com/wuhunyu/pic-paste/pull/17)）；Undo/Redo；PNG-only 无覆盖原子保存、透明圆角、限定大小的 PNG 缩略图、⌘S 保存（[#16](https://github.com/wuhunyu/pic-paste/pull/16)） | 文字字体回退与跨版本系统覆盖、Native 剪贴板粘贴/色彩/Alpha 真机验证、工具边界压力测试 |
 | P2 多贴图 | 多窗口置顶、缩放、透明度、鼠标穿透和一键恢复；[#22](https://github.com/wuhunyu/pic-paste/pull/22) 新增贴图离线 OCR 行级点击与复制、移动/选字/穿透互斥模式 | 词/字符框未提供；GPU 纹理与 5 张贴图帧延迟实测、焦点恢复/拖动及跨 Spaces 真机验收 |
 | P3 OCR | Swift Apple Vision 本地 OCR helper（Full）、版本化 SHOC IPC、20s 超时、无 helper 的 Lite 降级、截图与贴图行级 hit test/复制（#22） | 词/字符 bbox、400 张 CER 统计、独立签名 Add-on；**QR 离线识别 R-010 尚未实现** |
-| P4 长截图 | 由用户手动纵/横滚动、自动识别可信重叠并拼接；[#23](https://github.com/wuhunyu/pic-paste/pull/23) 连续匹配不可靠时暂停提示，用户手动回滚并在菜单栏继续慢速重试，同一磁盘会话保留可信分段；行流式 PNG、60k/200MP 限制、复核删最后段/保留前 N 段（#21）、实时缩略图（#18） | **自动滚动已从需求移除**；[#24](https://github.com/wuhunyu/pic-paste/pull/24) 提供用户手动设置的上/下或左/右固定带排除（开发分支待 CI），但自动识别固定栏和动态区域过滤仍缺；中间段纠错、长图标注/贴图及 50 场景真机验收仍缺 |
+| P4 长截图 | 由用户手动纵/横滚动、自动识别可信重叠并拼接；[#23](https://github.com/wuhunyu/pic-paste/pull/23) 连续匹配不可靠时暂停提示，用户手动回滚并在菜单栏继续慢速重试，同一磁盘会话保留可信分段；行流式 PNG、60k/200MP 限制、复核删最后段/保留前 N 段（#21）、实时缩略图（#18）；[#24](https://github.com/wuhunyu/pic-paste/pull/24) 已实现手动排除上/下固定栏或左/右侧栏（裁剪内容不进入 PNG） | **自动滚动已从需求移除**；自动识别固定栏、动态页面动画/懒加载的区域过滤仍缺；中间段纠错、长图标注/贴图及 50 场景真机验收仍缺 |
 | P5 测试/发布 | macOS CI fmt/test/clippy/release、Swift OCR IPC，Lite/Full 开发包、SHA256；基础 `scripts/bench_report.py` 测试 | P50/P95、RSS/CPU、OLED/Retina/Spaces、TCC、CER、50 场景报告；x86_64、正式 Bundle ID/图标、Developer ID 签名/公证/Gatekeeper、发行和回滚 |
 | P6 Windows | Rust core/platform 接口可复用 | **无 Windows 原生捕获/贴图/OCR/安装包**；按计划在 macOS 验收后开始 |
 

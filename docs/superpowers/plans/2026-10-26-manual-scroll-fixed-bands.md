@@ -70,8 +70,8 @@ impl FixedBands {
 }
 ```
 
-- [ ] Run `cargo test -p shot-scroll --test fixed_bands --locked`, `cargo fmt --all -- --check` and `cargo clippy -p shot-scroll --all-targets --locked -- -D warnings`. Confirm 7 tests GREEN and existing matcher tests still GREEN.
-- [ ] Commit verified pure geometry and pixel-aware integration tests.
+- [x] Run `cargo test -p shot-scroll --test fixed_bands --locked`, `cargo fmt --all -- --check` and `cargo clippy -p shot-scroll --all-targets --locked -- -D warnings`. Confirm 7 tests GREEN and existing matcher tests still GREEN.
+- [x] Commit verified pure geometry and pixel-aware integration tests.
 
 ### Task 2: Wire native manual capture controls
 
@@ -79,18 +79,18 @@ impl FixedBands {
 
 **Interface:** `scroll_fixed_bands: FixedBands` in `PicPasteApp`, default `FixedBands::default()`. Right before `scroll::launch`, calculate `let selected = match self.scroll_fixed_bands.content_roi(screen.selected_region(), axis) { Ok(region) => region, Err(message) => {self.status=format!("长截图固定区域设置无效：{message}"); return;} }` and keep the editor visible on failure.
 
-- [ ] Write a regression test for ROI rejection and negative display coordinates in Task 1 before changing `app.rs`; it is a requirement of `FixedBands::content_roi`.
-- [ ] Add two `egui::DragValue` inputs within screenshot tool UI: `开头(上/左)` and `末尾(下/右)`. Show the note `这些固定区域不会进入长图 PNG；纵向忽略上/下，横向忽略左/右`. Inputs are physical pixels, initially 0.
-- [ ] Validate `content_roi` before launching a worker, hiding root, dismissing overlay or writing any tiles; display an actionable error if the content is less than 24 physical pixels.
-- [ ] Launch existing capture with validated *cropped* region; verify it keeps the same region through slow-scroll recovery and preserves existing 260 ms sampling/review/export/finish/cancel semantics.
-- [ ] Verify macOS `cargo fmt --all -- --check`, `cargo test --workspace --locked`, `cargo clippy --workspace --all-targets --locked -- -D warnings`, Release build, Swift OCR IPC, Lite and Full developer packages through GitHub Actions.
+- [x] Write a regression test for ROI rejection and negative display coordinates in Task 1 before changing `app.rs`; it is a requirement of `FixedBands::content_roi`.
+- [x] Add two `egui::DragValue` inputs within screenshot tool UI: `开头(上/左)` and `末尾(下/右)`. Show the note `这些固定区域不会进入长图 PNG；纵向忽略上/下，横向忽略左/右`. Inputs are physical pixels, initially 0.
+- [x] Validate `content_roi` before launching a worker, hiding root, dismissing overlay or writing any tiles; display an actionable error if the content is less than 24 physical pixels.
+- [x] Launch existing capture with validated *cropped* region; verify it keeps the same region through slow-scroll recovery and preserves existing 260 ms sampling/review/export/finish/cancel semantics.
+- [x] Verify macOS `cargo fmt --all -- --check`, `cargo test --workspace --locked`, `cargo clippy --workspace --all-targets --locked -- -D warnings`, Release build, Swift OCR IPC, Lite and Full developer packages through GitHub Actions.
 
 ### Task 3: Update roadmap and complete release gate
 
 **Files:** `README.md`, `docs/STATUS.md`, `docs/TASKS.md`, [Issue #7](https://github.com/wuhunyu/pic-paste/issues/7).
 
-- [ ] Document that manual fixed bands are available, and sticky bands are **not** retained even once in final PNG. Do not claim automatic sticky detection or dynamic-content repair.
-- [ ] Update P4-T1 and P4-T3 in status/acceptance tracker. Track real Mac sample tests for vertical sticky header/footer, horizontal toolbar/sidebar, wrong crop boundaries, dynamic animation, reverse scrolling, negative multi-display origin and error messages.
+- [x] Document that manual fixed bands are available, and sticky bands are **not** retained even once in final PNG. Do not claim automatic sticky detection or dynamic-content repair.
+- [x] Update P4-T1 and P4-T3 in status/acceptance tracker. Track real Mac sample tests for vertical sticky header/footer, horizontal toolbar/sidebar, wrong crop boundaries, dynamic animation, reverse scrolling, negative multi-display origin and error messages.
 - [ ] Merge only when PR-specific Linux+macOS CI is full-green. Check post-merge `main` CI and keep physical-device 50-scene acceptance open.
 
 **Acceptance rationale:** Removing fixed chrome from the actual physical ROI is safer than ignoring arbitrary changing pixels in matching scores, and automatically ensures the on-disk PNG contains only the scrollable area. It does **not** solve animated content within the chosen ROI, nor arbitrary middle-segment edit/resume.
@@ -100,3 +100,5 @@ impl FixedBands {
 - RED due to missing `shot_scroll::fixed_bands`: [CI #40316689699](https://github.com/wuhunyu/pic-paste/actions/runs/40316689699); formatting corrected before RED confirmation.
 - Pure geometry plus vertical/horizontal sticky-region tests passed the Linux core job [CI #40316842815](https://github.com/wuhunyu/pic-paste/actions/runs/40316842815) before the job was superseded by new changes.
 - Physical Mac sticky bars, dynamic areas, focus and mouse passthrough remain unverified; slow-scroll recovery remains the fallback.
+
+- Full PR checks passed: [CI #40317451349](https://github.com/wuhunyu/pic-paste/actions/runs/40317451349). Merged as [PR #24](https://github.com/wuhunyu/pic-paste/pull/24), commit `141767c6fac8915e199231e969ae24a24875511c`. Latest **main CI remains a separate gate**; real-device animation and 50-scene testing remain open.
