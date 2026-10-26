@@ -17,8 +17,8 @@
 | --- | --- | --- |
 | P0 macOS 截图 | 原生 ScreenCaptureKit 选显示器；负坐标/缩放映射测试；独立无边框 eframe/winit 选区视口；窗口候选单击选区；9×9 像素放大镜/HEX；菜单、可配置 Ctrl+Option+1…9 热键与失败回滚 | 不是专用 AppKit NSPanel；真实多屏/Spaces/不同 TCC 权限、热键冲突、启动/延迟没有验收；[#20](https://github.com/wuhunyu/pic-paste/pull/20) 已在代码层按当前 PID 排除本应用浮窗；真实系统完整排除情况待验收 |
 | P1 标注与 PNG | 线、箭头、画笔、矩形、椭圆、马赛克、模糊、**中英文离线文字**（[#17](https://github.com/wuhunyu/pic-paste/pull/17)）；Undo/Redo；PNG-only 无覆盖原子保存、透明圆角、限定大小的 PNG 缩略图、⌘S 保存（[#16](https://github.com/wuhunyu/pic-paste/pull/16)） | 文字字体回退与跨版本系统覆盖、Native 剪贴板粘贴/色彩/Alpha 真机验证、工具边界压力测试 |
-| P2 多贴图 | 多窗口置顶、缩放、透明度、鼠标穿透和一键恢复 | pin OCR 文字选择；移动/选择/穿透模式互斥；GPU 纹理与 5 张贴图帧延迟实测；跨 Spaces |
-| P3 OCR | Swift Apple Vision 本地 OCR helper（Full）、版本化 SHOC IPC、20s 超时、无 helper 的 Lite 降级、截图行级 hit test/复制 | 词/字符与贴图文字选择、400 张 CER 统计、独立签名 Add-on；**QR 离线识别 R-010 尚未实现** |
+| P2 多贴图 | 多窗口置顶、缩放、透明度、鼠标穿透和一键恢复；[#22](https://github.com/wuhunyu/pic-paste/pull/22) 新增贴图离线 OCR 行级点击与复制、移动/选字/穿透互斥模式 | 词/字符框未提供；GPU 纹理与 5 张贴图帧延迟实测、焦点恢复/拖动及跨 Spaces 真机验收 |
+| P3 OCR | Swift Apple Vision 本地 OCR helper（Full）、版本化 SHOC IPC、20s 超时、无 helper 的 Lite 降级、截图与贴图行级 hit test/复制（#22） | 词/字符 bbox、400 张 CER 统计、独立签名 Add-on；**QR 离线识别 R-010 尚未实现** |
 | P4 长截图 | 手动纵向/横向、保守拼接、磁盘块存储、行流式 PNG、60k/200MP 限制、完成后预览/删最后段/保留前 N 段裁剪尾部（[#21](https://github.com/wuhunyu/pic-paste/pull/21)）；[#18](https://github.com/wuhunyu/pic-paste/pull/18) 新增“最新一帧”实时缩略图与鼠标穿透预览窗 | 自动滚动、固定页头/动态区域过滤、中间段纠错/断点续接、长图标注/贴图；50 场景 ≥95% 的实证数据、实时窗真正鼠标穿透及排除自窗口后无残影的真机验收 |
 | P5 测试/发布 | macOS CI fmt/test/clippy/release、Swift OCR IPC，Lite/Full 开发包、SHA256；基础 `scripts/bench_report.py` 测试 | P50/P95、RSS/CPU、OLED/Retina/Spaces、TCC、CER、50 场景报告；x86_64、正式 Bundle ID/图标、Developer ID 签名/公证/Gatekeeper、发行和回滚 |
 | P6 Windows | Rust core/platform 接口可复用 | **无 Windows 原生捕获/贴图/OCR/安装包**；按计划在 macOS 验收后开始 |

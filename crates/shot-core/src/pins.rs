@@ -9,6 +9,45 @@ pub enum PinMode {
     TextSelect,
     Passthrough,
 }
+
+/// Keep at most one active OCR request per pin. Leaving TextSelect permanently
+/// invalidates that request even if the user re-enters selection before it ends.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct PinOcrGate {
+    pending: bool,
+    cancelled: bool,
+}
+
+impl PinOcrGate {
+    pub fn pending(&self) -> bool {
+        self.pending
+    }
+
+    pub fn begin(&mut self) -> bool {
+        if self.pending {
+            return false;
+        }
+        self.pending = true;
+        self.cancelled = false;
+        true
+    }
+
+    pub fn cancel_selection(&mut self) {
+        if self.pending {
+            self.cancelled = true;
+        }
+    }
+
+    pub fn finish(&mut self, mode: PinMode) -> bool {
+        if !self.pending {
+            return false;
+        }
+        self.pending = false;
+        let accepted = !self.cancelled && mode == PinMode::TextSelect;
+        self.cancelled = false;
+        accepted
+    }
+}
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct PinGeometry {
     pub x: f32,

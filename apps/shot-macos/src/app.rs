@@ -833,7 +833,7 @@ impl PicPasteApp {
     fn recover_pins(&mut self) {
         for pin in &mut self.pins {
             if pin.mode == PinMode::Passthrough {
-                pin.mode = PinMode::Move;
+                pin.set_mode(PinMode::Move);
             }
         }
         self.status = String::from("所有贴图已解除鼠标穿透");
@@ -847,15 +847,14 @@ impl PicPasteApp {
         else {
             return;
         };
-        if pin.ocr_pending {
-            return;
-        }
         if pin.source.rgba.len() > MAX_RGBA_BYTES {
             self.status = String::from("贴图超过离线 OCR 80MiB 上限，请缩小原图");
             return;
         }
-        pin.mode = PinMode::TextSelect;
-        pin.ocr_pending = true;
+        if !pin.ocr_gate.begin() {
+            return;
+        }
+        pin.set_mode(PinMode::TextSelect);
         pin.ocr_result = None;
         pin.selected_line = None;
         self.status = format!("贴图 #{pin_id} 正在离线识别文字…");
@@ -878,8 +877,7 @@ impl PicPasteApp {
                     .iter_mut()
                     .find(|pin| pin.id == id && !pin.is_closed())
                 {
-                    pin.mode = PinMode::Move;
-                    pin.selected_line = None;
+                    pin.set_mode(PinMode::Move);
                 }
             }
             PinEvent::PickLine { id, pixel } => {
@@ -1128,10 +1126,9 @@ impl PicPasteApp {
                         .pins
                         .iter_mut()
                         .find(|pin| pin.id == pin_id && !pin.is_closed())
-                        && pin.ocr_pending
+                        && pin.ocr_gate.pending()
                     {
-                        pin.ocr_pending = false;
-                        if pin.mode != PinMode::TextSelect {
+                        if !pin.ocr_gate.finish(pin.mode) {
                             self.status = format!("贴图 #{pin_id} 已退出选字模式，结果已丢弃");
                             continue;
                         }
@@ -1777,17 +1774,21 @@ impl PicPasteApp {
                             PinMode::TextSelect => "文字选择",
                             PinMode::Passthrough => "穿透",
                         };
+                        let mut next_mode = pin.mode;
                         egui::ComboBox::from_id_salt(("pin-mode", pin.id))
                             .selected_text(current)
                             .show_ui(ui, |ui| {
-                                ui.selectable_value(&mut pin.mode, PinMode::Move, "移动");
-                                ui.selectable_value(&mut pin.mode, PinMode::TextSelect, "文字选择");
+                                ui.selectable_value(&mut next_mode, PinMode::Move, "移动");
+                                ui.selectable_value(&mut next_mode, PinMode::TextSelect, "文字选择");
                                 ui.selectable_value(
-                                    &mut pin.mode,
+                                    &mut next_mode,
                                     PinMode::Passthrough,
                                     "鼠标穿透",
                                 );
                             });
+                        if next_mode != pin.mode {
+                            pin.set_mode(next_mode);
+                        }
                         if ui.small_button("OCR (Full)").clicked() {
                             let _ = self.pin_tx.send(PinEvent::Recognize(pin.id));
                         }

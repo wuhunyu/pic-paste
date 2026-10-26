@@ -4,7 +4,7 @@ use eframe::egui;
 use shot_core::RgbaFrame;
 use shot_core::input::{DragAction, DragLatch};
 use shot_core::pin_view::{PinImageView, map_pin_click};
-use shot_core::pins::PinMode;
+use shot_core::pins::{PinMode, PinOcrGate};
 use shot_ocr_protocol::OcrDocument;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::Sender;
@@ -18,6 +18,14 @@ pub enum PinEvent {
     PickLine { id: u64, pixel: (f32, f32) },
 }
 
+/// Explicitly wake the root app when the user acts inside a deferred pin
+/// viewport (the root settings window is normally hidden).
+fn send_event(ui: &egui::Ui, sender: &Sender<PinEvent>, event: PinEvent) {
+    if sender.send(event).is_ok() {
+        ui.ctx().request_repaint_of(egui::ViewportId::ROOT);
+    }
+}
+
 pub struct PinnedImage {
     pub id: u64,
     pub source: Arc<RgbaFrame>,
@@ -25,7 +33,7 @@ pub struct PinnedImage {
     pub zoom: f32,
     pub mode: PinMode,
     pub closed: Arc<AtomicBool>,
-    pub ocr_pending: bool,
+    pub ocr_gate: PinOcrGate,
     pub ocr_result: Option<Arc<OcrDocument>>,
     pub selected_line: Option<usize>,
     gesture: Arc<Mutex<DragLatch>>,
@@ -46,12 +54,20 @@ impl PinnedImage {
             zoom: 1.0,
             mode: PinMode::Move,
             closed: Arc::new(AtomicBool::new(false)),
-            ocr_pending: false,
+            ocr_gate: PinOcrGate::default(),
             ocr_result: None,
             selected_line: None,
             gesture: Arc::new(Mutex::new(DragLatch::default())),
             texture,
         }
+    }
+
+    pub fn set_mode(&mut self, mode: PinMode) {
+        if self.mode == PinMode::TextSelect && mode != PinMode::TextSelect {
+            self.ocr_gate.cancel_selection();
+            self.selected_line = None;
+        }
+        self.mode = mode;
     }
 
     pub fn is_closed(&self) -> bool {
@@ -69,7 +85,7 @@ impl PinnedImage {
         let opacity = self.opacity;
         let mode = self.mode;
         let closed = Arc::clone(&self.closed);
-        let ocr_pending = self.ocr_pending;
+        let ocr_pending = self.ocr_gate.pending();
         let ocr_result = self.ocr_result.clone();
         let selected_line = self.selected_line;
         let gesture = Arc::clone(&self.gesture);
@@ -96,24 +112,24 @@ impl PinnedImage {
                             PinMode::Move => {
                                 ui.label("PicPaste · 拖动");
                                 if ui.small_button("识别文字 (Full)").clicked() {
-                                    let _ = sender.send(PinEvent::Recognize(pin_id));
+                                    send_event(ui, &sender, PinEvent::Recognize(pin_id));
                                 }
                             }
                             PinMode::TextSelect => {
                                 ui.label("PicPaste · 点击选字");
                                 if ui.small_button("移动").clicked() {
-                                    let _ = sender.send(PinEvent::Move(pin_id));
+                                    send_event(ui, &sender, PinEvent::Move(pin_id));
                                 }
                                 if ui
                                     .add_enabled(!ocr_pending, egui::Button::new("重新识别"))
                                     .clicked()
                                 {
-                                    let _ = sender.send(PinEvent::Recognize(pin_id));
+                                    send_event(ui, &sender, PinEvent::Recognize(pin_id));
                                 }
                                 if selected_line.is_some()
                                     && ui.small_button("复制选中行").clicked()
                                 {
-                                    let _ = sender.send(PinEvent::CopySelected(pin_id));
+                                    send_event(ui, &sender, PinEvent::CopySelected(pin_id));
                                 }
                             }
                             PinMode::Passthrough => {
@@ -168,7 +184,7 @@ impl PinnedImage {
                             (pointer.x, pointer.y),
                         )
                     {
-                        let _ = sender.send(PinEvent::PickLine { id: pin_id, pixel });
+                        send_event(ui, &sender, PinEvent::PickLine { id: pin_id, pixel });
                     }
                     if mode == PinMode::TextSelect
                         && let Some(index) = selected_line
