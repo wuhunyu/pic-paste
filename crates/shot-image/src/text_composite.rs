@@ -65,9 +65,7 @@ pub(crate) fn draw_text(
             pen_x += size * 2.0;
             continue;
         }
-        let chosen = fonts
-            .iter()
-            .find(|font| font.glyph_id(ch).0 != 0);
+        let chosen = fonts.iter().find(|font| font.glyph_id(ch).0 != 0);
         let Some(font) = chosen else {
             if ch.is_whitespace() {
                 pen_x += size * 0.35;

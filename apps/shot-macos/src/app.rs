@@ -1341,7 +1341,10 @@ impl PicPasteApp {
                 if screen.tool == Tool::Text {
                     ui.horizontal(|ui| {
                         ui.label("文字内容：");
-                        ui.add(egui::TextEdit::singleline(&mut screen.text_buffer).desired_width(230.0));
+                        ui.add(
+                            egui::TextEdit::singleline(&mut screen.text_buffer)
+                                .desired_width(230.0),
+                        );
                         ui.add(egui::Slider::new(&mut screen.text_size, 12.0..=64.0).text("字号"));
                         ui.label("单击截图定位");
                     });
