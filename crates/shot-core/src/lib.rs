@@ -4,6 +4,7 @@ pub mod display;
 pub mod input;
 pub mod overlay;
 pub mod pins;
+pub mod pin_view;
 pub mod platform;
 pub mod selection;
 pub mod shortcuts;
