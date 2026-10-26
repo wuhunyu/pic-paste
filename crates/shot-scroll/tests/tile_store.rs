@@ -147,3 +147,64 @@ fn exported_long_png_is_atomic_and_never_clobbers_an_existing_file() {
     drop(store);
     fs::remove_dir_all(dir).unwrap();
 }
+
+#[test]
+fn trimming_multiple_vertical_tail_segments_preserves_exact_prefix_pixels() {
+    let dir = root();
+    let mut store = TileStore::new(&frame(4, 4, 0, 0), ScrollAxis::Vertical, &dir).unwrap();
+    store.append(&frame(4, 4, 0, 2), 2).unwrap();
+    store.append(&frame(4, 4, 0, 4), 2).unwrap();
+    store.append(&frame(4, 4, 0, 6), 2).unwrap();
+    assert_eq!(store.canvas(), (4, 10));
+    assert_eq!(store.keep_first(2).unwrap(), 2);
+    assert_eq!(store.strip_count(), 2);
+    assert_eq!(store.canvas(), (4, 6));
+    assert_eq!(fs::read_dir(store.working_dir()).unwrap().count(), 2);
+    for y in 0..6 {
+        let mut row = vec![0; 4 * 4];
+        store.fill_row(y, &mut row).unwrap();
+        assert_eq!(row, frame(4, 1, 0, y).rgba);
+    }
+    let png = dir.join("trimmed.png");
+    store.save_png_no_clobber(&png).unwrap();
+    assert_eq!(&fs::read(&png).unwrap()[..8], b"\x89PNG\r\n\x1a\n");
+    drop(store);
+    fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn horizontal_prefix_trim_resets_dimensions_and_allows_new_append() {
+    let dir = root();
+    let mut store = TileStore::new(&frame(4, 3, 0, 0), ScrollAxis::Horizontal, &dir).unwrap();
+    store.append(&frame(4, 3, 2, 0), 2).unwrap();
+    store.append(&frame(4, 3, 4, 0), 2).unwrap();
+    assert_eq!(store.keep_first(1).unwrap(), 2);
+    assert_eq!(store.canvas(), (4, 3));
+    store.append(&frame(4, 3, 2, 0), 2).unwrap();
+    assert_eq!(store.canvas(), (6, 3));
+    for y in 0..3 {
+        let mut row = vec![0; 6 * 4];
+        store.fill_row(y, &mut row).unwrap();
+        assert_eq!(row, frame(6, 1, 0, y).rgba);
+    }
+    drop(store);
+    fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn invalid_prefix_trim_does_not_modify_files_or_dimensions() {
+    let dir = root();
+    let mut store = TileStore::new(&frame(4, 4, 0, 0), ScrollAxis::Vertical, &dir).unwrap();
+    store.append(&frame(4, 4, 0, 2), 2).unwrap();
+    for count in [0, 3, usize::MAX] {
+        assert!(store.keep_first(count).is_err());
+        assert_eq!(store.strip_count(), 2);
+        assert_eq!(store.canvas(), (4, 6));
+        assert_eq!(fs::read_dir(store.working_dir()).unwrap().count(), 2);
+    }
+    assert_eq!(store.keep_first(2).unwrap(), 0);
+    assert_eq!(store.keep_first(1).unwrap(), 1);
+    assert_eq!(store.canvas(), (4, 4));
+    drop(store);
+    fs::remove_dir_all(dir).unwrap();
+}
