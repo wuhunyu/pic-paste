@@ -178,10 +178,11 @@ fn blur_roi(
             let count = (count_x * count_y) as u64;
             let alpha = ((sum[0] + count / 2) / count) as u8;
             let mut rgba = [0, 0, 0, alpha];
-            if sum[0] != 0 {
-                for channel in 0..3 {
-                    rgba[channel] = ((sum[channel + 1] + sum[0] / 2) / sum[0]).min(255) as u8;
-                }
+            for (channel, output) in rgba[..3].iter_mut().enumerate() {
+                *output = (sum[channel + 1] + sum[0] / 2)
+                    .checked_div(sum[0])
+                    .unwrap_or(0)
+                    .min(255) as u8;
             }
             let index = ((top as usize + y) * frame.width as usize + left as usize + x) * 4;
             frame.rgba[index..index + 4].copy_from_slice(&rgba);
