@@ -59,7 +59,10 @@ fn damaged_or_duplicate_settings_are_not_accepted() {
         "version=1\ncapture=1\npaste=2\nrecover=3\nfinish=4\nfinish=5\n",
         "version=1\ncapture=01\npaste=2\nrecover=3\nfinish=4\n",
     ] {
-        assert!(HotkeyBindings::parse(invalid).is_err(), "accepted {invalid}");
+        assert!(
+            HotkeyBindings::parse(invalid).is_err(),
+            "accepted {invalid}"
+        );
     }
 }
 
