@@ -1,5 +1,6 @@
 #![forbid(unsafe_code)]
 pub mod input;
+pub mod overlay;
 pub mod pins;
 pub mod platform;
 pub mod selection;
