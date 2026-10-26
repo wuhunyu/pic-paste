@@ -1140,6 +1140,41 @@ mod tests {
     }
 
     #[test]
+    fn selection_can_be_resized_from_a_corner_and_moved() {
+        let mut screen = test_screen(1);
+        screen.set_selection(Some(RectPx {
+            x: 20,
+            y: 20,
+            width: 30,
+            height: 20,
+        }));
+        assert!(screen.begin_selection_adjustment((20, 20), 2));
+        screen.drag_selection_adjustment((10, 10));
+        assert_eq!(
+            screen.selected_region(),
+            RectPx {
+                x: 10,
+                y: 10,
+                width: 40,
+                height: 30,
+            }
+        );
+        screen.end_selection_adjustment();
+
+        assert!(screen.begin_selection_adjustment((30, 25), 2));
+        screen.drag_selection_adjustment((200, 200));
+        assert_eq!(
+            screen.selected_region(),
+            RectPx {
+                x: 40,
+                y: 30,
+                width: 40,
+                height: 30,
+            }
+        );
+    }
+
+    #[test]
     fn selection_maps_logical_preview_to_source_pixels() {
         let frame = RgbaFrame::new(200, 100, vec![0; 200 * 100 * 4]).unwrap();
         let rect = egui::Rect::from_min_size(egui::pos2(50.0, 80.0), egui::vec2(100.0, 50.0));
