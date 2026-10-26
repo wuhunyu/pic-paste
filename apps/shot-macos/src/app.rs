@@ -2,13 +2,14 @@ use crate::hotkey::{HotkeyAction, HotkeyController};
 use crate::menu::{MenuAction, MenuBar};
 use crate::ocr;
 use crate::overlay;
-use crate::pin::PinnedImage;
+use crate::pin::{PinEvent, PinnedImage};
 use crate::scroll::{self, ScrollCaptureControl, ScrollEvent};
 use arboard::{Clipboard, ImageData};
 use eframe::egui;
 use shot_core::async_ticket::OcrTicket;
 use shot_core::display::{DisplaySelection, OverlayPlacement};
 use shot_core::overlay::OverlayState;
+use shot_core::pins::PinMode;
 use shot_core::platform::{CapturedFrame, DisplayId, PlatformError, ScrollAxis};
 use shot_core::selection::{ResizeHandle, adjust_selection, from_drag, hit_selection_handle};
 use shot_core::shortcuts::{HotkeyBindings, ShortcutAction};
@@ -17,8 +18,8 @@ use shot_core::{RectPx, RgbaFrame};
 use shot_image::annotation_tools::{Tool, annotation_for_drag};
 use shot_image::history::{Annotation, AnnotationDocument};
 use shot_image::pixel_tools::{magnifier_patch, sample_rgba};
-use shot_ocr_protocol::OcrDocument;
 use shot_ocr_protocol::hit_test::{hit_line_in_capture, selected_text};
+use shot_ocr_protocol::{MAX_RGBA_BYTES, OcrDocument};
 use shot_platform::macos::MacCapture;
 use std::borrow::Cow;
 use std::path::PathBuf;
@@ -38,6 +39,10 @@ enum WorkerResult {
     ScrollEdited(Result<scroll::ScrollReview, (String, scroll::ScrollReview)>),
     Ocr {
         ticket: OcrTicket,
+        outcome: Result<OcrDocument, String>,
+    },
+    PinOcr {
+        pin_id: u64,
         outcome: Result<OcrDocument, String>,
     },
 }
@@ -530,6 +535,8 @@ pub struct PicPasteApp {
     screen: Option<SelectionView>,
     pins: Vec<PinnedImage>,
     next_pin_id: u64,
+    pin_tx: Sender<PinEvent>,
+    pin_rx: Receiver<PinEvent>,
     work_tx: Sender<WorkerResult>,
     work_rx: Receiver<WorkerResult>,
     hotkey_rx: Receiver<HotkeyAction>,
@@ -554,6 +561,7 @@ impl PicPasteApp {
         let (work_tx, work_rx) = mpsc::channel();
         let (hotkey_tx, hotkey_rx) = mpsc::channel();
         let (scroll_tx, scroll_rx) = mpsc::channel();
+        let (pin_tx, pin_rx) = mpsc::channel();
         let (menu_tx, menu_rx) = mpsc::channel();
         let (menu, menu_status) = match MenuBar::install(cc.egui_ctx.clone(), menu_tx) {
             Ok(menu) => (Some(menu), None),
@@ -593,6 +601,8 @@ impl PicPasteApp {
             screen: None,
             pins: Vec::new(),
             next_pin_id: 0,
+            pin_tx,
+            pin_rx,
             work_tx,
             work_rx,
             hotkey_rx,
@@ -822,9 +832,91 @@ impl PicPasteApp {
 
     fn recover_pins(&mut self) {
         for pin in &mut self.pins {
-            pin.passthrough = false;
+            if pin.mode == PinMode::Passthrough {
+                pin.set_mode(PinMode::Move);
+            }
         }
         self.status = String::from("所有贴图已解除鼠标穿透");
+    }
+
+    fn request_pin_ocr(&mut self, ctx: &egui::Context, pin_id: u64) {
+        let Some(pin) = self
+            .pins
+            .iter_mut()
+            .find(|pin| pin.id == pin_id && !pin.is_closed())
+        else {
+            return;
+        };
+        if pin.source.rgba.len() > MAX_RGBA_BYTES {
+            self.status = String::from("贴图超过离线 OCR 80MiB 上限，请缩小原图");
+            return;
+        }
+        if !pin.ocr_gate.begin() {
+            return;
+        }
+        pin.set_mode(PinMode::TextSelect);
+        pin.ocr_result = None;
+        pin.selected_line = None;
+        self.status = format!("贴图 #{pin_id} 正在离线识别文字…");
+        let source = Arc::clone(&pin.source);
+        let sender = self.work_tx.clone();
+        let wake = ctx.clone();
+        thread::spawn(move || {
+            let outcome = ocr::recognize(source.as_ref().clone());
+            let _ = sender.send(WorkerResult::PinOcr { pin_id, outcome });
+            wake.request_repaint();
+        });
+    }
+
+    fn process_pin_event(&mut self, event: PinEvent, ctx: &egui::Context) {
+        match event {
+            PinEvent::Recognize(id) => self.request_pin_ocr(ctx, id),
+            PinEvent::Move(id) => {
+                if let Some(pin) = self
+                    .pins
+                    .iter_mut()
+                    .find(|pin| pin.id == id && !pin.is_closed())
+                {
+                    pin.set_mode(PinMode::Move);
+                }
+            }
+            PinEvent::PickLine { id, pixel } => {
+                if let Some(pin) = self
+                    .pins
+                    .iter_mut()
+                    .find(|pin| pin.id == id && !pin.is_closed())
+                    && pin.mode == PinMode::TextSelect
+                    && let Some(document) = pin.ocr_result.as_ref()
+                {
+                    pin.selected_line = hit_line_in_capture(document, (0, 0), pixel);
+                    self.status = if pin.selected_line.is_some() {
+                        format!("贴图 #{id} 已选中文字行，可以复制")
+                    } else {
+                        format!("贴图 #{id} 点击处没有 OCR 文字行")
+                    };
+                }
+            }
+            PinEvent::CopySelected(id) => {
+                let selected = self
+                    .pins
+                    .iter()
+                    .find(|pin| pin.id == id && !pin.is_closed())
+                    .filter(|pin| pin.mode == PinMode::TextSelect)
+                    .and_then(|pin| {
+                        Some(selected_text(
+                            pin.ocr_result.as_ref()?,
+                            &[pin.selected_line?],
+                        ))
+                    });
+                if let Some(text) = selected.filter(|text| !text.is_empty()) {
+                    self.status =
+                        match Clipboard::new().and_then(|mut clipboard| clipboard.set_text(text)) {
+                            Ok(()) => format!("已复制贴图 #{id} 选中的文字行"),
+                            Err(error) => format!("贴图复制文字失败：{error}"),
+                        };
+                }
+            }
+        }
     }
 
     fn save_scroll_review(&mut self, ctx: &egui::Context) {
@@ -1029,6 +1121,33 @@ impl PicPasteApp {
                         Err(error) => self.status = format!("文字识别失败：{error}"),
                     }
                 }
+                WorkerResult::PinOcr { pin_id, outcome } => {
+                    if let Some(pin) = self
+                        .pins
+                        .iter_mut()
+                        .find(|pin| pin.id == pin_id && !pin.is_closed())
+                        && pin.ocr_gate.pending()
+                    {
+                        if !pin.ocr_gate.finish(pin.mode) {
+                            self.status = format!("贴图 #{pin_id} 已退出选字模式，结果已丢弃");
+                            continue;
+                        }
+                        match outcome {
+                            Ok(document) => {
+                                let lines = document.lines.len();
+                                pin.ocr_result = Some(Arc::new(document));
+                                pin.selected_line = None;
+                                self.status = format!(
+                                    "贴图 #{pin_id} 离线识别完成，共 {lines} 行；点击文字行后复制"
+                                );
+                            }
+                            Err(error) => {
+                                pin.ocr_result = None;
+                                self.status = format!("贴图 #{pin_id} 离线识别失败：{error}");
+                            }
+                        }
+                    }
+                }
                 WorkerResult::ScrollSaved(outcome) => {
                     self.processing = false;
                     match outcome {
@@ -1113,6 +1232,10 @@ impl PicPasteApp {
                     };
                 }
             }
+        }
+        let pin_events: Vec<_> = self.pin_rx.try_iter().collect();
+        for event in pin_events {
+            self.process_pin_event(event, ctx);
         }
         self.pins.retain(|pin| !pin.is_closed());
     }
@@ -1246,7 +1369,7 @@ impl eframe::App for PicPasteApp {
         // Pins are children of the root viewport and must outlive an editor.
         for pin in &self.pins {
             if !pin.is_closed() {
-                pin.show(ui.ctx());
+                pin.show(ui.ctx(), &self.pin_tx);
             }
         }
     }
@@ -1646,7 +1769,33 @@ impl PicPasteApp {
                 for pin in &mut self.pins {
                     ui.horizontal(|ui| {
                         ui.label(format!("#{}", pin.id));
-                        ui.checkbox(&mut pin.passthrough, "鼠标穿透");
+                        let current = match pin.mode {
+                            PinMode::Move => "移动",
+                            PinMode::TextSelect => "文字选择",
+                            PinMode::Passthrough => "穿透",
+                        };
+                        let mut next_mode = pin.mode;
+                        egui::ComboBox::from_id_salt(("pin-mode", pin.id))
+                            .selected_text(current)
+                            .show_ui(ui, |ui| {
+                                ui.selectable_value(&mut next_mode, PinMode::Move, "移动");
+                                ui.selectable_value(
+                                    &mut next_mode,
+                                    PinMode::TextSelect,
+                                    "文字选择",
+                                );
+                                ui.selectable_value(
+                                    &mut next_mode,
+                                    PinMode::Passthrough,
+                                    "鼠标穿透",
+                                );
+                            });
+                        if next_mode != pin.mode {
+                            pin.set_mode(next_mode);
+                        }
+                        if ui.small_button("OCR (Full)").clicked() {
+                            let _ = self.pin_tx.send(PinEvent::Recognize(pin.id));
+                        }
                         ui.add(egui::Slider::new(&mut pin.opacity, 0.2..=1.0).text("透明度"));
                         ui.add(egui::Slider::new(&mut pin.zoom, 0.25..=3.0).text("缩放"));
                         if ui.small_button("关闭").clicked() {

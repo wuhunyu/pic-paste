@@ -12,9 +12,9 @@
 | P1-T2 | 标注、撤销重做 | **代码基本完成** | 线/箭头/画笔/几何/模糊/马赛克、文字 #17、Undo/Redo；CJK 系统字体实际覆盖需验证 | [#6](https://github.com/wuhunyu/pic-paste/issues/6) |
 | P1-T3 | PNG-only、透明圆角、剪贴板 | **代码基本完成** | PNG-only 原子保存、⌘S、圆角预览 #16；原生应用剪贴板/色彩/Alpha 未验收 | [#6](https://github.com/wuhunyu/pic-paste/issues/6) |
 | P2-T1 | 多贴图缩放、透明度与资源 | **部分实现** | Pin 视口/缩放/透明度；纹理预算、五图基准缺失 | [#6](https://github.com/wuhunyu/pic-paste/issues/6) |
-| P2-T2 | 贴图模式状态机/异常恢复 | **部分实现** | 穿透恢复可用；贴图选字、拖动/穿透/选择互斥和重启异常恢复未实现/验证 | [#6](https://github.com/wuhunyu/pic-paste/issues/6) |
+| P2-T2 | 贴图模式状态机/异常恢复 | **部分实现** | 穿透恢复和 #22 贴图行级选字/复制及移动/选字/穿透互斥代码已实现；仍需真机拖动/焦点/重启恢复验收 | [#6](https://github.com/wuhunyu/pic-paste/issues/6) |
 | P3-T1 | OCR helper、SHOC、生命周期 | **代码基本完成** | 本机 Swift Vision helper、IPC、超时/退出/签名校验；外置 Add-on 安全还未提供 | [#8](https://github.com/wuhunyu/pic-paste/issues/8) |
-| P3-T2 | OCR 行/词选择与 400 图测试 | **部分实现** | 截图上行级选择与全量复制；无贴图词/字符选择和 400 图 CER 证据 | [#8](https://github.com/wuhunyu/pic-paste/issues/8) |
+| P3-T2 | OCR 行/词选择与 400 图测试 | **部分实现** | 截图与贴图行级选择/复制 (#22)；仍无词/字符 bbox 和 400 图 CER 证据 | [#8](https://github.com/wuhunyu/pic-paste/issues/8) |
 | P3-T3 | Lite / Full / Add-on 交付 | **部分实现** | Lite/Full 开发包自动打包；独立签名 Add-on 安装/版本兼容未实现 | [#8](https://github.com/wuhunyu/pic-paste/issues/8) |
 | P4-T1 | 手动纵向/横向滚动及 ROI | **代码基本完成** | 手动区域采样与纵横方向；真实网页/文档和鼠标穿透未验收 | [#7](https://github.com/wuhunyu/pic-paste/issues/7) |
 | P4-T2 | 重叠拼接、磁盘块与实时预览 | **代码基本完成** | 匹配拒绝/TileStore/实时小窗 #18；[#20](https://github.com/wuhunyu/pic-paste/pull/20) 已按 PID 排除自身窗口；复杂页面与真实无残影效果仍待实测 | [#7](https://github.com/wuhunyu/pic-paste/issues/7) |
