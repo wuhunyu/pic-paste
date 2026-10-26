@@ -11,6 +11,7 @@ use shot_core::display::{DisplaySelection, OverlayPlacement};
 use shot_core::overlay::OverlayState;
 use shot_core::platform::{CapturedFrame, DisplayId, PlatformError, ScrollAxis};
 use shot_core::selection::{ResizeHandle, adjust_selection, from_drag, hit_selection_handle};
+use shot_core::shortcuts::{HotkeyBindings, ShortcutAction};
 use shot_core::{RectPx, RgbaFrame};
 use shot_image::annotation_tools::{Tool, annotation_for_drag};
 use shot_image::history::{Annotation, AnnotationDocument};
@@ -475,6 +476,9 @@ pub struct PicPasteApp {
     work_tx: Sender<WorkerResult>,
     work_rx: Receiver<WorkerResult>,
     hotkey_rx: Receiver<HotkeyAction>,
+    hotkey_tx: Sender<HotkeyAction>,
+    shortcuts: HotkeyBindings,
+    draft_shortcuts: HotkeyBindings,
     scroll_tx: Sender<ScrollEvent>,
     scroll_rx: Receiver<ScrollEvent>,
     scroll_control: Option<ScrollCaptureControl>,
@@ -497,9 +501,19 @@ impl PicPasteApp {
             Ok(menu) => (Some(menu), None),
             Err(error) => (None, Some(format!("菜单栏不可用：{error}"))),
         };
-        let (hotkeys, status) = match HotkeyController::install(cc.egui_ctx.clone(), hotkey_tx) {
-            Ok(hotkeys) => (Some(hotkeys), String::from("快捷键已注册")),
-            Err(error) => (None, format!("热键不可用，仍可使用窗口按钮：{error}")),
+        let (shortcuts, load_warning) = match HotkeyController::load_settings() {
+            Ok(bindings) => (bindings, None),
+            Err(error) => (HotkeyBindings::default(), Some(error)),
+        };
+        let (hotkeys, status) =
+            match HotkeyController::install(cc.egui_ctx.clone(), hotkey_tx.clone(), shortcuts) {
+                Ok(hotkeys) => (Some(hotkeys), String::from("快捷键已注册")),
+                Err(error) => (None, format!("热键不可用，仍可使用窗口按钮：{error}")),
+            };
+        let status = if let Some(warning) = load_warning {
+            format!("{status}；{warning}")
+        } else {
+            status
         };
         Self {
             status: menu_status.unwrap_or(status),
@@ -521,6 +535,9 @@ impl PicPasteApp {
             work_tx,
             work_rx,
             hotkey_rx,
+            hotkey_tx,
+            shortcuts,
+            draft_shortcuts: shortcuts,
             scroll_tx,
             scroll_rx,
             scroll_control: None,
@@ -531,6 +548,30 @@ impl PicPasteApp {
             _menu: menu,
             quit_requested: false,
             _hotkeys: hotkeys,
+        }
+    }
+
+    fn apply_shortcuts(&mut self, ctx: &egui::Context) {
+        let next = self.draft_shortcuts;
+        let outcome = if let Some(hotkeys) = self._hotkeys.as_mut() {
+            hotkeys.rebind(next)
+        } else {
+            HotkeyController::install(ctx.clone(), self.hotkey_tx.clone(), next).map(|hotkeys| {
+                self._hotkeys = Some(hotkeys);
+            })
+        };
+        match outcome {
+            Ok(()) => {
+                self.shortcuts = next;
+                self.status = match HotkeyController::save_settings(next) {
+                    Ok(()) => String::from("快捷键已应用并保存"),
+                    Err(error) => format!("快捷键已生效，但未能保存：{error}"),
+                };
+            }
+            Err(error) => {
+                self.draft_shortcuts = self.shortcuts;
+                self.status = format!("快捷键更改失败：{error}");
+            }
         }
     }
 
@@ -602,7 +643,8 @@ impl PicPasteApp {
             ScrollAxis::Horizontal => "横向",
         };
         self.status = format!(
-            "开始{direction}手动滚动，请滚动目标应用；结束时按 Ctrl+Option+4 或在菜单栏点击完成"
+            "开始{direction}手动滚动，请滚动目标应用；结束时按 {} 或在菜单栏点击完成",
+            self.shortcuts.label(ShortcutAction::FinishScroll)
         );
         // The selection is a physical-pixel, display-local rectangle.
         let control = scroll::launch(
@@ -922,7 +964,8 @@ impl PicPasteApp {
                     height,
                 } => {
                     self.status = format!(
-                        "长截图正在拼接：{segments} 段，{width}×{height}px。滚动后按 Ctrl+Option+4 完成"
+                        "长截图正在拼接：{segments} 段，{width}×{height}px。滚动后按 {} 完成",
+                        self.shortcuts.label(ShortcutAction::FinishScroll)
                     );
                 }
                 ScrollEvent::Finished(outcome) => {
@@ -1069,22 +1112,66 @@ impl PicPasteApp {
             }
             if !self.overlay.is_fullscreen() {
                 ui.horizontal(|ui| {
-                    if ui.button("截图  Ctrl+Option+1").clicked() {
+                    if ui.button(format!("截图  {}", self.shortcuts.label(ShortcutAction::Capture))).clicked() {
                         self.begin_capture(ui.ctx());
                     }
                     if ui.button("截取下一块屏幕").clicked() {
                         self.begin_capture_target(ui.ctx(), true);
                     }
-                    if ui.button("从剪贴板贴图  Ctrl+Option+2").clicked() {
+                    if ui.button(format!("从剪贴板贴图  {}", self.shortcuts.label(ShortcutAction::PastePin))).clicked() {
                         self.paste_clipboard_as_pin(ui.ctx());
                     }
-                    if ui.button("解除穿透 Ctrl+Option+3").clicked() {
+                    if ui.button(format!("解除穿透 {}", self.shortcuts.label(ShortcutAction::RecoverPins))).clicked() {
                         self.recover_pins();
                     }
                 });
                 if let Some(display) = self.display_selection.current() {
                     ui.label(format!("当前截图显示器 ID: {}", display.0));
                 }
+                ui.collapsing("全局快捷键设置（Ctrl+Option + 数字键）", |ui| {
+                    for (action, name) in [
+                        (ShortcutAction::Capture, "截图"),
+                        (ShortcutAction::PastePin, "贴图"),
+                        (ShortcutAction::RecoverPins, "恢复鼠标交互"),
+                        (ShortcutAction::FinishScroll, "完成长截图"),
+                    ] {
+                        ui.horizontal(|ui| {
+                            ui.label(name);
+                            let mut chosen = None;
+                            egui::ComboBox::from_id_salt(("shortcut-digit", action.index()))
+                                .selected_text(self.draft_shortcuts.label(action))
+                                .show_ui(ui, |ui| {
+                                    for digit in 1..=9 {
+                                        if ui
+                                            .selectable_label(
+                                                self.draft_shortcuts.digit(action) == digit,
+                                                format!("{digit}"),
+                                            )
+                                            .clicked()
+                                        {
+                                            chosen = Some(digit);
+                                        }
+                                    }
+                                });
+                            if let Some(digit) = chosen {
+                                match self.draft_shortcuts.with_digit(action, digit) {
+                                    Ok(next) => self.draft_shortcuts = next,
+                                    Err(error) => self.status =
+                                        format!("快捷键不能重复或超出范围：{error:?}"),
+                                }
+                            }
+                        });
+                    }
+                    ui.horizontal(|ui| {
+                        if ui.button("应用快捷键").clicked() {
+                            self.apply_shortcuts(ui.ctx());
+                        }
+                        if ui.button("恢复默认快捷键").clicked() {
+                            self.draft_shortcuts = HotkeyBindings::default();
+                            self.apply_shortcuts(ui.ctx());
+                        }
+                    });
+                });
             }
             ui.horizontal(|ui| {
                 ui.label("PNG 圆角（物理像素）");
@@ -1096,7 +1183,7 @@ impl PicPasteApp {
             ui.label(&self.status);
             if self.scroll_control.is_some() {
                 ui.horizontal(|ui| {
-                    if ui.button("完成长截图 Ctrl+Option+4").clicked() {
+                    if ui.button(format!("完成长截图 {}", self.shortcuts.label(ShortcutAction::FinishScroll))).clicked() {
                         self.finish_manual_scroll();
                     }
                     if ui.button("取消并清理").clicked() {
@@ -1211,7 +1298,7 @@ impl PicPasteApp {
                     self.ocr_text.clear();
                 }
             } else {
-                ui.label("按 Ctrl+Option+1 开始截图；或点击“截图”。");
+                ui.label(format!("按 {} 开始截图；或点击“截图”。", self.shortcuts.label(ShortcutAction::Capture)));
             }
             if let Some(color) = color_to_copy {
                 self.status =
