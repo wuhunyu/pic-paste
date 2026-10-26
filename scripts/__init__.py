@@ -1,0 +1,1 @@
+# PicPaste scripts package.
