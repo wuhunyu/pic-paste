@@ -74,11 +74,7 @@ fn sampled_error(
 ///
 /// Reverse scrolling and uncertain scenes intentionally return None. The caller
 /// must pause or retry rather than silently append broken image segments.
-pub fn match_scroll_frame(
-    previous: &RgbaFrame,
-    next: &RgbaFrame,
-    axis: ScrollAxis,
-) -> Option<u32> {
+pub fn match_scroll_frame(previous: &RgbaFrame, next: &RgbaFrame, axis: ScrollAxis) -> Option<u32> {
     if !valid(previous)
         || !valid(next)
         || previous.width != next.width
@@ -121,16 +117,17 @@ pub fn match_scroll_frame(
             }
         }
     }
-    let mut candidates: Vec<_> = votes
-        .into_iter()
-        .filter(|(_, votes)| *votes >= 3)
-        .collect();
+    let mut candidates: Vec<_> = votes.into_iter().filter(|(_, votes)| *votes >= 3).collect();
     candidates.sort_by(|a, b| b.1.cmp(&a.1));
     let mut ranked: Vec<_> = candidates
         .into_iter()
         .take(12)
         .map(|(shift, count)| {
-            (shift, sampled_error(previous, next, axis, shift, movement_len, cross_len), count)
+            (
+                shift,
+                sampled_error(previous, next, axis, shift, movement_len, cross_len),
+                count,
+            )
         })
         .collect();
     ranked.sort_by(|a, b| a.1.total_cmp(&b.1).then_with(|| b.2.cmp(&a.2)));
