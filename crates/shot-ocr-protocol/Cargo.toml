@@ -1,0 +1,4 @@
+[package]
+name = "shot-ocr-protocol"
+version.workspace = true
+edition.workspace = true
