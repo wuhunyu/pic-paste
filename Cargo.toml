@@ -1,0 +1,14 @@
+[workspace]
+resolver = "3"
+members = [
+  "crates/shot-core",
+  "crates/shot-image",
+  "crates/shot-scroll",
+  "crates/shot-ocr-protocol",
+  "crates/shot-platform",
+  "apps/shot-macos",
+  "apps/shot-ocr-helper",
+]
+[workspace.package]
+edition = "2024"
+version = "0.1.0"
