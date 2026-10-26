@@ -881,7 +881,10 @@ impl PicPasteApp {
         if self.processing {
             return;
         }
-        let Some(total) = self.scroll_review.as_ref().map(|review| review.store.strip_count())
+        let Some(total) = self
+            .scroll_review
+            .as_ref()
+            .map(|review| review.store.strip_count())
         else {
             return;
         };
