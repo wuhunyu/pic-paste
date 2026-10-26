@@ -3,8 +3,11 @@ use shot_scroll::matcher::{GrayFrame, match_horizontal};
 use shot_scroll::tile_store::TileStore;
 use std::{
     fs,
+    sync::atomic::{AtomicU64, Ordering},
     time::{SystemTime, UNIX_EPOCH},
 };
+
+static NEXT_TEST_ROOT: AtomicU64 = AtomicU64::new(0);
 
 fn frame(width: u32, height: u32, offset_x: u32, offset_y: u32) -> RgbaFrame {
     let mut pixels = Vec::new();
@@ -22,9 +25,12 @@ fn root() -> std::path::PathBuf {
         .duration_since(UNIX_EPOCH)
         .unwrap()
         .as_nanos();
-    let path =
-        std::env::temp_dir().join(format!("picpaste-tile-test-{}-{nonce}", std::process::id()));
-    fs::create_dir_all(&path).unwrap();
+    let serial = NEXT_TEST_ROOT.fetch_add(1, Ordering::Relaxed);
+    let path = std::env::temp_dir().join(format!(
+        "picpaste-tile-test-{}-{nonce}-{serial}",
+        std::process::id()
+    ));
+    fs::create_dir(&path).unwrap();
     path
 }
 
