@@ -118,7 +118,7 @@ pub fn match_scroll_frame(previous: &RgbaFrame, next: &RgbaFrame, axis: ScrollAx
         }
     }
     let mut candidates: Vec<_> = votes.into_iter().filter(|(_, votes)| *votes >= 3).collect();
-    candidates.sort_by(|a, b| b.1.cmp(&a.1));
+    candidates.sort_by_key(|candidate| std::cmp::Reverse(candidate.1));
     let mut ranked: Vec<_> = candidates
         .into_iter()
         .take(12)
