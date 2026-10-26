@@ -68,7 +68,7 @@ impl MacCapture {
                     id: u64::from(window.window_id()),
                     origin_pt: (bounds.origin.x, bounds.origin.y),
                     size_pt: (bounds.size.width, bounds.size.height),
-                    layer: window.window_layer() as i32,
+                    layer: window.window_layer(),
                     on_screen: window.is_on_screen(),
                 }
             })
