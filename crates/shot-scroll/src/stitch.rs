@@ -91,7 +91,7 @@ pub fn match_scroll_frame(
     if movement_len < 16 || cross_len < 8 {
         return None;
     }
-    let minimum_overlap = movement_len.div_ceil(100) * 35 / 100;
+    let minimum_overlap = movement_len.saturating_mul(35).div_ceil(100);
     let maximum_shift = movement_len.saturating_sub(minimum_overlap.max(1));
     if maximum_shift < 2 {
         return None;
