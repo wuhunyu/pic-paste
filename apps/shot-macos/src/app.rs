@@ -697,6 +697,8 @@ impl PicPasteApp {
             ctx.clone(),
         );
         self.scroll_control = Some(control);
+        self.scroll_preview_texture = None;
+        self.scroll_preview_pending = None;
         self.overlay.dismiss();
         self.overlay_placement = None;
         ctx.send_viewport_cmd_to(
@@ -1006,6 +1008,11 @@ impl PicPasteApp {
                     width,
                     height,
                 } => {
+                    if let Some(control) = self.scroll_control.as_ref()
+                        && let Some(frame) = control.take_live_preview()
+                    {
+                        self.scroll_preview_pending = Some(frame);
+                    }
                     self.status = format!(
                         "长截图正在拼接：{segments} 段，{width}×{height}px。滚动后按 {} 完成",
                         self.shortcuts.label(ShortcutAction::FinishScroll)
@@ -1103,6 +1110,38 @@ impl eframe::App for PicPasteApp {
 
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         self.process_ui_images(ui.ctx());
+        if self.scroll_control.is_some() {
+            let context = ui.ctx().clone();
+            let texture = self.scroll_preview_texture.as_ref();
+            context.show_viewport_immediate(
+                egui::ViewportId::from_hash_of("picpaste-scroll-live-preview"),
+                egui::ViewportBuilder::default()
+                    .with_title("PicPaste · 长截图实时预览")
+                    .with_inner_size(egui::vec2(265.0, 385.0))
+                    .with_position(egui::pos2(40.0, 40.0))
+                    .with_decorations(false)
+                    .with_resizable(false)
+                    .with_always_on_top()
+                    .with_active(false)
+                    .with_mouse_passthrough(true),
+                |preview_ui, _class| {
+                    egui::CentralPanel::default().show(preview_ui, |ui| {
+                        ui.heading("长截图实时预览");
+                        ui.label("可鼠标穿透；滚动目标应用，结束请按全局快捷键");
+                        if let Some(texture) = texture {
+                            let full = texture.size_vec2();
+                            let scale = (240.0 / full.x)
+                                .min(290.0 / full.y)
+                                .min(1.0);
+                            ui.add(egui::Image::new((texture.id(), full * scale)));
+                        } else {
+                            ui.spinner();
+                            ui.label("正在采集第一段…");
+                        }
+                    });
+                },
+            );
+        }
         if self.overlay.is_fullscreen() {
             if let Some(placement) = self.overlay_placement {
                 let context = ui.ctx().clone();
