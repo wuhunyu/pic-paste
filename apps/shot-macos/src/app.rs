@@ -6,8 +6,9 @@ use crate::scroll::{self, ScrollCaptureControl, ScrollEvent};
 use arboard::{Clipboard, ImageData};
 use eframe::egui;
 use shot_core::async_ticket::OcrTicket;
+use shot_core::display::DisplaySelection;
 use shot_core::overlay::OverlayState;
-use shot_core::platform::{CapturedFrame, DisplayId, PlatformError, ScrollAxis};
+use shot_core::platform::{CapturedFrame, DisplayId, PlatformError, ScreenCapture, ScrollAxis};
 use shot_core::selection::{ResizeHandle, adjust_selection, from_drag, hit_selection_handle};
 use shot_core::{RectPx, RgbaFrame};
 use shot_image::annotation_tools::{Tool, annotation_for_drag};
@@ -24,7 +25,10 @@ use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 enum WorkerResult {
-    Captured(Result<CapturedFrame, PlatformError>),
+    Captured {
+        selection: DisplaySelection,
+        outcome: Result<CapturedFrame, PlatformError>,
+    },
     Prepared(PrepareAction, Result<RgbaFrame, String>),
     Saved(Result<PathBuf, String>),
     ScrollSaved(Result<PathBuf, (String, scroll::ScrollReview)>),
@@ -457,6 +461,7 @@ pub struct PicPasteApp {
     processing: bool,
     overlay: OverlayState,
     capture_revision: u64,
+    display_selection: DisplaySelection,
     ocr_waiting: bool,
     ocr_text: String,
     ocr_lines: usize,
@@ -501,6 +506,7 @@ impl PicPasteApp {
             processing: false,
             overlay: OverlayState::default(),
             capture_revision: 0,
+            display_selection: DisplaySelection::default(),
             ocr_waiting: false,
             ocr_text: String::new(),
             ocr_lines: 0,
@@ -526,6 +532,10 @@ impl PicPasteApp {
     }
 
     fn begin_capture(&mut self, ctx: &egui::Context) {
+        self.begin_capture_target(ctx, false);
+    }
+
+    fn begin_capture_target(&mut self, ctx: &egui::Context, advance: bool) {
         if self.capturing
             || self.processing
             || self.ocr_waiting
@@ -540,14 +550,23 @@ impl PicPasteApp {
         self.screen = None;
         self.ocr_text.clear();
         self.ocr_lines = 0;
-        // Hide our own window first, so it cannot contaminate the screenshot.
+        // UI must hide before ScreenCaptureKit captures; discovery stays off
+        // the main thread. Reconcile unplugged displays on each capture.
         ctx.send_viewport_cmd(egui::ViewportCommand::Visible(false));
         let sender = self.work_tx.clone();
         let wake = ctx.clone();
+        let mut selection = self.display_selection;
         thread::spawn(move || {
             thread::sleep(Duration::from_millis(170));
-            let result = MacCapture::capture_primary();
-            let _ = sender.send(WorkerResult::Captured(result));
+            let outcome = MacCapture::available_displays().and_then(|displays| {
+                let display = if advance {
+                    selection.advance(&displays)?
+                } else {
+                    selection.resolve(&displays)?
+                };
+                MacCapture::new().capture_display(display)
+            });
+            let _ = sender.send(WorkerResult::Captured { selection, outcome });
             wake.request_repaint();
         });
     }
@@ -784,11 +803,12 @@ impl PicPasteApp {
         let events: Vec<_> = self.work_rx.try_iter().collect();
         for event in events {
             match event {
-                WorkerResult::Captured(result) => {
+                WorkerResult::Captured { selection, outcome } => {
                     self.capturing = false;
                     ctx.send_viewport_cmd(egui::ViewportCommand::Visible(true));
-                    match result {
+                    match outcome {
                         Ok(frame) if self.overlay.captured(true) => {
+                            self.display_selection = selection;
                             self.pending_frame = Some(frame);
                             ctx.send_viewport_cmd(egui::ViewportCommand::Fullscreen(true));
                             self.status = String::from("全屏截图选区已打开；拖动选择，Esc 取消");
@@ -1001,6 +1021,9 @@ impl eframe::App for PicPasteApp {
                     if ui.button("截图  Ctrl+Option+1").clicked() {
                         self.begin_capture(ui.ctx());
                     }
+                    if ui.button("截取下一块屏幕").clicked() {
+                        self.begin_capture_target(ui.ctx(), true);
+                    }
                     if ui.button("从剪贴板贴图  Ctrl+Option+2").clicked() {
                         self.paste_clipboard_as_pin(ui.ctx());
                     }
@@ -1008,6 +1031,9 @@ impl eframe::App for PicPasteApp {
                         self.recover_pins();
                     }
                 });
+                if let Some(display) = self.display_selection.current() {
+                    ui.label(format!("当前截图显示器 ID: {}", display.0));
+                }
             }
             ui.horizontal(|ui| {
                 ui.label("PNG 圆角（物理像素）");
