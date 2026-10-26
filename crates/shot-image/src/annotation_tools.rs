@@ -7,8 +7,12 @@ pub enum Tool {
     #[default]
     Select,
     Line,
+    Arrow,
+    Brush,
     Rectangle,
+    Ellipse,
     Pixelate,
+    Blur,
 }
 
 pub fn annotation_for_drag(
@@ -36,22 +40,48 @@ pub fn annotation_for_drag(
             rgba: color,
             width: 3.0,
         }),
+        Tool::Arrow => Some(Annotation::Arrow {
+            from,
+            to,
+            rgba: color,
+            width: 3.0,
+        }),
+        Tool::Brush => Some(Annotation::Brush {
+            points: vec![from, to],
+            rgba: color,
+            width: 3.0,
+        }),
+        Tool::Ellipse => {
+            let center = ((from.0 + to.0) / 2.0, (from.1 + to.1) / 2.0);
+            let radius = ((from.0 - to.0).abs() / 2.0, (from.1 - to.1).abs() / 2.0);
+            if radius.0 < 1.0 || radius.1 < 1.0 {
+                return None;
+            }
+            Some(Annotation::Ellipse {
+                center,
+                radius,
+                rgba: color,
+                width: 3.0,
+            })
+        }
         Tool::Rectangle => Some(Annotation::Rectangle {
             top_left: from,
             bottom_right: to,
             rgba: color,
             width: 3.0,
         }),
-        Tool::Pixelate => {
+        Tool::Pixelate | Tool::Blur => {
             let dx = (i64::from(start.0) - i64::from(end.0)).unsigned_abs() + 1;
             let dy = (i64::from(start.1) - i64::from(end.1)).unsigned_abs() + 1;
-            Some(Annotation::Pixelate {
-                left: start.0.min(end.0) as u32,
-                top: start.1.min(end.1) as u32,
-                width: u32::try_from(dx).ok()?,
-                height: u32::try_from(dy).ok()?,
-                block_size: 12,
-            })
+            let left = start.0.min(end.0) as u32;
+            let top = start.1.min(end.1) as u32;
+            let width = u32::try_from(dx).ok()?;
+            let height = u32::try_from(dy).ok()?;
+            if tool == Tool::Blur {
+                Some(Annotation::Blur { left, top, width, height, radius: 6 })
+            } else {
+                Some(Annotation::Pixelate { left, top, width, height, block_size: 12 })
+            }
         }
     }
 }

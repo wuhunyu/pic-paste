@@ -1,7 +1,7 @@
 use shot_core::RgbaFrame;
 use crate::history::Annotation;
 
-fn blend_at(frame: &mut RgbaFrame, x: i32, y: i32, color: [u8; 4]) {
+pub(crate) fn blend_at(frame: &mut RgbaFrame, x: i32, y: i32, color: [u8; 4]) {
     if x < 0 || y < 0 || x >= frame.width as i32 || y >= frame.height as i32 {
         return;
     }
@@ -38,7 +38,7 @@ fn circle(frame: &mut RgbaFrame, cx: f32, cy: f32, radius: f32, color: [u8; 4]) 
     }
 }
 
-fn line(frame: &mut RgbaFrame, from: (f32, f32), to: (f32, f32), rgba: [u8; 4], width: f32) {
+pub(crate) fn line(frame: &mut RgbaFrame, from: (f32, f32), to: (f32, f32), rgba: [u8; 4], width: f32) {
     let dx = to.0 - from.0;
     let dy = to.1 - from.1;
     let steps = dx.abs().max(dy.abs()).ceil() as usize;
@@ -107,7 +107,11 @@ pub fn composite(base: &RgbaFrame, operations: &[Annotation]) -> Result<RgbaFram
                     }
                 }
             }
-            _ => return Err("annotation tool is not yet implemented"),
+            _ => {
+                if !crate::advanced_composite::render_advanced(&mut result, op)? {
+                    return Err("annotation tool is not yet implemented");
+                }
+            },
         }
     }
     Ok(result)

@@ -5,6 +5,8 @@ use shot_core::RgbaFrame;
 #[derive(Clone, Debug, PartialEq)]
 pub enum Annotation {
     Line { from: (f32, f32), to: (f32, f32), rgba: [u8; 4], width: f32 },
+    Arrow { from: (f32, f32), to: (f32, f32), rgba: [u8; 4], width: f32 },
+    Brush { points: Vec<(f32, f32)>, rgba: [u8; 4], width: f32 },
     Rectangle { top_left: (f32, f32), bottom_right: (f32, f32), rgba: [u8; 4], width: f32 },
     Ellipse { center: (f32, f32), radius: (f32, f32), rgba: [u8; 4], width: f32 },
     Text { at: (f32, f32), content: String, size: f32, rgba: [u8; 4] },
