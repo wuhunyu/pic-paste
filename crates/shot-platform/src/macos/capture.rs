@@ -1,6 +1,7 @@
 use screencapturekit::prelude::*;
 use screencapturekit::screenshot_manager::{CGImageExt, SCScreenshotManager};
 use screencapturekit::shareable_content::{SCDisplay, SCShareableContentInfo};
+use shot_core::display::OverlayPlacement;
 use shot_core::platform::{CapturedFrame, DisplayId, PlatformError, ScreenCapture};
 use shot_core::{RectPx, RgbaFrame};
 
@@ -32,6 +33,27 @@ impl MacCapture {
             .next()
             .ok_or(PlatformError::Unavailable)?;
         Self::capture_native(&display)
+    }
+
+    /// Capture and native window bounds are resolved from the same SCDisplay.
+    /// Logical monitor coordinates are not scaled by Retina pixel density.
+    pub fn capture_with_placement(
+        display: DisplayId,
+    ) -> Result<(CapturedFrame, OverlayPlacement), PlatformError> {
+        let content = SCShareableContent::get().map_err(map_capture_error)?;
+        let target = content
+            .displays()
+            .into_iter()
+            .find(|candidate| u64::from(candidate.display_id()) == display.0)
+            .ok_or(PlatformError::Unavailable)?;
+        let frame = target.frame();
+        let placement = OverlayPlacement::new(
+            display,
+            (frame.origin.x, frame.origin.y),
+            (frame.size.width, frame.size.height),
+        )?;
+        let capture = Self::capture_native(&target)?;
+        Ok((capture, placement))
     }
 
     fn capture_native(display: &SCDisplay) -> Result<CapturedFrame, PlatformError> {

@@ -1,14 +1,15 @@
 use crate::hotkey::{HotkeyAction, HotkeyController};
 use crate::menu::{MenuAction, MenuBar};
 use crate::ocr;
+use crate::overlay;
 use crate::pin::PinnedImage;
 use crate::scroll::{self, ScrollCaptureControl, ScrollEvent};
 use arboard::{Clipboard, ImageData};
 use eframe::egui;
 use shot_core::async_ticket::OcrTicket;
-use shot_core::display::DisplaySelection;
+use shot_core::display::{DisplaySelection, OverlayPlacement};
 use shot_core::overlay::OverlayState;
-use shot_core::platform::{CapturedFrame, DisplayId, PlatformError, ScreenCapture, ScrollAxis};
+use shot_core::platform::{CapturedFrame, DisplayId, PlatformError, ScrollAxis};
 use shot_core::selection::{ResizeHandle, adjust_selection, from_drag, hit_selection_handle};
 use shot_core::{RectPx, RgbaFrame};
 use shot_image::annotation_tools::{Tool, annotation_for_drag};
@@ -27,7 +28,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 enum WorkerResult {
     Captured {
         selection: DisplaySelection,
-        outcome: Result<CapturedFrame, PlatformError>,
+        outcome: Result<(CapturedFrame, OverlayPlacement), PlatformError>,
     },
     Prepared(PrepareAction, Result<RgbaFrame, String>),
     Saved(Result<PathBuf, String>),
@@ -466,6 +467,7 @@ pub struct PicPasteApp {
     ocr_text: String,
     ocr_lines: usize,
     pending_frame: Option<CapturedFrame>,
+    overlay_placement: Option<OverlayPlacement>,
     prepared: Vec<(PrepareAction, RgbaFrame)>,
     screen: Option<SelectionView>,
     pins: Vec<PinnedImage>,
@@ -511,6 +513,7 @@ impl PicPasteApp {
             ocr_text: String::new(),
             ocr_lines: 0,
             pending_frame: None,
+            overlay_placement: None,
             prepared: Vec::new(),
             screen: None,
             pins: Vec::new(),
@@ -564,7 +567,7 @@ impl PicPasteApp {
                 } else {
                     selection.resolve(&displays)?
                 };
-                MacCapture::new().capture_display(display)
+                MacCapture::capture_with_placement(display)
             });
             let _ = sender.send(WorkerResult::Captured { selection, outcome });
             wake.request_repaint();
@@ -611,8 +614,11 @@ impl PicPasteApp {
         );
         self.scroll_control = Some(control);
         self.overlay.dismiss();
-        ctx.send_viewport_cmd(egui::ViewportCommand::Fullscreen(false));
-        ctx.send_viewport_cmd(egui::ViewportCommand::Visible(false));
+        self.overlay_placement = None;
+        ctx.send_viewport_cmd_to(
+            egui::ViewportId::ROOT,
+            egui::ViewportCommand::Visible(false),
+        );
     }
 
     fn finish_manual_scroll(&mut self) {
@@ -805,20 +811,21 @@ impl PicPasteApp {
             match event {
                 WorkerResult::Captured { selection, outcome } => {
                     self.capturing = false;
-                    ctx.send_viewport_cmd(egui::ViewportCommand::Visible(true));
                     match outcome {
-                        Ok(frame) if self.overlay.captured(true) => {
+                        Ok((frame, placement)) if self.overlay.captured(true) => {
                             self.display_selection = selection;
                             self.pending_frame = Some(frame);
-                            ctx.send_viewport_cmd(egui::ViewportCommand::Fullscreen(true));
-                            self.status = String::from("全屏截图选区已打开；拖动选择，Esc 取消");
+                            self.overlay_placement = Some(placement);
+                            self.status = String::from("已打开目标屏幕截图窗口；拖动选择，Esc 取消");
                         }
                         Ok(_) => {
+                            ctx.send_viewport_cmd(egui::ViewportCommand::Visible(true));
                             self.status = String::from("截图已取消，丢弃迟到的捕获结果");
                         }
                         Err(error) => {
                             self.overlay.captured(false);
-                            ctx.send_viewport_cmd(egui::ViewportCommand::Fullscreen(false));
+                            self.overlay_placement = None;
+                            ctx.send_viewport_cmd(egui::ViewportCommand::Visible(true));
                             self.status =
                                 format!("截图失败: {error:?}。请检查系统设置→隐私与安全→屏幕录制");
                         }
@@ -999,7 +1006,7 @@ impl eframe::App for PicPasteApp {
         {
             if self.overlay.dismiss() {
                 self.screen = None;
-                ctx.send_viewport_cmd(egui::ViewportCommand::Fullscreen(false));
+                self.overlay_placement = None;
             }
             ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
             ctx.send_viewport_cmd(egui::ViewportCommand::Visible(false));
@@ -1008,6 +1015,47 @@ impl eframe::App for PicPasteApp {
 
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         self.process_ui_images(ui.ctx());
+        if self.overlay.is_fullscreen() {
+            if let Some(placement) = self.overlay_placement {
+                let context = ui.ctx().clone();
+                let id = egui::ViewportId::from_hash_of(("picpaste-capture", self.capture_revision));
+                context.show_viewport_immediate(
+                    id,
+                    overlay::capture_builder(placement),
+                    |overlay_ui, _class| {
+                        if overlay_ui.ctx().input(|i| i.viewport().close_requested()) {
+                            self.screen = None;
+                            self.overlay_placement = None;
+                            self.overlay.dismiss();
+                            overlay_ui.ctx().send_viewport_cmd_to(
+                                egui::ViewportId::ROOT,
+                                egui::ViewportCommand::Visible(true),
+                            );
+                        } else {
+                            self.render_content(overlay_ui);
+                        }
+                    },
+                );
+            } else {
+                // A missing placement must never leave the root window invisible.
+                self.overlay.dismiss();
+                ui.ctx().send_viewport_cmd(egui::ViewportCommand::Visible(true));
+                self.status = String::from("截图窗口位置不可用，请重新截图");
+            }
+        } else {
+            self.render_content(ui);
+        }
+        // Pins are children of the root viewport and must outlive an editor.
+        for pin in &self.pins {
+            if !pin.is_closed() {
+                pin.show(ui.ctx());
+            }
+        }
+    }
+}
+
+impl PicPasteApp {
+    fn render_content(&mut self, ui: &mut egui::Ui) {
         egui::CentralPanel::default().show(ui, |ui| {
             if self.overlay.is_fullscreen() {
                 ui.heading("PicPaste · 全屏截图");
@@ -1058,8 +1106,11 @@ impl eframe::App for PicPasteApp {
             if ui.ctx().input(|i| i.key_pressed(egui::Key::Escape)) {
                 self.screen = None;
                 if self.overlay.dismiss() {
-                    ui.ctx()
-                        .send_viewport_cmd(egui::ViewportCommand::Fullscreen(false));
+                    self.overlay_placement = None;
+                    ui.ctx().send_viewport_cmd_to(
+                        egui::ViewportId::ROOT,
+                        egui::ViewportCommand::Visible(true),
+                    );
                 }
             }
 
@@ -1169,8 +1220,12 @@ impl eframe::App for PicPasteApp {
             if let Some(action) = selected_action {
                 self.request_prepared(ui.ctx(), action);
                 if self.overlay.accept() {
-                    ui.ctx()
-                        .send_viewport_cmd(egui::ViewportCommand::Fullscreen(false));
+                    self.overlay_placement = None;
+                    self.screen = None;
+                    ui.ctx().send_viewport_cmd_to(
+                        egui::ViewportId::ROOT,
+                        egui::ViewportCommand::Visible(true),
+                    );
                 }
             }
             if let Some(axis) = start_scroll {
@@ -1257,11 +1312,7 @@ impl eframe::App for PicPasteApp {
                 }
             }
         });
-        for pin in &self.pins {
-            if !pin.is_closed() {
-                pin.show(ui.ctx());
-            }
-        }
+
     }
 }
 
