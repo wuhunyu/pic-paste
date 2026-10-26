@@ -106,3 +106,9 @@ pub fn candidate_at(list: &[WindowCandidate], point: (i32, i32)) -> Option<Windo
         .copied()
         .find(|candidate| candidate.rect.contains(point.0, point.1))
 }
+
+/// Return true only for a known window owned by the current process.
+/// Do not exclude windows with unknown owners or unrelated PID values.
+pub fn is_self_capture_window(owner_pid: Option<i32>, current_pid: i32) -> bool {
+    current_pid > 0 && owner_pid == Some(current_pid)
+}
