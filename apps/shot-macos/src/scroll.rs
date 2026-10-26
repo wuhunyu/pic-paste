@@ -4,6 +4,7 @@ use eframe::egui;
 use shot_core::platform::{DisplayId, ScreenCapture, ScrollAxis};
 use shot_core::{RectPx, RgbaFrame};
 use shot_platform::macos::MacCapture;
+use shot_scroll::live_preview::LatestPreview;
 use shot_scroll::stitch::match_scroll_frame;
 use shot_scroll::tile_store::TileStore;
 use std::path::PathBuf;
@@ -19,9 +20,14 @@ const CANCEL: u8 = 2;
 
 pub struct ScrollCaptureControl {
     command: Arc<AtomicU8>,
+    live_preview: LatestPreview,
 }
 
 impl ScrollCaptureControl {
+    pub fn take_live_preview(&self) -> Option<RgbaFrame> {
+        self.live_preview.take()
+    }
+
     pub fn finish(&self) {
         let _ = self
             .command
@@ -88,6 +94,8 @@ fn capture_loop(
     axis: ScrollAxis,
     sender: &Sender<ScrollEvent>,
     command: &AtomicU8,
+    live_preview: &LatestPreview,
+    wake: &egui::Context,
 ) -> Result<Option<ScrollReview>, String> {
     // The main viewport is hidden before this delay. A new frame is taken
     // rather than trusting the earlier selection screenshot as the first tile.
@@ -103,6 +111,18 @@ fn capture_loop(
     let mut store = TileStore::new(&first.image, axis, &std::env::temp_dir())
         .map_err(|error| format!("cannot start scroll tile store: {error}"))?;
     let mut previous = first.image;
+    // Publish the first trusted region so the user can see a preview before
+    // the first wheel event. Its size stays bounded regardless of canvas size.
+    if let Ok(image) = store.preview(420, 600) {
+        live_preview.publish(image);
+        let (width, height) = store.canvas();
+        let _ = sender.send(ScrollEvent::Progress {
+            segments: store.strip_count(),
+            width,
+            height,
+        });
+        wake.request_repaint();
+    }
     let mut mismatches = 0u32;
     let mut partial = false;
     while command.load(Ordering::SeqCst) == RUNNING {
@@ -122,12 +142,16 @@ fn capture_loop(
                 Ok(()) => {
                     previous = next.image;
                     mismatches = 0;
+                    if let Ok(image) = store.preview(420, 600) {
+                        live_preview.publish(image);
+                    }
                     let (width, height) = store.canvas();
                     let _ = sender.send(ScrollEvent::Progress {
                         segments: store.strip_count(),
                         width,
                         height,
                     });
+                    wake.request_repaint();
                 }
                 Err(error) if error.kind() == std::io::ErrorKind::InvalidInput => {
                     // Size limit or invalid append: preserve a partial trusted result.
@@ -168,10 +192,23 @@ pub fn launch(
 ) -> ScrollCaptureControl {
     let command = Arc::new(AtomicU8::new(RUNNING));
     let worker_command = Arc::clone(&command);
+    let live_preview = LatestPreview::default();
+    let worker_preview = live_preview.clone();
     thread::spawn(move || {
-        let outcome = capture_loop(display, roi, axis, &sender, &worker_command);
+        let outcome = capture_loop(
+            display,
+            roi,
+            axis,
+            &sender,
+            &worker_command,
+            &worker_preview,
+            &ctx,
+        );
         let _ = sender.send(ScrollEvent::Finished(outcome));
         ctx.request_repaint();
     });
-    ScrollCaptureControl { command }
+    ScrollCaptureControl {
+        command,
+        live_preview,
+    }
 }
