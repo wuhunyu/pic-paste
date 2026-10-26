@@ -232,6 +232,38 @@ impl TileStore {
         Ok(true)
     }
 
+    /// Build a bounded, nearest-neighbor preview from trusted disk strips.
+    ///
+    /// The full scroll image remains on disk; scratch memory is one source
+    /// scanline plus at most a 1024x1024 RGBA preview. No upscaling is done.
+    pub fn preview(&self, max_width: u32, max_height: u32) -> io::Result<RgbaFrame> {
+        if max_width == 0 || max_height == 0 {
+            return Err(invalid("empty preview bounds"));
+        }
+        let cap_width = max_width.min(1024);
+        let cap_height = max_height.min(1024);
+        let scale = (f64::from(cap_width) / f64::from(self.width))
+            .min(f64::from(cap_height) / f64::from(self.height))
+            .min(1.0);
+        let out_width = (f64::from(self.width) * scale).floor().max(1.0) as u32;
+        let out_height = (f64::from(self.height) * scale).floor().max(1.0) as u32;
+        let mut source_row = vec![0u8; self.width as usize * 4];
+        let capacity = out_width as usize * out_height as usize * 4;
+        let mut rgba = Vec::with_capacity(capacity);
+        for y in 0..out_height {
+            let source_y = (u64::from(y) * u64::from(self.height) / u64::from(out_height)) as u32;
+            self.fill_row(source_y, &mut source_row)?;
+            for x in 0..out_width {
+                let source_x =
+                    (u64::from(x) * u64::from(self.width) / u64::from(out_width)) as usize;
+                let start = source_x * 4;
+                rgba.extend_from_slice(&source_row[start..start + 4]);
+            }
+        }
+        RgbaFrame::new(out_width, out_height, rgba)
+            .map_err(|_| invalid("invalid generated preview"))
+    }
+
     pub fn fill_row(&self, y: u32, out: &mut [u8]) -> io::Result<()> {
         if y >= self.height || out.len() != self.width as usize * 4 {
             return Err(invalid("invalid tile output row"));
