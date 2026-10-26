@@ -1,4 +1,5 @@
 #![forbid(unsafe_code)]
+pub mod annotation_tools;
 mod export;
 pub use export::{atomic_save_png, crop_rgba};
 pub mod composite;
