@@ -1,8 +1,8 @@
 //! macOS manual long screenshot worker. Neither file I/O nor ScreenCaptureKit
 //! runs on the egui/AppKit event thread.
 use eframe::egui;
-use shot_core::{RectPx, RgbaFrame};
 use shot_core::platform::{DisplayId, ScreenCapture, ScrollAxis};
+use shot_core::{RectPx, RgbaFrame};
 use shot_platform::macos::MacCapture;
 use shot_scroll::stitch::match_scroll_frame;
 use shot_scroll::tile_store::TileStore;
