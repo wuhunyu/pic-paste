@@ -44,3 +44,12 @@ cargo fmt --all -- --check
 cargo test --workspace --locked
 cargo clippy --workspace --all-targets --locked -- -D warnings
 ```
+
+
+## Subsequent implementation batch (2026-10-26)
+
+- Added `shot-scroll::session` with manual/auto mode, confidence-failure fallback state, canvas-boundary rejection and cancellation state.
+- Added `shot-image::stream_png` with PNG row streaming and cancellation propagation.
+- Added `scripts/bench_report.py` with p50/p95/max report computation, deterministic Python regression tests and macOS CI test step.
+- The GitHub connector can commit repository content but exposes no **workflow dispatch** operation. GitHub queried for commit-associated workflow runs returned no runs; therefore compiler/test outcomes are unknown.
+- These new modules are algorithmic foundations and do not substitute for native capture, annotation rendering, live scroll capture, OCR integration or packaging.
