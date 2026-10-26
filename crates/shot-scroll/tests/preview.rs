@@ -20,8 +20,10 @@ fn temp_dir() -> std::path::PathBuf {
         .duration_since(UNIX_EPOCH)
         .unwrap()
         .as_nanos();
-    let root = std::env::temp_dir()
-        .join(format!("picpaste-preview-test-{}-{stamp}", std::process::id()));
+    let root = std::env::temp_dir().join(format!(
+        "picpaste-preview-test-{}-{stamp}",
+        std::process::id()
+    ));
     fs::create_dir_all(&root).unwrap();
     root
 }
@@ -37,7 +39,10 @@ fn vertical_review_preview_preserves_pixel_rows_and_is_not_full_canvas_only() {
     let bounded = store.preview(2, 3).unwrap();
     assert_eq!((bounded.width, bounded.height), (2, 3));
     assert_eq!(&bounded.rgba[0..4], &[0, 0, 91, 255]);
-    assert_eq!(&bounded.rgba[(2 * 2 * 4)..(2 * 2 * 4 + 4)], &[0, 4, 91, 255]);
+    assert_eq!(
+        &bounded.rgba[(2 * 2 * 4)..(2 * 2 * 4 + 4)],
+        &[0, 4, 91, 255]
+    );
     drop(store);
     fs::remove_dir_all(root).unwrap();
 }

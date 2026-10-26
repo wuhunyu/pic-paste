@@ -32,20 +32,38 @@ fn document() -> OcrDocument {
 #[test]
 fn explicit_hit_testing_respects_roi_offset_and_rotated_polygon() {
     let doc = document();
-    assert_eq!(hit_line_in_capture(&doc, (100, 200), (135.0, 215.0)), Some(0));
+    assert_eq!(
+        hit_line_in_capture(&doc, (100, 200), (135.0, 215.0)),
+        Some(0)
+    );
     // Inside the bounding rectangle but outside the rotated polygon.
     assert_eq!(hit_line_in_capture(&doc, (100, 200), (111.0, 227.0)), None);
-    assert_eq!(hit_line_in_capture(&doc, (100, 200), (110.0, 250.0)), Some(1));
+    assert_eq!(
+        hit_line_in_capture(&doc, (100, 200), (110.0, 250.0)),
+        Some(1)
+    );
     assert_eq!(hit_line_in_capture(&doc, (100, 200), (99.0, 215.0)), None);
 }
 
 #[test]
 fn word_hit_testing_never_fabricates_character_boxes() {
     let doc = document();
-    assert_eq!(hit_word_in_capture(&doc, 0, (100, 200), (133.0, 215.0)), Some(0));
-    assert_eq!(hit_word_in_capture(&doc, 0, (100, 200), (114.0, 218.0)), None);
-    assert_eq!(hit_word_in_capture(&doc, 1, (100, 200), (110.0, 250.0)), None);
-    assert_eq!(hit_word_in_capture(&doc, 99, (100, 200), (110.0, 250.0)), None);
+    assert_eq!(
+        hit_word_in_capture(&doc, 0, (100, 200), (133.0, 215.0)),
+        Some(0)
+    );
+    assert_eq!(
+        hit_word_in_capture(&doc, 0, (100, 200), (114.0, 218.0)),
+        None
+    );
+    assert_eq!(
+        hit_word_in_capture(&doc, 1, (100, 200), (110.0, 250.0)),
+        None
+    );
+    assert_eq!(
+        hit_word_in_capture(&doc, 99, (100, 200), (110.0, 250.0)),
+        None
+    );
 }
 
 #[test]
@@ -60,5 +78,8 @@ fn selected_text_uses_document_reading_order_and_deduplicates_lines() {
 fn invalid_coordinates_never_select_a_line() {
     let doc = document();
     assert_eq!(hit_line_in_capture(&doc, (0, 0), (f32::NAN, 15.0)), None);
-    assert_eq!(hit_line_in_capture(&doc, (0, 0), (f32::INFINITY, 15.0)), None);
+    assert_eq!(
+        hit_line_in_capture(&doc, (0, 0), (f32::INFINITY, 15.0)),
+        None
+    );
 }
