@@ -60,8 +60,7 @@ impl MacCapture {
         // exclusions and smart window candidates, avoiding inconsistent frames.
         let all_windows = content.windows();
         let capture = Self::capture_native(&target, &all_windows)?;
-        let own_pid =
-            i32::try_from(std::process::id()).map_err(|_| PlatformError::InvalidInput)?;
+        let own_pid = i32::try_from(std::process::id()).map_err(|_| PlatformError::InvalidInput)?;
         let windows = all_windows
             .iter()
             .filter(|window| {
@@ -94,8 +93,7 @@ impl MacCapture {
         display: &SCDisplay,
         windows: &[SCWindow],
     ) -> Result<CapturedFrame, PlatformError> {
-        let own_pid =
-            i32::try_from(std::process::id()).map_err(|_| PlatformError::InvalidInput)?;
+        let own_pid = i32::try_from(std::process::id()).map_err(|_| PlatformError::InvalidInput)?;
         let excluded: Vec<&SCWindow> = windows
             .iter()
             .filter(|window| {
