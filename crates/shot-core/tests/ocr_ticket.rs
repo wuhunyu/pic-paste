@@ -1,5 +1,5 @@
-use shot_core::async_ticket::OcrTicket;
 use shot_core::RectPx;
+use shot_core::async_ticket::OcrTicket;
 
 fn box_at(x: i32) -> RectPx {
     RectPx {
