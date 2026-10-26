@@ -117,3 +117,27 @@ fn horizontal_match_discovers_rightward_shift_and_rejects_flat_frames() {
     let flat = GrayFrame::new(30, 12, vec![128; 360]).unwrap();
     assert!(match_horizontal(&flat, &flat, 0.40, 1.0, 1.0).is_none());
 }
+
+#[test]
+fn exported_long_png_is_atomic_and_never_clobbers_an_existing_file() {
+    let dir = root();
+    let store = TileStore::new(&frame(4, 4, 0, 0), ScrollAxis::Vertical, &dir).unwrap();
+    let existing = dir.join("existing.png");
+    fs::write(&existing, b"untouched").unwrap();
+    assert!(store.save_png_no_clobber(&existing).is_err());
+    assert_eq!(fs::read(&existing).unwrap(), b"untouched");
+
+    let png = dir.join("new-scroll.png");
+    store.save_png_no_clobber(&png).unwrap();
+    let bytes = fs::read(&png).unwrap();
+    assert_eq!(&bytes[..8], b"\x89PNG\r\n\x1a\n");
+    assert!(store.save_png_no_clobber(&dir.join("bad.jpg")).is_err());
+    assert!(
+        fs::read_dir(&dir)
+            .unwrap()
+            .filter_map(Result::ok)
+            .all(|file| !file.file_name().to_string_lossy().ends_with(".part"))
+    );
+    drop(store);
+    fs::remove_dir_all(dir).unwrap();
+}
