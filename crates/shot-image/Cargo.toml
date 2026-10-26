@@ -1,0 +1,7 @@
+[package]
+name = "shot-image"
+version.workspace = true
+edition.workspace = true
+[dependencies]
+shot-core = { path = "../shot-core" }
+png = "=0.18.1"
