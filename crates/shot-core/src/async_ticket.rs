@@ -19,12 +19,7 @@ impl OcrTicket {
         }
     }
 
-    pub fn matches(
-        self,
-        capture_revision: u64,
-        edit_revision: u64,
-        region: RectPx,
-    ) -> bool {
+    pub fn matches(self, capture_revision: u64, edit_revision: u64, region: RectPx) -> bool {
         self.capture_revision == capture_revision
             && self.edit_revision == edit_revision
             && self.region == region
