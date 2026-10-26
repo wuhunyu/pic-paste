@@ -71,10 +71,18 @@ pub fn candidates_for_capture(
         if left >= right || top >= bottom {
             continue;
         }
-        let x0 = ((left - origin_x) * sx).floor().clamp(0.0, f64::from(width_px)) as u32;
-        let y0 = ((top - origin_y) * sy).floor().clamp(0.0, f64::from(height_px)) as u32;
-        let x1 = ((right - origin_x) * sx).ceil().clamp(0.0, f64::from(width_px)) as u32;
-        let y1 = ((bottom - origin_y) * sy).ceil().clamp(0.0, f64::from(height_px)) as u32;
+        let x0 = ((left - origin_x) * sx)
+            .floor()
+            .clamp(0.0, f64::from(width_px)) as u32;
+        let y0 = ((top - origin_y) * sy)
+            .floor()
+            .clamp(0.0, f64::from(height_px)) as u32;
+        let x1 = ((right - origin_x) * sx)
+            .ceil()
+            .clamp(0.0, f64::from(width_px)) as u32;
+        let y1 = ((bottom - origin_y) * sy)
+            .ceil()
+            .clamp(0.0, f64::from(height_px)) as u32;
         let w_px = x1.saturating_sub(x0);
         let h_px = y1.saturating_sub(y0);
         if w_px < 24 || h_px < 24 {
