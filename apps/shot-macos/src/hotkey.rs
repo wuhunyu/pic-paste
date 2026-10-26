@@ -152,7 +152,10 @@ impl HotkeyController {
             Err(error) => return Err(format!("无法读取快捷键配置：{error}")),
         };
         HotkeyBindings::parse(&contents).map_err(|error| {
-            format!("快捷键配置无效（{error:?}），请在设置中重新保存：{}", path.display())
+            format!(
+                "快捷键配置无效（{error:?}），请在设置中重新保存：{}",
+                path.display()
+            )
         })
     }
 
@@ -194,7 +197,10 @@ mod tests {
         let config = HotkeyBindings::new([9, 8, 7, 6]).unwrap();
         let keys = keys_for(config);
         let ids = keys.map(|key| key.id());
-        assert!(ids.iter().all(|id| ids.iter().filter(|other| *other == id).count() == 1));
+        assert!(
+            ids.iter()
+                .all(|id| ids.iter().filter(|other| *other == id).count() == 1)
+        );
         assert_ne!(keys[0].id(), keys_for(HotkeyBindings::default())[0].id());
     }
 }

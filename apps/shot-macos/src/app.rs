@@ -1112,16 +1112,34 @@ impl PicPasteApp {
             }
             if !self.overlay.is_fullscreen() {
                 ui.horizontal(|ui| {
-                    if ui.button(format!("截图  {}", self.shortcuts.label(ShortcutAction::Capture))).clicked() {
+                    if ui
+                        .button(format!(
+                            "截图  {}",
+                            self.shortcuts.label(ShortcutAction::Capture)
+                        ))
+                        .clicked()
+                    {
                         self.begin_capture(ui.ctx());
                     }
                     if ui.button("截取下一块屏幕").clicked() {
                         self.begin_capture_target(ui.ctx(), true);
                     }
-                    if ui.button(format!("从剪贴板贴图  {}", self.shortcuts.label(ShortcutAction::PastePin))).clicked() {
+                    if ui
+                        .button(format!(
+                            "从剪贴板贴图  {}",
+                            self.shortcuts.label(ShortcutAction::PastePin)
+                        ))
+                        .clicked()
+                    {
                         self.paste_clipboard_as_pin(ui.ctx());
                     }
-                    if ui.button(format!("解除穿透 {}", self.shortcuts.label(ShortcutAction::RecoverPins))).clicked() {
+                    if ui
+                        .button(format!(
+                            "解除穿透 {}",
+                            self.shortcuts.label(ShortcutAction::RecoverPins)
+                        ))
+                        .clicked()
+                    {
                         self.recover_pins();
                     }
                 });
@@ -1156,8 +1174,9 @@ impl PicPasteApp {
                             if let Some(digit) = chosen {
                                 match self.draft_shortcuts.with_digit(action, digit) {
                                     Ok(next) => self.draft_shortcuts = next,
-                                    Err(error) => self.status =
-                                        format!("快捷键不能重复或超出范围：{error:?}"),
+                                    Err(error) => {
+                                        self.status = format!("快捷键不能重复或超出范围：{error:?}")
+                                    }
                                 }
                             }
                         });
@@ -1183,7 +1202,13 @@ impl PicPasteApp {
             ui.label(&self.status);
             if self.scroll_control.is_some() {
                 ui.horizontal(|ui| {
-                    if ui.button(format!("完成长截图 {}", self.shortcuts.label(ShortcutAction::FinishScroll))).clicked() {
+                    if ui
+                        .button(format!(
+                            "完成长截图 {}",
+                            self.shortcuts.label(ShortcutAction::FinishScroll)
+                        ))
+                        .clicked()
+                    {
                         self.finish_manual_scroll();
                     }
                     if ui.button("取消并清理").clicked() {
@@ -1298,7 +1323,10 @@ impl PicPasteApp {
                     self.ocr_text.clear();
                 }
             } else {
-                ui.label(format!("按 {} 开始截图；或点击“截图”。", self.shortcuts.label(ShortcutAction::Capture)));
+                ui.label(format!(
+                    "按 {} 开始截图；或点击“截图”。",
+                    self.shortcuts.label(ShortcutAction::Capture)
+                ));
             }
             if let Some(color) = color_to_copy {
                 self.status =
