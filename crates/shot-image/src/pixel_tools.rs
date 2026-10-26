@@ -16,10 +16,7 @@ pub fn sample_rgba(image: &RgbaFrame, point: (i32, i32)) -> Option<[u8; 4]> {
     if expected != image.rgba.len() {
         return None;
     }
-    let idx = usize::try_from(
-        (u64::from(y) * u64::from(image.width) + u64::from(x)) * 4,
-    )
-    .ok()?;
+    let idx = usize::try_from((u64::from(y) * u64::from(image.width) + u64::from(x)) * 4).ok()?;
     image.rgba.get(idx..idx + 4)?.try_into().ok()
 }
 
