@@ -15,7 +15,7 @@ fn text_annotation_draws_and_preserves_immutable_source() {
         }],
     )
     .unwrap();
-    assert!(annotated.rgba.chunks_exact(4).any(|px| px[3] > 0));
+    assert!(annotated.rgba.as_chunks::<4>().0.iter().any(|px| px[3] > 0));
     assert!(source.rgba.iter().all(|pixel| *pixel == 0));
 }
 
@@ -57,5 +57,5 @@ fn macos_system_cjk_font_renders_real_chinese_characters() {
         }],
     )
     .unwrap();
-    assert!(annotated.rgba.chunks_exact(4).any(|pixel| pixel[3] != 0));
+    assert!(annotated.rgba.as_chunks::<4>().0.iter().any(|pixel| pixel[3] != 0));
 }
