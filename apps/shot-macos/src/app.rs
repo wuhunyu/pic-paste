@@ -494,6 +494,8 @@ fn copy_to_clipboard(image: RgbaFrame) -> Result<(), String> {
 pub struct PicPasteApp {
     status: String,
     radius: u32,
+    png_preview_key: Option<(u64, u64, RectPx, u32)>,
+    png_preview_texture: Option<egui::TextureHandle>,
     capturing: bool,
     processing: bool,
     overlay: OverlayState,
@@ -554,6 +556,8 @@ impl PicPasteApp {
         Self {
             status: menu_status.unwrap_or(status),
             radius: 16,
+            png_preview_key: None,
+            png_preview_texture: None,
             capturing: false,
             processing: false,
             overlay: OverlayState::default(),
@@ -1275,7 +1279,7 @@ impl PicPasteApp {
             let mut color_to_copy = None;
             if let Some(screen) = &mut self.screen {
                 ui.horizontal(|ui| {
-                    if ui.button("保存 PNG").clicked() {
+                    if ui.button("保存 PNG (⌘S)").clicked() {
                         selected_action = Some(PrepareAction::Save);
                     }
                     if ui.button("复制图片").clicked() {
@@ -1328,6 +1332,40 @@ impl PicPasteApp {
                     ui.colored_label(egui::Color32::RED, format!("预览渲染失败：{error}"));
                 }
                 screen.show(ui);
+                ui.collapsing("PNG 输出预览 · 透明圆角", |ui| {
+                    let key = (
+                        screen.capture_revision,
+                        screen.edit_revision,
+                        screen.selected_region(),
+                        self.radius,
+                    );
+                    if self.png_preview_key != Some(key) {
+                        self.png_preview_key = Some(key);
+                        self.png_preview_texture = shot_image::preview::png_selection_preview(
+                            &screen.rendered,
+                            key.2,
+                            key.3,
+                            256,
+                        )
+                        .ok()
+                        .map(|frame| {
+                            ui.ctx().load_texture(
+                                "png-output-preview",
+                                egui::ColorImage::from_rgba_unmultiplied(
+                                    [frame.width as usize, frame.height as usize],
+                                    &frame.rgba,
+                                ),
+                                egui::TextureOptions::LINEAR,
+                            )
+                        });
+                    }
+                    if let Some(texture) = self.png_preview_texture.as_ref() {
+                        ui.add(egui::Image::new((texture.id(), texture.size_vec2())));
+                        ui.label("缩略图显示实际 PNG 透明圆角；保存仍使用原始物理分辨率");
+                    } else {
+                        ui.label("预览不可用，请检查选区是否有效");
+                    }
+                });
                 if let Some((point, rgba)) = screen.last_hover_color {
                     let color = format!("#{:02X}{:02X}{:02X}", rgba[0], rgba[1], rgba[2]);
                     ui.horizontal(|ui| {
@@ -1374,6 +1412,13 @@ impl PicPasteApp {
                         Ok(()) => String::from("取色结果已复制"),
                         Err(error) => format!("复制颜色失败：{error}"),
                     };
+            }
+            if self.screen.is_some()
+                && ui
+                    .ctx()
+                    .input(|input| input.modifiers.command && input.key_pressed(egui::Key::S))
+            {
+                selected_action = Some(PrepareAction::Save);
             }
             if let Some(action) = selected_action {
                 self.request_prepared(ui.ctx(), action);
