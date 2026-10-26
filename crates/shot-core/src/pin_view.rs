@@ -32,11 +32,7 @@ pub fn map_pin_click(view: PinImageView, point: (f32, f32)) -> Option<(f32, f32)
     }
     let u = (point.0 - view.left) / view.width;
     let v = (point.1 - view.top) / view.height;
-    if !u.is_finite()
-        || !v.is_finite()
-        || !(0.0..1.0).contains(&u)
-        || !(0.0..1.0).contains(&v)
-    {
+    if !u.is_finite() || !v.is_finite() || !(0.0..1.0).contains(&u) || !(0.0..1.0).contains(&v) {
         return None;
     }
     Some((

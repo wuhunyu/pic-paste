@@ -1,14 +1,14 @@
 //! Interactive pinned-image viewports. OCR inference and clipboard writes
 //! happen outside the deferred viewport callback and only on explicit actions.
 use eframe::egui;
+use shot_core::RgbaFrame;
 use shot_core::input::{DragAction, DragLatch};
 use shot_core::pin_view::{PinImageView, map_pin_click};
 use shot_core::pins::PinMode;
-use shot_core::RgbaFrame;
 use shot_ocr_protocol::OcrDocument;
-use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::Sender;
+use std::sync::{Arc, Mutex};
 
 #[derive(Clone, Copy, Debug)]
 pub enum PinEvent {
@@ -140,13 +140,17 @@ impl PinnedImage {
                             .tint(tint)
                             .sense(egui::Sense::click_and_drag()),
                     );
-                    if response.drag_started() && let Ok(mut latch) = gesture.lock() {
+                    if response.drag_started()
+                        && let Ok(mut latch) = gesture.lock()
+                    {
                         let shift = ui.input(|input| input.modifiers.shift);
                         if latch.down(mode, shift) == DragAction::MovePin {
                             ui.ctx().send_viewport_cmd(egui::ViewportCommand::StartDrag);
                         }
                     }
-                    if response.drag_stopped() && let Ok(mut latch) = gesture.lock() {
+                    if response.drag_stopped()
+                        && let Ok(mut latch) = gesture.lock()
+                    {
                         latch.up();
                     }
                     if mode == PinMode::TextSelect

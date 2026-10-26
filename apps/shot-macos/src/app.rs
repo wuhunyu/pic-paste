@@ -9,8 +9,8 @@ use eframe::egui;
 use shot_core::async_ticket::OcrTicket;
 use shot_core::display::{DisplaySelection, OverlayPlacement};
 use shot_core::overlay::OverlayState;
-use shot_core::platform::{CapturedFrame, DisplayId, PlatformError, ScrollAxis};
 use shot_core::pins::PinMode;
+use shot_core::platform::{CapturedFrame, DisplayId, PlatformError, ScrollAxis};
 use shot_core::selection::{ResizeHandle, adjust_selection, from_drag, hit_selection_handle};
 use shot_core::shortcuts::{HotkeyBindings, ShortcutAction};
 use shot_core::window_candidates::{WindowCandidate, candidate_at};
@@ -18,8 +18,8 @@ use shot_core::{RectPx, RgbaFrame};
 use shot_image::annotation_tools::{Tool, annotation_for_drag};
 use shot_image::history::{Annotation, AnnotationDocument};
 use shot_image::pixel_tools::{magnifier_patch, sample_rgba};
-use shot_ocr_protocol::{MAX_RGBA_BYTES, OcrDocument};
 use shot_ocr_protocol::hit_test::{hit_line_in_capture, selected_text};
+use shot_ocr_protocol::{MAX_RGBA_BYTES, OcrDocument};
 use shot_platform::macos::MacCapture;
 use std::borrow::Cow;
 use std::path::PathBuf;
@@ -840,7 +840,10 @@ impl PicPasteApp {
     }
 
     fn request_pin_ocr(&mut self, ctx: &egui::Context, pin_id: u64) {
-        let Some(pin) = self.pins.iter_mut().find(|pin| pin.id == pin_id && !pin.is_closed())
+        let Some(pin) = self
+            .pins
+            .iter_mut()
+            .find(|pin| pin.id == pin_id && !pin.is_closed())
         else {
             return;
         };
@@ -870,13 +873,20 @@ impl PicPasteApp {
         match event {
             PinEvent::Recognize(id) => self.request_pin_ocr(ctx, id),
             PinEvent::Move(id) => {
-                if let Some(pin) = self.pins.iter_mut().find(|pin| pin.id == id && !pin.is_closed()) {
+                if let Some(pin) = self
+                    .pins
+                    .iter_mut()
+                    .find(|pin| pin.id == id && !pin.is_closed())
+                {
                     pin.mode = PinMode::Move;
                     pin.selected_line = None;
                 }
             }
             PinEvent::PickLine { id, pixel } => {
-                if let Some(pin) = self.pins.iter_mut().find(|pin| pin.id == id && !pin.is_closed())
+                if let Some(pin) = self
+                    .pins
+                    .iter_mut()
+                    .find(|pin| pin.id == id && !pin.is_closed())
                     && pin.mode == PinMode::TextSelect
                     && let Some(document) = pin.ocr_result.as_ref()
                 {
@@ -889,7 +899,10 @@ impl PicPasteApp {
                 }
             }
             PinEvent::CopySelected(id) => {
-                let selected = self.pins.iter().find(|pin| pin.id == id && !pin.is_closed())
+                let selected = self
+                    .pins
+                    .iter()
+                    .find(|pin| pin.id == id && !pin.is_closed())
                     .filter(|pin| pin.mode == PinMode::TextSelect)
                     .and_then(|pin| {
                         Some(selected_text(
@@ -898,12 +911,11 @@ impl PicPasteApp {
                         ))
                     });
                 if let Some(text) = selected.filter(|text| !text.is_empty()) {
-                    self.status = match Clipboard::new()
-                        .and_then(|mut clipboard| clipboard.set_text(text))
-                    {
-                        Ok(()) => format!("已复制贴图 #{id} 选中的文字行"),
-                        Err(error) => format!("贴图复制文字失败：{error}"),
-                    };
+                    self.status =
+                        match Clipboard::new().and_then(|mut clipboard| clipboard.set_text(text)) {
+                            Ok(()) => format!("已复制贴图 #{id} 选中的文字行"),
+                            Err(error) => format!("贴图复制文字失败：{error}"),
+                        };
                 }
             }
         }
@@ -1112,7 +1124,9 @@ impl PicPasteApp {
                     }
                 }
                 WorkerResult::PinOcr { pin_id, outcome } => {
-                    if let Some(pin) = self.pins.iter_mut()
+                    if let Some(pin) = self
+                        .pins
+                        .iter_mut()
                         .find(|pin| pin.id == pin_id && !pin.is_closed())
                         && pin.ocr_pending
                     {
@@ -1768,7 +1782,11 @@ impl PicPasteApp {
                             .show_ui(ui, |ui| {
                                 ui.selectable_value(&mut pin.mode, PinMode::Move, "移动");
                                 ui.selectable_value(&mut pin.mode, PinMode::TextSelect, "文字选择");
-                                ui.selectable_value(&mut pin.mode, PinMode::Passthrough, "鼠标穿透");
+                                ui.selectable_value(
+                                    &mut pin.mode,
+                                    PinMode::Passthrough,
+                                    "鼠标穿透",
+                                );
                             });
                         if ui.small_button("OCR (Full)").clicked() {
                             let _ = self.pin_tx.send(PinEvent::Recognize(pin.id));
