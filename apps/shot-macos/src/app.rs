@@ -1041,6 +1041,50 @@ impl eframe::App for PicPasteApp {
 #[cfg(test)]
 mod tests {
     use super::*;
+    fn test_screen(capture_id: u64) -> SelectionView {
+        let ctx = egui::Context::default();
+        let image = Arc::new(RgbaFrame::new(80, 60, vec![255; 80 * 60 * 4]).unwrap());
+        SelectionView::new(&ctx, DisplayId(1), capture_id, image)
+    }
+
+    #[test]
+    fn ocr_reply_is_bound_to_original_capture_and_selected_region() {
+        let mut screen = test_screen(10);
+        screen.selection = Some(RectPx {
+            x: 5,
+            y: 4,
+            width: 20,
+            height: 15,
+        });
+        let ticket = screen.ocr_ticket();
+        assert!(screen.accepts_ocr(ticket));
+        screen.selection = Some(RectPx {
+            x: 6,
+            y: 4,
+            width: 20,
+            height: 15,
+        });
+        assert!(!screen.accepts_ocr(ticket));
+        let new_screen = test_screen(11);
+        assert!(!new_screen.accepts_ocr(ticket));
+    }
+
+    #[test]
+    fn ocr_reply_is_rejected_after_raster_edit_even_if_undone() {
+        let mut screen = test_screen(10);
+        let ticket = screen.ocr_ticket();
+        screen.annotations.apply(Annotation::Line {
+            from: (0.0, 0.0),
+            to: (10.0, 10.0),
+            rgba: [0, 0, 0, 255],
+            width: 2.0,
+        });
+        screen.refresh_preview();
+        assert!(!screen.accepts_ocr(ticket));
+        screen.undo();
+        assert!(!screen.accepts_ocr(ticket));
+    }
+
     #[test]
     fn selection_maps_logical_preview_to_source_pixels() {
         let frame = RgbaFrame::new(200, 100, vec![0; 200 * 100 * 4]).unwrap();
