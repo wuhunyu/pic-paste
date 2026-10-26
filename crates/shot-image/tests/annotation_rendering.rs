@@ -51,7 +51,13 @@ fn blur_changes_only_requested_roi_without_erasing_alpha() {
     let mut image = solid(9, 9, [0, 0, 0, 255]);
     let bright = (4 * 9 + 4) * 4;
     image.rgba[bright..bright + 4].copy_from_slice(&[255, 255, 255, 255]);
-    let blur = Annotation::Blur { left: 2, top: 2, width: 5, height: 5, radius: 2 };
+    let blur = Annotation::Blur {
+        left: 2,
+        top: 2,
+        width: 5,
+        height: 5,
+        radius: 2,
+    };
     let result = composite(&image, &[blur]).unwrap();
     assert_eq!(pixel(&result, 0, 0), [0, 0, 0, 255]);
     assert!(pixel(&result, 4, 4)[0] < 255);
@@ -62,11 +68,28 @@ fn blur_changes_only_requested_roi_without_erasing_alpha() {
 #[test]
 fn unsupported_or_malformed_geometry_must_error_not_succeed_silently() {
     let image = solid(10, 10, [0, 0, 0, 0]);
-    assert!(composite(&image, &[Annotation::Brush {
-        points: vec![(f32::NAN, 4.0), (2.0, 4.0)],
-        rgba: [255; 4], width: 1.0,
-    }]).is_err());
-    assert!(composite(&image, &[Annotation::Blur {
-        left: 1, top: 1, width: 3, height: 3, radius: 0,
-    }]).is_err());
+    assert!(
+        composite(
+            &image,
+            &[Annotation::Brush {
+                points: vec![(f32::NAN, 4.0), (2.0, 4.0)],
+                rgba: [255; 4],
+                width: 1.0,
+            }]
+        )
+        .is_err()
+    );
+    assert!(
+        composite(
+            &image,
+            &[Annotation::Blur {
+                left: 1,
+                top: 1,
+                width: 3,
+                height: 3,
+                radius: 0,
+            }]
+        )
+        .is_err()
+    );
 }

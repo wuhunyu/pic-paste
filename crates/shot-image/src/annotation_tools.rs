@@ -15,11 +15,7 @@ pub enum Tool {
     Blur,
 }
 
-pub fn annotation_for_drag(
-    tool: Tool,
-    start: (i32, i32),
-    end: (i32, i32),
-) -> Option<Annotation> {
+pub fn annotation_for_drag(tool: Tool, start: (i32, i32), end: (i32, i32)) -> Option<Annotation> {
     if tool == Tool::Select {
         return None;
     }
@@ -78,9 +74,21 @@ pub fn annotation_for_drag(
             let width = u32::try_from(dx).ok()?;
             let height = u32::try_from(dy).ok()?;
             if tool == Tool::Blur {
-                Some(Annotation::Blur { left, top, width, height, radius: 6 })
+                Some(Annotation::Blur {
+                    left,
+                    top,
+                    width,
+                    height,
+                    radius: 6,
+                })
             } else {
-                Some(Annotation::Pixelate { left, top, width, height, block_size: 12 })
+                Some(Annotation::Pixelate {
+                    left,
+                    top,
+                    width,
+                    height,
+                    block_size: 12,
+                })
             }
         }
     }

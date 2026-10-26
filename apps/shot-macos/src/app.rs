@@ -1,18 +1,18 @@
 use crate::hotkey::{HotkeyAction, HotkeyController};
-use crate::pin::PinnedImage;
 use crate::menu::{MenuAction, MenuBar};
+use crate::pin::PinnedImage;
 use arboard::{Clipboard, ImageData};
 use eframe::egui;
 use shot_core::platform::{CapturedFrame, PlatformError};
 use shot_core::selection::from_drag;
 use shot_core::{RectPx, RgbaFrame};
-use shot_platform::macos::MacCapture;
-use shot_image::annotation_tools::{annotation_for_drag, Tool};
+use shot_image::annotation_tools::{Tool, annotation_for_drag};
 use shot_image::history::{Annotation, AnnotationDocument};
+use shot_platform::macos::MacCapture;
 use std::borrow::Cow;
 use std::path::PathBuf;
-use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::Arc;
+use std::sync::mpsc::{self, Receiver, Sender};
 use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
@@ -107,11 +107,12 @@ impl SelectionView {
         let width = self.source.width as f32;
         let height = self.source.height as f32;
         let available = ui.available_size() - egui::vec2(0.0, 12.0);
-        let scale = (available.x / width).min(available.y / height).clamp(0.01, 1.0);
+        let scale = (available.x / width)
+            .min(available.y / height)
+            .clamp(0.01, 1.0);
         let displayed = egui::vec2(width * scale, height * scale);
         let response = ui.add(
-            egui::Image::new((self.texture.id(), displayed))
-                .sense(egui::Sense::click_and_drag()),
+            egui::Image::new((self.texture.id(), displayed)).sense(egui::Sense::click_and_drag()),
         );
 
         if response.drag_started() {
@@ -125,8 +126,7 @@ impl SelectionView {
             }
         }
         if (response.dragged() || response.drag_stopped())
-            && let (Some(start), Some(end)) =
-                (self.drag_anchor, response.interact_pointer_pos())
+            && let (Some(start), Some(end)) = (self.drag_anchor, response.interact_pointer_pos())
         {
             let a = point_to_pixel(&response.rect, &self.source, start);
             let b = point_to_pixel(&response.rect, &self.source, end);
@@ -134,9 +134,7 @@ impl SelectionView {
                 self.selection = from_drag(a, b).ok();
             } else if self.tool == Tool::Brush {
                 let last = (b.0 as f32, b.1 as f32);
-                if self.brush_points.last() != Some(&last)
-                    && self.brush_points.len() < 20_000
-                {
+                if self.brush_points.last() != Some(&last) && self.brush_points.len() < 20_000 {
                     self.brush_points.push(last);
                 }
                 if response.drag_stopped() && !self.brush_points.is_empty() {
@@ -193,11 +191,11 @@ fn point_to_pixel(rect: &egui::Rect, frame: &RgbaFrame, point: egui::Pos2) -> (i
 }
 
 fn save_in_pictures(image: &RgbaFrame) -> Result<PathBuf, String> {
-    let home = std::env::var_os("HOME")
-        .ok_or_else(|| String::from("HOME is unavailable"))?;
+    let home = std::env::var_os("HOME").ok_or_else(|| String::from("HOME is unavailable"))?;
     let folder = PathBuf::from(home).join("Pictures").join("PicPaste");
     std::fs::create_dir_all(&folder).map_err(|e| e.to_string())?;
-    let time = SystemTime::now().duration_since(UNIX_EPOCH)
+    let time = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
         .map_err(|e| e.to_string())?
         .as_nanos();
     let path = folder.join(format!("PicPaste-{time}.png"));
@@ -244,11 +242,10 @@ impl PicPasteApp {
             Ok(menu) => (Some(menu), None),
             Err(error) => (None, Some(format!("菜单栏不可用：{error}"))),
         };
-        let (hotkeys, status) =
-            match HotkeyController::install(cc.egui_ctx.clone(), hotkey_tx) {
-                Ok(hotkeys) => (Some(hotkeys), String::from("快捷键已注册")),
-                Err(error) => (None, format!("热键不可用，仍可使用窗口按钮：{error}")),
-            };
+        let (hotkeys, status) = match HotkeyController::install(cc.egui_ctx.clone(), hotkey_tx) {
+            Ok(hotkeys) => (Some(hotkeys), String::from("快捷键已注册")),
+            Err(error) => (None, format!("热键不可用，仍可使用窗口按钮：{error}")),
+        };
         Self {
             status: menu_status.unwrap_or(status),
             radius: 16,
@@ -314,8 +311,10 @@ impl PicPasteApp {
 
     fn paste_clipboard_as_pin(&mut self, ctx: &egui::Context) {
         let result = (|| {
-            let image = Clipboard::new().map_err(|e| e.to_string())?
-                .get_image().map_err(|e| e.to_string())?;
+            let image = Clipboard::new()
+                .map_err(|e| e.to_string())?
+                .get_image()
+                .map_err(|e| e.to_string())?;
             let w = u32::try_from(image.width).map_err(|e| e.to_string())?;
             let h = u32::try_from(image.height).map_err(|e| e.to_string())?;
             RgbaFrame::new(w, h, image.bytes.into_owned())
@@ -382,9 +381,8 @@ impl PicPasteApp {
                             self.status = String::from("截图已完成，请拖动框选区域");
                         }
                         Err(error) => {
-                            self.status = format!(
-                                "截图失败: {error:?}。请检查系统设置→隐私与安全→屏幕录制"
-                            );
+                            self.status =
+                                format!("截图失败: {error:?}。请检查系统设置→隐私与安全→屏幕录制");
                         }
                     }
                 }
@@ -510,7 +508,10 @@ impl eframe::App for PicPasteApp {
                         screen.redo();
                     }
                 });
-                if ui.ctx().input(|input| input.modifiers.command && input.key_pressed(egui::Key::Z)) {
+                if ui
+                    .ctx()
+                    .input(|input| input.modifiers.command && input.key_pressed(egui::Key::Z))
+                {
                     if ui.ctx().input(|input| input.modifiers.shift) {
                         screen.redo();
                     } else {
@@ -557,11 +558,18 @@ mod tests {
     #[test]
     fn selection_maps_logical_preview_to_source_pixels() {
         let frame = RgbaFrame::new(200, 100, vec![0; 200 * 100 * 4]).unwrap();
-        let rect = egui::Rect::from_min_size(
-            egui::pos2(50.0, 80.0), egui::vec2(100.0, 50.0),
+        let rect = egui::Rect::from_min_size(egui::pos2(50.0, 80.0), egui::vec2(100.0, 50.0));
+        assert_eq!(
+            point_to_pixel(&rect, &frame, egui::pos2(50.0, 80.0)),
+            (0, 0)
         );
-        assert_eq!(point_to_pixel(&rect, &frame, egui::pos2(50.0, 80.0)), (0, 0));
-        assert_eq!(point_to_pixel(&rect, &frame, egui::pos2(149.0, 129.0)), (198, 98));
-        assert_eq!(point_to_pixel(&rect, &frame, egui::pos2(170.0, 140.0)), (199, 99));
+        assert_eq!(
+            point_to_pixel(&rect, &frame, egui::pos2(149.0, 129.0)),
+            (198, 98)
+        );
+        assert_eq!(
+            point_to_pixel(&rect, &frame, egui::pos2(170.0, 140.0)),
+            (199, 99)
+        );
     }
 }

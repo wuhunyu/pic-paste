@@ -19,9 +19,23 @@ mod tests {
     use super::*;
     #[test]
     fn includes_single_pixel_and_reversed_negative_drag() {
-        assert_eq!(from_drag((-8, 20), (-8, 20)).unwrap(),
-            RectPx { x: -8, y: 20, width: 1, height: 1 });
-        assert_eq!(from_drag((100, 80), (-10, -20)).unwrap(),
-            RectPx { x: -10, y: -20, width: 111, height: 101 });
+        assert_eq!(
+            from_drag((-8, 20), (-8, 20)).unwrap(),
+            RectPx {
+                x: -8,
+                y: 20,
+                width: 1,
+                height: 1
+            }
+        );
+        assert_eq!(
+            from_drag((100, 80), (-10, -20)).unwrap(),
+            RectPx {
+                x: -10,
+                y: -20,
+                width: 111,
+                height: 101
+            }
+        );
     }
 }

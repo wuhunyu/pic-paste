@@ -4,8 +4,8 @@ pub mod annotation_tools;
 mod export;
 pub use export::{atomic_save_png, crop_rgba};
 pub mod composite;
-pub mod stream_png;
 pub mod history;
+pub mod stream_png;
 use shot_core::RgbaFrame;
 use std::io::Write;
 
@@ -24,7 +24,9 @@ pub fn rounded_alpha(frame: &mut RgbaFrame, requested_radius: u32) {
     let width = frame.width;
     let height = frame.height;
     let r = requested_radius.min(width.min(height) / 2);
-    if r == 0 { return; }
+    if r == 0 {
+        return;
+    }
     let rf = r as f32;
     let wf = width as f32;
     let hf = height as f32;
@@ -32,15 +34,31 @@ pub fn rounded_alpha(frame: &mut RgbaFrame, requested_radius: u32) {
         for x in 0..width {
             let cx = x as f32 + 0.5;
             let cy = y as f32 + 0.5;
-            if (cx >= rf && cx <= wf - rf) || (cy >= rf && cy <= hf - rf) { continue; }
+            if (cx >= rf && cx <= wf - rf) || (cy >= rf && cy <= hf - rf) {
+                continue;
+            }
             let mut coverage = 0u32;
             for sy in 0..4 {
                 for sx in 0..4 {
                     let px = x as f32 + (sx as f32 + 0.5) / 4.0;
                     let py = y as f32 + (sy as f32 + 0.5) / 4.0;
-                    let qx = if px < rf { rf - px } else if px > wf - rf { px - (wf - rf) } else { 0.0 };
-                    let qy = if py < rf { rf - py } else if py > hf - rf { py - (hf - rf) } else { 0.0 };
-                    if qx * qx + qy * qy <= rf * rf { coverage += 1; }
+                    let qx = if px < rf {
+                        rf - px
+                    } else if px > wf - rf {
+                        px - (wf - rf)
+                    } else {
+                        0.0
+                    };
+                    let qy = if py < rf {
+                        rf - py
+                    } else if py > hf - rf {
+                        py - (hf - rf)
+                    } else {
+                        0.0
+                    };
+                    if qx * qx + qy * qy <= rf * rf {
+                        coverage += 1;
+                    }
                 }
             }
             let idx = ((y as usize * width as usize) + x as usize) * 4 + 3;

@@ -16,7 +16,9 @@ impl MacCapture {
 
     pub fn available_displays() -> Result<Vec<DisplayId>, PlatformError> {
         let content = SCShareableContent::get().map_err(map_capture_error)?;
-        Ok(content.displays().iter()
+        Ok(content
+            .displays()
+            .iter()
             .map(|display| DisplayId(u64::from(display.display_id())))
             .collect())
     }
@@ -24,7 +26,10 @@ impl MacCapture {
     /// Capture the first display before showing any selection overlay.
     pub fn capture_primary() -> Result<CapturedFrame, PlatformError> {
         let content = SCShareableContent::get().map_err(map_capture_error)?;
-        let display = content.displays().into_iter().next()
+        let display = content
+            .displays()
+            .into_iter()
+            .next()
             .ok_or(PlatformError::Unavailable)?;
         Self::capture_native(&display)
     }
@@ -49,15 +54,16 @@ impl MacCapture {
             .with_height(height)
             .with_pixel_format(PixelFormat::BGRA)
             .with_shows_cursor(false);
-        let screenshot = SCScreenshotManager::capture_image(&filter, &config)
-            .map_err(map_capture_error)?;
-        let actual_width = u32::try_from(screenshot.width())
-            .map_err(|_| PlatformError::InvalidInput)?;
-        let actual_height = u32::try_from(screenshot.height())
-            .map_err(|_| PlatformError::InvalidInput)?;
+        let screenshot =
+            SCScreenshotManager::capture_image(&filter, &config).map_err(map_capture_error)?;
+        let actual_width =
+            u32::try_from(screenshot.width()).map_err(|_| PlatformError::InvalidInput)?;
+        let actual_height =
+            u32::try_from(screenshot.height()).map_err(|_| PlatformError::InvalidInput)?;
         let rgba = screenshot.rgba_data().map_err(map_capture_error)?;
-        let image = RgbaFrame::new(actual_width, actual_height, rgba)
-            .map_err(|error| PlatformError::Internal(format!("invalid capture pixels: {error:?}")))?;
+        let image = RgbaFrame::new(actual_width, actual_height, rgba).map_err(|error| {
+            PlatformError::Internal(format!("invalid capture pixels: {error:?}"))
+        })?;
 
         // SCDisplay.frame uses desktop coordinates in logical points. For now
         // convert using the filter's scale; mixed-DPI global mapping remains a
@@ -66,9 +72,12 @@ impl MacCapture {
         let frame = display.frame();
         let x = (frame.origin.x * scale).round();
         let y = (frame.origin.y * scale).round();
-        if !x.is_finite() || !y.is_finite()
-            || x < f64::from(i32::MIN) || x > f64::from(i32::MAX)
-            || y < f64::from(i32::MIN) || y > f64::from(i32::MAX)
+        if !x.is_finite()
+            || !y.is_finite()
+            || x < f64::from(i32::MIN)
+            || x > f64::from(i32::MAX)
+            || y < f64::from(i32::MIN)
+            || y > f64::from(i32::MAX)
         {
             return Err(PlatformError::InvalidInput);
         }
@@ -83,22 +92,32 @@ impl MacCapture {
 impl ScreenCapture for MacCapture {
     fn capture_display(&mut self, display: DisplayId) -> Result<CapturedFrame, PlatformError> {
         let content = SCShareableContent::get().map_err(map_capture_error)?;
-        let target = content.displays().into_iter()
+        let target = content
+            .displays()
+            .into_iter()
             .find(|entry| u64::from(entry.display_id()) == display.0)
             .ok_or(PlatformError::Unavailable)?;
         Self::capture_native(&target)
     }
 
-    fn capture_region(&mut self, display: DisplayId, region: RectPx)
-        -> Result<CapturedFrame, PlatformError>
-    {
+    fn capture_region(
+        &mut self,
+        display: DisplayId,
+        region: RectPx,
+    ) -> Result<CapturedFrame, PlatformError> {
         let mut full = self.capture_display(display)?;
         // Region is relative to this display's physical pixel image.
-        let image = shot_image::crop_rgba(&full.image, region)
-            .map_err(|_| PlatformError::InvalidInput)?;
+        let image =
+            shot_image::crop_rgba(&full.image, region).map_err(|_| PlatformError::InvalidInput)?;
         full.origin_px = (
-            full.origin_px.0.checked_add(region.x).ok_or(PlatformError::InvalidInput)?,
-            full.origin_px.1.checked_add(region.y).ok_or(PlatformError::InvalidInput)?,
+            full.origin_px
+                .0
+                .checked_add(region.x)
+                .ok_or(PlatformError::InvalidInput)?,
+            full.origin_px
+                .1
+                .checked_add(region.y)
+                .ok_or(PlatformError::InvalidInput)?,
         );
         full.image = image;
         Ok(full)
@@ -108,7 +127,8 @@ impl ScreenCapture for MacCapture {
 fn map_capture_error(error: impl std::fmt::Display) -> PlatformError {
     let message = error.to_string();
     let normalized = message.to_ascii_lowercase();
-    if normalized.contains("permission") || normalized.contains("denied")
+    if normalized.contains("permission")
+        || normalized.contains("denied")
         || normalized.contains("authorized")
     {
         PlatformError::PermissionDenied

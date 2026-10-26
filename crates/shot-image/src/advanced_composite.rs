@@ -17,8 +17,11 @@ fn draw_ellipse(
     rgba: [u8; 4],
     width: f32,
 ) -> Result<(), &'static str> {
-    if !valid_point(center) || !valid_point(radius)
-        || radius.0 <= 0.0 || radius.1 <= 0.0 || !valid_width(width)
+    if !valid_point(center)
+        || !valid_point(radius)
+        || radius.0 <= 0.0
+        || radius.1 <= 0.0
+        || !valid_width(width)
     {
         return Err("invalid ellipse");
     }
@@ -78,8 +81,10 @@ fn draw_brush(
     rgba: [u8; 4],
     width: f32,
 ) -> Result<(), &'static str> {
-    if points.is_empty() || points.len() > 500_000
-        || !valid_width(width) || !points.iter().all(|&p| valid_point(p))
+    if points.is_empty()
+        || points.len() > 500_000
+        || !valid_width(width)
+        || !points.iter().all(|&p| valid_point(p))
     {
         return Err("invalid brush path");
     }
@@ -98,10 +103,18 @@ fn draw_brush(
 // RGB is accumulated premultiplied by alpha to avoid dark transparent halos.
 fn blur_roi(
     frame: &mut RgbaFrame,
-    left: u32, top: u32, width: u32, height: u32, radius: u32,
+    left: u32,
+    top: u32,
+    width: u32,
+    height: u32,
+    radius: u32,
 ) -> Result<(), &'static str> {
-    if width == 0 || height == 0 || radius == 0 || radius > 32
-        || left >= frame.width || top >= frame.height
+    if width == 0
+        || height == 0
+        || radius == 0
+        || radius > 32
+        || left >= frame.width
+        || top >= frame.height
     {
         return Err("invalid blur region");
     }
@@ -114,8 +127,7 @@ fn blur_roi(
     }
     let r = radius as usize;
     let sample = |x: usize, y: usize| {
-        let index = ((top as usize + y) * frame.width as usize
-            + left as usize + x) * 4;
+        let index = ((top as usize + y) * frame.width as usize + left as usize + x) * 4;
         let a = u32::from(frame.rgba[index + 3]);
         [
             a,
@@ -129,17 +141,23 @@ fn blur_roi(
         let mut sum = [0u32; 4];
         for x in 0..=r.min(w - 1) {
             let value = sample(x, y);
-            for (dst, src) in sum.iter_mut().zip(value) { *dst += src; }
+            for (dst, src) in sum.iter_mut().zip(value) {
+                *dst += src;
+            }
         }
         for x in 0..w {
             horizontal[y * w + x] = sum;
             if x >= r {
                 let value = sample(x - r, y);
-                for (dst, src) in sum.iter_mut().zip(value) { *dst -= src; }
+                for (dst, src) in sum.iter_mut().zip(value) {
+                    *dst -= src;
+                }
             }
             if x + r + 1 < w {
                 let value = sample(x + r + 1, y);
-                for (dst, src) in sum.iter_mut().zip(value) { *dst += src; }
+                for (dst, src) in sum.iter_mut().zip(value) {
+                    *dst += src;
+                }
             }
         }
     }
@@ -148,7 +166,9 @@ fn blur_roi(
     for y in 0..=r.min(h - 1) {
         for (x, dst) in vertical.iter_mut().enumerate() {
             let src = horizontal[y * w + x];
-            for (a, b) in dst.iter_mut().zip(src) { *a += u64::from(b); }
+            for (a, b) in dst.iter_mut().zip(src) {
+                *a += u64::from(b);
+            }
         }
     }
     for y in 0..h {
@@ -160,26 +180,28 @@ fn blur_roi(
             let mut rgba = [0, 0, 0, alpha];
             if sum[0] != 0 {
                 for channel in 0..3 {
-                    rgba[channel] = ((sum[channel + 1] + sum[0] / 2) / sum[0])
-                        .min(255) as u8;
+                    rgba[channel] = ((sum[channel + 1] + sum[0] / 2) / sum[0]).min(255) as u8;
                 }
             }
-            let index = ((top as usize + y) * frame.width as usize
-                + left as usize + x) * 4;
+            let index = ((top as usize + y) * frame.width as usize + left as usize + x) * 4;
             frame.rgba[index..index + 4].copy_from_slice(&rgba);
         }
         if y >= r {
             let drop = y - r;
             for (x, dst) in vertical.iter_mut().enumerate() {
                 let src = horizontal[drop * w + x];
-                for (a, b) in dst.iter_mut().zip(src) { *a -= u64::from(b); }
+                for (a, b) in dst.iter_mut().zip(src) {
+                    *a -= u64::from(b);
+                }
             }
         }
         if y + r + 1 < h {
             let add = y + r + 1;
             for (x, dst) in vertical.iter_mut().enumerate() {
                 let src = horizontal[add * w + x];
-                for (a, b) in dst.iter_mut().zip(src) { *a += u64::from(b); }
+                for (a, b) in dst.iter_mut().zip(src) {
+                    *a += u64::from(b);
+                }
             }
         }
     }
@@ -191,16 +213,36 @@ pub(crate) fn render_advanced(
     operation: &Annotation,
 ) -> Result<bool, &'static str> {
     match operation {
-        Annotation::Arrow { from, to, rgba, width } => {
+        Annotation::Arrow {
+            from,
+            to,
+            rgba,
+            width,
+        } => {
             draw_arrow(frame, *from, *to, *rgba, *width)?;
         }
-        Annotation::Brush { points, rgba, width } => {
+        Annotation::Brush {
+            points,
+            rgba,
+            width,
+        } => {
             draw_brush(frame, points, *rgba, *width)?;
         }
-        Annotation::Ellipse { center, radius, rgba, width } => {
+        Annotation::Ellipse {
+            center,
+            radius,
+            rgba,
+            width,
+        } => {
             draw_ellipse(frame, *center, *radius, *rgba, *width)?;
         }
-        Annotation::Blur { left, top, width, height, radius } => {
+        Annotation::Blur {
+            left,
+            top,
+            width,
+            height,
+            radius,
+        } => {
             blur_roi(frame, *left, *top, *width, *height, *radius)?;
         }
         _ => return Ok(false),

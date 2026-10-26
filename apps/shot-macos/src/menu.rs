@@ -21,10 +21,12 @@ fn pin_icon() -> Vec<u8> {
     for y in 0usize..24 {
         for x in 0usize..24 {
             // Compact, high-contrast mint/cobalt pin icon for dark/light menu bars.
-            let pin_head = (8..=16).contains(&x) && (4..=12).contains(&y)
+            let pin_head = (8..=16).contains(&x)
+                && (4..=12).contains(&y)
                 && ((x as i32 - 12).pow(2) + (y as i32 - 8).pow(2) <= 24);
             let stem = (11..=13).contains(&x) && (11..=20).contains(&y);
-            let outline = (5..=19).contains(&x) && (2..=21).contains(&y)
+            let outline = (5..=19).contains(&x)
+                && (2..=21).contains(&y)
                 && (x == 5 || x == 19 || y == 2 || y == 21);
             let index = (y * 24 + x) * 4;
             if pin_head || stem {
@@ -53,7 +55,8 @@ impl MenuBar {
             .with_icon(icon)
             .with_tooltip("PicPaste 截图与贴图")
             .with_menu(Box::new(menu))
-            .build().map_err(|e| e.to_string())?;
+            .build()
+            .map_err(|e| e.to_string())?;
 
         let capture_id = capture.id().clone();
         let pin_id = pin.id().clone();

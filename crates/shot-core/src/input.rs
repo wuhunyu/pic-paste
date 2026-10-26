@@ -1,14 +1,23 @@
 use crate::pins::PinMode;
 /// A drag latches the action on pointer-down, avoiding mid-drag OCR/Move switching.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum DragAction { MovePin, SelectText, None }
+pub enum DragAction {
+    MovePin,
+    SelectText,
+    None,
+}
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct DragLatch {
     action: DragAction,
     pressed: bool,
 }
 impl Default for DragLatch {
-    fn default() -> Self { Self { action: DragAction::None, pressed: false } }
+    fn default() -> Self {
+        Self {
+            action: DragAction::None,
+            pressed: false,
+        }
+    }
 }
 impl DragLatch {
     pub fn down(&mut self, mode: PinMode, shift: bool) -> DragAction {
@@ -23,7 +32,11 @@ impl DragLatch {
         self.action
     }
     pub fn current(&self) -> DragAction {
-        if self.pressed { self.action } else { DragAction::None }
+        if self.pressed {
+            self.action
+        } else {
+            DragAction::None
+        }
     }
     pub fn up(&mut self) {
         self.pressed = false;
@@ -36,7 +49,10 @@ mod tests {
     #[test]
     fn drag_mode_is_stable_until_pointer_up() {
         let mut latch = DragLatch::default();
-        assert_eq!(latch.down(PinMode::TextSelect, false), DragAction::SelectText);
+        assert_eq!(
+            latch.down(PinMode::TextSelect, false),
+            DragAction::SelectText
+        );
         assert_eq!(latch.current(), DragAction::SelectText);
         latch.up();
         assert_eq!(latch.down(PinMode::TextSelect, true), DragAction::MovePin);

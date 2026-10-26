@@ -19,23 +19,17 @@ impl HotkeyController {
     pub fn install(ctx: egui::Context, queue: Sender<HotkeyAction>) -> Result<Self, String> {
         let manager = GlobalHotKeyManager::new()
             .map_err(|error| format!("Cannot start global hotkeys: {error}"))?;
-        let capture = HotKey::new(
-            Some(Modifiers::CONTROL | Modifiers::ALT),
-            Code::Digit1,
-        );
-        let pin = HotKey::new(
-            Some(Modifiers::CONTROL | Modifiers::ALT),
-            Code::Digit2,
-        );
-        manager.register(capture)
+        let capture = HotKey::new(Some(Modifiers::CONTROL | Modifiers::ALT), Code::Digit1);
+        let pin = HotKey::new(Some(Modifiers::CONTROL | Modifiers::ALT), Code::Digit2);
+        manager
+            .register(capture)
             .map_err(|error| format!("Screenshot hotkey unavailable: {error}"))?;
-        manager.register(pin)
+        manager
+            .register(pin)
             .map_err(|error| format!("Pin hotkey unavailable: {error}"))?;
-        let recover = HotKey::new(
-            Some(Modifiers::CONTROL | Modifiers::ALT),
-            Code::Digit3,
-        );
-        manager.register(recover)
+        let recover = HotKey::new(Some(Modifiers::CONTROL | Modifiers::ALT), Code::Digit3);
+        manager
+            .register(recover)
             .map_err(|error| format!("Recovery hotkey unavailable: {error}"))?;
         let capture_id = capture.id();
         let pin_id = pin.id();

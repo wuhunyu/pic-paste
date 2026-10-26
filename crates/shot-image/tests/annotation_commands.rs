@@ -1,16 +1,19 @@
-use shot_image::annotation_tools::{annotation_for_drag, Tool};
+use shot_image::annotation_tools::{Tool, annotation_for_drag};
 use shot_image::history::Annotation;
 
 #[test]
 fn reverse_drag_produces_bounded_mosaic_region() {
     let annotation = annotation_for_drag(Tool::Pixelate, (90, 80), (10, 20)).unwrap();
-    assert!(matches!(annotation, Annotation::Pixelate {
-        left: 10,
-        top: 20,
-        width: 81,
-        height: 61,
-        block_size: 12
-    }));
+    assert!(matches!(
+        annotation,
+        Annotation::Pixelate {
+            left: 10,
+            top: 20,
+            width: 81,
+            height: 61,
+            block_size: 12
+        }
+    ));
 }
 
 #[test]
