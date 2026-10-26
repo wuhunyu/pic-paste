@@ -494,7 +494,9 @@ impl PicPasteApp {
                     match outcome {
                         Ok(document) => {
                             self.ocr_lines = document.lines.len();
-                            self.ocr_text = document.lines.iter()
+                            self.ocr_text = document
+                                .lines
+                                .iter()
                                 .map(|line| line.text.as_str())
                                 .collect::<Vec<_>>()
                                 .join("\n");

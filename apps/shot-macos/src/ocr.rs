@@ -1,5 +1,5 @@
 use shot_core::RgbaFrame;
-use shot_ocr_protocol::{OcrDocument, OcrRequest, OcrResponse, MAX_RGBA_BYTES, read_response};
+use shot_ocr_protocol::{MAX_RGBA_BYTES, OcrDocument, OcrRequest, OcrResponse, read_response};
 use std::process::{Command, Stdio};
 use std::sync::mpsc;
 use std::thread;

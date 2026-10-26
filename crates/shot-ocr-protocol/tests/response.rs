@@ -11,7 +11,9 @@ fn framed(body: &[u8]) -> Vec<u8> {
 fn correctly_decodes_bounded_vision_text_lines_with_pixel_positions() {
     let content = br#"{"protocol_version":1,"document":{"image_hash":"a8","pixel_width":640,"pixel_height":480,"provider":"apple-vision","model_revision":"macos-vision","lines":[{"text":"Hello World","confidence":0.97,"polygon_px":[[10.0,20.0],[180.0,20.0],[180.0,44.0],[10.0,44.0]],"words":[]}]}}"#;
     let response = read_response(framed(content).as_slice()).unwrap();
-    let OcrResponse::Document(doc) = response else { panic!("expected OCR document") };
+    let OcrResponse::Document(doc) = response else {
+        panic!("expected OCR document")
+    };
     assert_eq!(doc.pixel_width, 640);
     assert_eq!(doc.lines[0].text, "Hello World");
     assert_eq!(doc.lines[0].polygon_px[0], [10.0, 20.0]);

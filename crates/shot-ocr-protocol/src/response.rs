@@ -99,9 +99,7 @@ pub fn read_response<R: Read>(mut reader: R) -> io::Result<OcrResponse> {
         return Err(invalid("OCR protocol version mismatch"));
     }
     match (reply.document, reply.error) {
-        (Some(document), None) if valid_document(&document) => {
-            Ok(OcrResponse::Document(document))
-        }
+        (Some(document), None) if valid_document(&document) => Ok(OcrResponse::Document(document)),
         (None, Some(message)) if !message.is_empty() => Ok(OcrResponse::Error(message)),
         _ => Err(invalid("invalid OCR response contents")),
     }
