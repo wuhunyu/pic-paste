@@ -89,7 +89,9 @@ pub fn composite(base: &RgbaFrame, operations: &[Annotation]) -> Result<RgbaFram
                         for y in by..ey {
                             for x in bx..ex {
                                 let idx = (y as usize * result.width as usize + x as usize) * 4;
-                                for ch in 0..4 { sums[ch] += u64::from(result.rgba[idx + ch]); }
+                                for (channel, sum) in sums.iter_mut().enumerate() {
+                                    *sum += u64::from(result.rgba[idx + channel]);
+                                }
                                 count += 1;
                             }
                         }
