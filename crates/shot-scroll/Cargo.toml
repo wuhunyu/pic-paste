@@ -1,0 +1,7 @@
+[package]
+name = "shot-scroll"
+version.workspace = true
+edition.workspace = true
+[dependencies]
+shot-core = { path = "../shot-core" }
+shot-image = { path = "../shot-image" }
