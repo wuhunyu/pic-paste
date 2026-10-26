@@ -10,7 +10,21 @@ on:
   pull_request:
   workflow_dispatch:
 jobs:
+  core:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Check source format
+        run: cargo fmt --all -- --check
+      - name: Test platform-independent crates
+        run: cargo test -p shot-core -p shot-image -p shot-scroll -p shot-ocr-protocol --locked
+      - name: Strict core lints
+        run: cargo clippy -p shot-core -p shot-image -p shot-scroll -p shot-ocr-protocol --all-targets --locked -- -D warnings
   rust:
+    needs: core
     runs-on: macos-26
     env:
       MACOSX_DEPLOYMENT_TARGET: '14.0'
