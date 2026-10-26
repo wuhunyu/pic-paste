@@ -2,6 +2,7 @@ name: Rust CI
 on:
   push:
   pull_request:
+  workflow_dispatch:
 jobs:
   rust:
     runs-on: macos-14
@@ -12,6 +13,8 @@ jobs:
           components: rustfmt, clippy
       - name: Generate dependency lockfile
         run: cargo generate-lockfile
+      - name: Format source before validation
+        run: cargo fmt --all
       - name: Check formatting
         run: cargo fmt --all -- --check
       - name: Test workspace
