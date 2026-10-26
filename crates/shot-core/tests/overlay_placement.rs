@@ -3,12 +3,7 @@ use shot_core::platform::{DisplayId, PlatformError};
 
 #[test]
 fn native_overlay_uses_logical_bounds_of_the_captured_monitor() {
-    let p = OverlayPlacement::new(
-        DisplayId(72),
-        (-1440.0, -120.0),
-        (1440.0, 900.0),
-    )
-    .unwrap();
+    let p = OverlayPlacement::new(DisplayId(72), (-1440.0, -120.0), (1440.0, 900.0)).unwrap();
     assert_eq!(p.display_id(), DisplayId(72));
     assert_eq!(p.origin_pt(), (-1440.0, -120.0));
     assert_eq!(p.size_pt(), (1440.0, 900.0));
