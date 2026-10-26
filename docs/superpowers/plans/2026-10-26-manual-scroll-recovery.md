@@ -35,8 +35,8 @@
 - `RecoveryTracker::{observe, resume, paused, needs_partial_review, consecutive_failures}`
 
 - [x] Step 1: Add failing Rust tests for the third mismatch, unchanged-frame neutrality, repeated retry, safe pause, and clearing the partial warning only after confirmed overlap.
-- [ ] Step 2: Run `cargo test -p shot-scroll --test manual_recovery --locked` via GitHub CI; expected RED `unresolved import shot_scroll::recovery`.
-- [ ] Step 3: Create the following minimal production type/state machine:
+- [x] Step 2: Run `cargo test -p shot-scroll --test manual_recovery --locked` via GitHub CI; expected RED `unresolved import shot_scroll::recovery`.
+- [x] Step 3: Create the following minimal production type/state machine:
 
 ```rust
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -85,8 +85,8 @@ impl RecoveryTracker {
 }
 ```
 
-- [ ] Step 4: Run `cargo test -p shot-scroll --test manual_recovery --locked`, `cargo test --workspace --locked` and `cargo clippy --workspace --all-targets --locked -- -D warnings`. Expect GREEN on supported CI runners.
-- [ ] Step 5: Commit verified recovery tracker before changing macOS worker.
+- [x] Step 4: Run `cargo test -p shot-scroll --test manual_recovery --locked`, `cargo test --workspace --locked` and `cargo clippy --workspace --all-targets --locked -- -D warnings`. Expect GREEN on supported CI runners.
+- [x] Step 5: Commit verified recovery tracker before changing macOS worker. (core verified, separate macOS RED confirmed on CI #40313417053)
 
 ### Task 2: Pause/Retry/Finish command and manual menu
 
@@ -98,11 +98,11 @@ impl RecoveryTracker {
 
 **Interfaces:** Keep `ScrollCaptureControl::{finish,cancel,take_live_preview}` and add `resume() -> bool`, `is_paused() -> bool`. Add `ScrollEvent::{RecoveryNeeded { segments, width, height }, RecoveryResumed}` and `MenuAction::ResumeScroll`.
 
-- [ ] Step 1: Write macOS unit tests for control atomics: finish succeeds while paused, cancel cannot be overwritten by finish, and retry is only legal while paused. Tests must fail before adding the new API.
-- [ ] Step 2: Add `PAUSED=3`, `RETRY=4` and an atomic compare/exchange loop to `finish()` so Finish works from RUNNING, PAUSED, or RETRY but never overwrites CANCEL.
-- [ ] Step 3: Replace `mismatches += 1; if mismatches >= 3 { partial=true; break }` in `capture_loop` with `RecoveryTracker::observe(Untrusted)`. If `Pause`, CAS RUNNING→PAUSED, send `RecoveryNeeded`, keep `TileStore` and `previous`. While paused, stop taking screenshots. On RETRY, CAS RETRY→RUNNING, call `tracker.resume()`, send `RecoveryResumed`, and resume at the **same trusted anchor**.
-- [ ] Step 4: Do not allow changed source pixels to mutate TileStore after command != RUNNING; do not count identical frames as mismatches. Set `review.partial` when the session is finished while `tracker.needs_partial_review()`.
-- [ ] Step 5: Add tray menu item “继续手动长截图（慢速重试）”→`MenuAction::ResumeScroll`. In `app.rs`, add `resume_manual_scroll` and status messages. In live preview, use `ScrollCaptureControl::is_paused()` to show clear instructions to roll back manually and resume via the tray; preview remains `with_mouse_passthrough(true)`.
+- [x] Step 1: Write macOS unit tests for control atomics: finish succeeds while paused, cancel cannot be overwritten by finish, and retry is only legal while paused. Tests must fail before adding the new API.
+- [x] Step 2: Add `PAUSED=3`, `RETRY=4` and an atomic compare/exchange loop to `finish()` so Finish works from RUNNING, PAUSED, or RETRY but never overwrites CANCEL.
+- [x] Step 3: Replace `mismatches += 1; if mismatches >= 3 { partial=true; break }` in `capture_loop` with `RecoveryTracker::observe(Untrusted)`. If `Pause`, CAS RUNNING→PAUSED, send `RecoveryNeeded`, keep `TileStore` and `previous`. While paused, stop taking screenshots. On RETRY, CAS RETRY→RUNNING, call `tracker.resume()`, send `RecoveryResumed`, and resume at the **same trusted anchor**.
+- [x] Step 4: Do not allow changed source pixels to mutate TileStore after command != RUNNING; do not count identical frames as mismatches. Set `review.partial` when the session is finished while `tracker.needs_partial_review()`.
+- [x] Step 5: Add tray menu item “继续手动长截图（慢速重试）”→`MenuAction::ResumeScroll`. In `app.rs`, add `resume_manual_scroll` and status messages. In live preview, use `ScrollCaptureControl::is_paused()` to show clear instructions to roll back manually and resume via the tray; preview remains `with_mouse_passthrough(true)`.
 - [ ] Step 6: Run full macOS fmt/test/Clippy/Release/Swift OCR IPC/Lite+Full workflow; fix any failures before merge.
 
 ### Task 3: Documentation, acceptance, merge
@@ -113,7 +113,7 @@ impl RecoveryTracker {
 - Modify: `docs/TASKS.md`
 - Modify: GitHub Issue [#7](https://github.com/wuhunyu/pic-paste/issues/7)
 
-- [ ] Step 1: Remove “auto scroll missing” as a defect/roadmap obligation. Keep “manual scroll; automatic capture and trusted stitching.” Add failure guidance and recovery protocol.
-- [ ] Step 2: Update P4-T3 to “手动失败恢复/固定区域过滤/中间段纠错” and state code vs real-device acceptance separately.
-- [ ] Step 3: Record reproducible cases: jump >65% viewport, scroll backward, changing header, animated body, no-motion, repeated failures, finish-paused, cancel-paused, both axes, PNG export.
+- [x] Step 1: Remove “auto scroll missing” as a defect/roadmap obligation. Keep “manual scroll; automatic capture and trusted stitching.” Add failure guidance and recovery protocol.
+- [x] Step 2: Update P4-T3 to “手动失败恢复/固定区域过滤/中间段纠错” and state code vs real-device acceptance separately.
+- [x] Step 3: Record reproducible cases: jump >65% viewport, scroll backward, changing header, animated body, no-motion, repeated failures, finish-paused, cancel-paused, both axes, PNG export.
 - [ ] Step 4: Merge only full-green PR; verify current `main` CI. Do not claim 50-scene acceptance or true pixel-perfect macOS performance from CI.

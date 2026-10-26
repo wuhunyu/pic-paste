@@ -748,9 +748,8 @@ impl PicPasteApp {
     fn resume_manual_scroll(&mut self) {
         if let Some(control) = &self.scroll_control {
             if control.resume() {
-                self.status = String::from(
-                    "已请求继续采集：请手动滚回有共同内容的位置，再按原方向慢慢滚动",
-                );
+                self.status =
+                    String::from("已请求继续采集：请手动滚回有共同内容的位置，再按原方向慢慢滚动");
             } else {
                 self.status = String::from("长截图未处于暂停状态，无需重试");
             }
@@ -1230,9 +1229,8 @@ impl PicPasteApp {
                     );
                 }
                 ScrollEvent::RecoveryResumed => {
-                    self.status = String::from(
-                        "长截图继续尝试：请慢慢滚动；只有确认重叠才会继续拼接",
-                    );
+                    self.status =
+                        String::from("长截图继续尝试：请慢慢滚动；只有确认重叠才会继续拼接");
                 }
                 ScrollEvent::Finished(outcome) => {
                     self.scroll_control.take();
@@ -1357,9 +1355,7 @@ impl eframe::App for PicPasteApp {
                                 egui::Color32::YELLOW,
                                 "画面变化太大，未添加不可信内容",
                             );
-                            ui.label(
-                                "请手动滚回上次重叠的位置，再从菜单栏选择“长截图慢速重试”",
-                            );
+                            ui.label("请手动滚回上次重叠的位置，再从菜单栏选择“长截图慢速重试”");
                             ui.label("重试后慢慢滚动；也可以从菜单栏结束，保存可信部分");
                         } else {
                             ui.heading("长截图实时预览");

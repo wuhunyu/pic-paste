@@ -36,12 +36,10 @@ impl ScrollCaptureControl {
     pub fn finish(&self) {
         let mut state = self.command.load(Ordering::SeqCst);
         while matches!(state, RUNNING | PAUSED | RETRY) {
-            match self.command.compare_exchange(
-                state,
-                FINISH,
-                Ordering::SeqCst,
-                Ordering::SeqCst,
-            ) {
+            match self
+                .command
+                .compare_exchange(state, FINISH, Ordering::SeqCst, Ordering::SeqCst)
+            {
                 Ok(_) => return,
                 Err(actual) => state = actual,
             }
@@ -67,7 +65,10 @@ impl ScrollCaptureControl {
 
 impl Drop for ScrollCaptureControl {
     fn drop(&mut self) {
-        if matches!(self.command.load(Ordering::SeqCst), RUNNING | PAUSED | RETRY) {
+        if matches!(
+            self.command.load(Ordering::SeqCst),
+            RUNNING | PAUSED | RETRY
+        ) {
             self.cancel();
         }
     }
