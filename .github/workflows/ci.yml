@@ -5,12 +5,16 @@ on:
   workflow_dispatch:
 jobs:
   rust:
-    runs-on: macos-14
+    runs-on: macos-26
+    env:
+      MACOSX_DEPLOYMENT_TARGET: '14.0'
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
+      - name: Apple build SDK
+        run: xcodebuild -version && xcrun --show-sdk-version
       - name: Benchmark tooling regression tests
         run: python3 -m unittest discover -s tests -p 'test_*.py'
       - name: Generate dependency lockfile
