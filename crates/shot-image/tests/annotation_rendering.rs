@@ -18,7 +18,7 @@ fn ellipse_draws_visible_stroke_but_not_its_center() {
     let image = solid(40, 40, [0, 0, 0, 0]);
     let ellipse = annotation_for_drag(Tool::Ellipse, (6, 8), (34, 30)).unwrap();
     let drawn = composite(&image, &[ellipse]).unwrap();
-    assert!(drawn.rgba.chunks_exact(4).any(|p| p[3] > 0));
+    assert!(drawn.rgba.as_chunks::<4>().0.iter().any(|p| p[3] > 0));
     assert_eq!(pixel(&drawn, 20, 19)[3], 0);
     assert!(image.rgba.iter().all(|p| *p == 0));
 }
