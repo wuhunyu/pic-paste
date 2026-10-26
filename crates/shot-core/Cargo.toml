@@ -1,0 +1,4 @@
+[package]
+name = "shot-core"
+version.workspace = true
+edition.workspace = true
