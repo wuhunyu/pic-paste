@@ -7,6 +7,8 @@ use shot_core::platform::{CapturedFrame, PlatformError};
 use shot_core::selection::from_drag;
 use shot_core::{RectPx, RgbaFrame};
 use shot_platform::macos::MacCapture;
+use shot_image::annotation_tools::{annotation_for_drag, Tool};
+use shot_image::history::AnnotationDocument;
 use std::borrow::Cow;
 use std::path::PathBuf;
 use std::sync::mpsc::{self, Receiver, Sender};
@@ -29,6 +31,10 @@ enum PrepareAction {
 
 struct SelectionView {
     source: Arc<RgbaFrame>,
+    rendered: Arc<RgbaFrame>,
+    annotations: AnnotationDocument,
+    tool: Tool,
+    render_error: Option<String>,
     texture: egui::TextureHandle,
     drag_anchor: Option<egui::Pos2>,
     selection: Option<RectPx>,
@@ -45,10 +51,43 @@ impl SelectionView {
             egui::TextureOptions::LINEAR,
         );
         Self {
+            rendered: Arc::clone(&source),
+            annotations: AnnotationDocument::new(Arc::clone(&source)),
+            tool: Tool::Select,
+            render_error: None,
             source,
             texture,
             drag_anchor: None,
             selection: None,
+        }
+    }
+
+    fn refresh_preview(&mut self) {
+        match shot_image::composite::composite(&self.source, self.annotations.visible()) {
+            Ok(image) => {
+                self.texture.set(
+                    egui::ColorImage::from_rgba_unmultiplied(
+                        [image.width as usize, image.height as usize],
+                        &image.rgba,
+                    ),
+                    egui::TextureOptions::LINEAR,
+                );
+                self.rendered = Arc::new(image);
+                self.render_error = None;
+            }
+            Err(error) => self.render_error = Some(error.to_owned()),
+        }
+    }
+
+    fn undo(&mut self) {
+        if self.annotations.undo() {
+            self.refresh_preview();
+        }
+    }
+
+    fn redo(&mut self) {
+        if self.annotations.redo() {
+            self.refresh_preview();
         }
     }
 
@@ -80,9 +119,16 @@ impl SelectionView {
             && let (Some(start), Some(end)) =
                 (self.drag_anchor, response.interact_pointer_pos())
         {
-                let a = point_to_pixel(&response.rect, &self.source, start);
-                let b = point_to_pixel(&response.rect, &self.source, end);
+            let a = point_to_pixel(&response.rect, &self.source, start);
+            let b = point_to_pixel(&response.rect, &self.source, end);
+            if self.tool == Tool::Select {
                 self.selection = from_drag(a, b).ok();
+            } else if response.drag_stopped()
+                && let Some(annotation) = annotation_for_drag(self.tool, a, b)
+            {
+                self.annotations.apply(annotation);
+                self.refresh_preview();
+            }
         }
         if response.drag_stopped() {
             self.drag_anchor = None;
@@ -225,7 +271,7 @@ impl PicPasteApp {
         let Some(screen) = &self.screen else { return };
         self.processing = true;
         self.status = String::from("正在处理 PNG 图像…");
-        let frame = Arc::clone(&screen.source);
+        let frame = Arc::clone(&screen.rendered);
         let selection = screen.selected_region();
         let radius = self.radius;
         let sender = self.work_tx.clone();
@@ -426,6 +472,29 @@ impl eframe::App for PicPasteApp {
                         screen.selection = None;
                     }
                 });
+                ui.separator();
+                ui.horizontal_wrapped(|ui| {
+                    ui.selectable_value(&mut screen.tool, Tool::Select, "选区");
+                    ui.selectable_value(&mut screen.tool, Tool::Line, "线条");
+                    ui.selectable_value(&mut screen.tool, Tool::Rectangle, "矩形");
+                    ui.selectable_value(&mut screen.tool, Tool::Pixelate, "马赛克");
+                    if ui.small_button("撤销").clicked() {
+                        screen.undo();
+                    }
+                    if ui.small_button("重做").clicked() {
+                        screen.redo();
+                    }
+                });
+                if ui.ctx().input(|input| input.modifiers.command && input.key_pressed(egui::Key::Z)) {
+                    if ui.ctx().input(|input| input.modifiers.shift) {
+                        screen.redo();
+                    } else {
+                        screen.undo();
+                    }
+                }
+                if let Some(error) = &screen.render_error {
+                    ui.colored_label(egui::Color32::RED, format!("预览渲染失败：{error}"));
+                }
                 screen.show(ui);
             } else {
                 ui.label("按 Ctrl+Option+1 开始截图；或点击“截图”。");
