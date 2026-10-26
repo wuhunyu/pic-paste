@@ -1,28 +1,30 @@
-use eframe::egui;
+#[cfg(target_os = "macos")]
+mod app;
+#[cfg(target_os = "macos")]
+mod hotkey;
+#[cfg(target_os = "macos")]
+mod menu;
+#[cfg(target_os = "macos")]
+mod pin;
 
-#[derive(Default)]
-struct ShotProbe {
-    clicks: u64,
-}
-impl eframe::App for ShotProbe {
-    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
-            ui.heading("PicPaste - P0 engineering prototype");
-            ui.label("UI smoke test only. Native capture and pinning are not implemented.");
-            if ui.button("Test interaction").clicked() {
-                self.clicks += 1;
-            }
-            ui.label(format!("Clicks: {}", self.clicks));
-    }
-}
-
+#[cfg(target_os = "macos")]
 fn main() -> eframe::Result {
     let options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default().with_inner_size([460.0, 240.0]),
+        viewport: eframe::egui::ViewportBuilder::default()
+            .with_title("PicPaste")
+            .with_inner_size([760.0, 660.0])
+            .with_min_inner_size([480.0, 380.0]),
+        renderer: eframe::Renderer::Wgpu,
         ..Default::default()
     };
     eframe::run_native(
         "PicPaste",
         options,
-        Box::new(|_cc| Ok(Box::new(ShotProbe::default()))),
+        Box::new(|creation_context| Ok(Box::new(app::PicPasteApp::new(creation_context)))),
     )
+}
+
+#[cfg(not(target_os = "macos"))]
+fn main() {
+    eprintln!("PicPaste native UI currently requires macOS 14 or later");
 }

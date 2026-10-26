@@ -5,12 +5,16 @@ on:
   workflow_dispatch:
 jobs:
   rust:
-    runs-on: macos-14
+    runs-on: macos-26
+    env:
+      MACOSX_DEPLOYMENT_TARGET: '14.0'
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
+      - name: Apple build SDK
+        run: xcodebuild -version && xcrun --show-sdk-version
       - name: Benchmark tooling regression tests
         run: python3 -m unittest discover -s tests -p 'test_*.py'
       - name: Generate dependency lockfile
@@ -23,3 +27,15 @@ jobs:
         run: cargo test --workspace
       - name: Lint workspace
         run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: Build macOS development binary
+        run: cargo build --release -p shot-macos
+      - name: Assemble development app
+        run: bash scripts/package-macos.sh
+      - name: Upload unsigned development package
+        uses: actions/upload-artifact@v4
+        with:
+          name: picpaste-macos-dev-${{ runner.arch }}
+          path: |
+            dist/PicPaste-macos-*-UNSIGNED-DEV.zip
+            dist/PicPaste-macos-*-UNSIGNED-DEV.zip.sha256
+          if-no-files-found: error
