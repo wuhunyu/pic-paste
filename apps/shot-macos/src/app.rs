@@ -540,6 +540,7 @@ pub struct PicPasteApp {
     scroll_rx: Receiver<ScrollEvent>,
     scroll_control: Option<ScrollCaptureControl>,
     scroll_review: Option<scroll::ScrollReview>,
+    scroll_keep_segments: usize,
     scroll_preview_pending: Option<RgbaFrame>,
     scroll_preview_texture: Option<egui::TextureHandle>,
     menu_rx: Receiver<MenuAction>,
@@ -602,6 +603,7 @@ impl PicPasteApp {
             scroll_rx,
             scroll_control: None,
             scroll_review: None,
+            scroll_keep_segments: 1,
             scroll_preview_pending: None,
             scroll_preview_texture: None,
             menu_rx,
@@ -875,9 +877,55 @@ impl PicPasteApp {
         });
     }
 
+    fn trim_scroll_review(&mut self, ctx: &egui::Context, keep_count: usize) {
+        if self.processing {
+            return;
+        }
+        let Some(total) = self
+            .scroll_review
+            .as_ref()
+            .map(|review| review.store.strip_count())
+        else {
+            return;
+        };
+        if keep_count == 0 || keep_count >= total {
+            self.status = String::from("保留段数无效；只能移除末尾片段，且必须至少保留第一段");
+            return;
+        }
+        let Some(mut review) = self.scroll_review.take() else {
+            return;
+        };
+        self.processing = true;
+        self.status = format!("正在保留前 {keep_count} 段并重建缩略图…");
+        let sender = self.work_tx.clone();
+        let wake = ctx.clone();
+        thread::spawn(move || {
+            let result = review
+                .store
+                .keep_first(keep_count)
+                .map_err(|error| format!("裁剪可信后缀失败：{error}"))
+                .and_then(|_| {
+                    review
+                        .store
+                        .preview(720, 900)
+                        .map_err(|error| format!("重新生成预览失败：{error}"))
+                })
+                .map(|image| {
+                    review.preview = image;
+                });
+            let event = match result {
+                Ok(()) => WorkerResult::ScrollEdited(Ok(review)),
+                Err(error) => WorkerResult::ScrollEdited(Err((error, review))),
+            };
+            let _ = sender.send(event);
+            wake.request_repaint();
+        });
+    }
+
     fn discard_scroll_review(&mut self) {
         // Dropping TileStore removes only its own private tile directory.
         self.scroll_review.take();
+        self.scroll_keep_segments = 1;
         self.scroll_preview_pending = None;
         self.scroll_preview_texture = None;
         self.status = String::from("已放弃长截图，临时分块已清理");
@@ -986,6 +1034,7 @@ impl PicPasteApp {
                     match outcome {
                         Ok(path) => {
                             self.scroll_preview_texture = None;
+                            self.scroll_keep_segments = 1;
                             self.status = format!("长图 PNG 已确认保存：{}", path.display());
                         }
                         Err((error, review)) => {
@@ -998,9 +1047,11 @@ impl PicPasteApp {
                     self.processing = false;
                     match outcome {
                         Ok(review) => {
+                            self.scroll_keep_segments =
+                                review.store.strip_count().saturating_sub(1).max(1);
                             self.scroll_preview_pending = Some(review.preview.clone());
                             self.status = format!(
-                                "已移除最后一段，当前有 {} 段可信截图",
+                                "已调整可信片段前缀，当前保留 {} 段",
                                 review.store.strip_count()
                             );
                             self.scroll_review = Some(review);
@@ -1050,6 +1101,7 @@ impl PicPasteApp {
                             } else {
                                 "采集结束"
                             };
+                            self.scroll_keep_segments = segments.saturating_sub(1).max(1);
                             self.scroll_preview_pending = Some(review.preview.clone());
                             self.scroll_review = Some(review);
                             format!(
@@ -1560,11 +1612,32 @@ impl PicPasteApp {
                         review_action = Some(2);
                     }
                 });
+                if review.store.strip_count() > 1 {
+                    ui.horizontal(|ui| {
+                        ui.label("回退到前");
+                        ui.add(
+                            egui::DragValue::new(&mut self.scroll_keep_segments)
+                                .range(1..=review.store.strip_count()),
+                        );
+                        ui.label("段");
+                        if ui
+                            .add_enabled(
+                                self.scroll_keep_segments < review.store.strip_count(),
+                                egui::Button::new("裁剪后续所有片段"),
+                            )
+                            .clicked()
+                        {
+                            review_action = Some(3);
+                        }
+                    });
+                    ui.label("仅裁剪尾部；不会断开中间某段后强行拼接后续内容");
+                }
             }
             match review_action {
                 Some(0) => self.save_scroll_review(ui.ctx()),
                 Some(1) => self.undo_scroll_review(ui.ctx()),
                 Some(2) => self.discard_scroll_review(),
+                Some(3) => self.trim_scroll_review(ui.ctx(), self.scroll_keep_segments),
                 _ => {}
             }
             if !self.pins.is_empty() {
