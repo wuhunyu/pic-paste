@@ -816,7 +816,8 @@ impl PicPasteApp {
                             self.display_selection = selection;
                             self.pending_frame = Some(frame);
                             self.overlay_placement = Some(placement);
-                            self.status = String::from("已打开目标屏幕截图窗口；拖动选择，Esc 取消");
+                            self.status =
+                                String::from("已打开目标屏幕截图窗口；拖动选择，Esc 取消");
                         }
                         Ok(_) => {
                             ctx.send_viewport_cmd(egui::ViewportCommand::Visible(true));
@@ -1018,7 +1019,8 @@ impl eframe::App for PicPasteApp {
         if self.overlay.is_fullscreen() {
             if let Some(placement) = self.overlay_placement {
                 let context = ui.ctx().clone();
-                let id = egui::ViewportId::from_hash_of(("picpaste-capture", self.capture_revision));
+                let id =
+                    egui::ViewportId::from_hash_of(("picpaste-capture", self.capture_revision));
                 context.show_viewport_immediate(
                     id,
                     overlay::capture_builder(placement),
@@ -1039,7 +1041,8 @@ impl eframe::App for PicPasteApp {
             } else {
                 // A missing placement must never leave the root window invisible.
                 self.overlay.dismiss();
-                ui.ctx().send_viewport_cmd(egui::ViewportCommand::Visible(true));
+                ui.ctx()
+                    .send_viewport_cmd(egui::ViewportCommand::Visible(true));
                 self.status = String::from("截图窗口位置不可用，请重新截图");
             }
         } else {
@@ -1312,7 +1315,6 @@ impl PicPasteApp {
                 }
             }
         });
-
     }
 }
 
