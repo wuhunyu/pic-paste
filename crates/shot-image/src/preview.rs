@@ -33,16 +33,17 @@ pub fn png_selection_preview(
     let longest = selected.width.max(selected.height);
     let output_width = ((u64::from(selected.width) * u64::from(limit) + u64::from(longest / 2))
         / u64::from(longest))
-        .clamp(1, u64::from(selected.width)) as u32;
+    .clamp(1, u64::from(selected.width)) as u32;
     let output_height = ((u64::from(selected.height) * u64::from(limit) + u64::from(longest / 2))
         / u64::from(longest))
-        .clamp(1, u64::from(selected.height)) as u32;
+    .clamp(1, u64::from(selected.height)) as u32;
     let mut pixels = Vec::with_capacity(output_width as usize * output_height as usize * 4);
     for preview_y in 0..output_height {
-        let source_y = y + u64::from(preview_y) * u64::from(selected.height) / u64::from(output_height);
+        let source_y =
+            y + u64::from(preview_y) * u64::from(selected.height) / u64::from(output_height);
         for preview_x in 0..output_width {
-            let source_x = x
-                + u64::from(preview_x) * u64::from(selected.width) / u64::from(output_width);
+            let source_x =
+                x + u64::from(preview_x) * u64::from(selected.width) / u64::from(output_width);
             let offset = ((source_y * u64::from(source.width) + source_x) * 4) as usize;
             pixels.extend_from_slice(&source.rgba[offset..offset + 4]);
         }
