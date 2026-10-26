@@ -85,16 +85,18 @@ fn rejects_invalid_selections_and_unbounded_thumbnail_requests() {
         png_selection_preview(&frame, invalid, 0, 32).unwrap_err(),
         CoreError::OutOfBounds
     );
-    assert!(png_selection_preview(
-        &frame,
-        RectPx {
-            x: 0,
-            y: 0,
-            width: 8,
-            height: 8
-        },
-        0,
-        0
-    )
-    .is_err());
+    assert!(
+        png_selection_preview(
+            &frame,
+            RectPx {
+                x: 0,
+                y: 0,
+                width: 8,
+                height: 8
+            },
+            0,
+            0
+        )
+        .is_err()
+    );
 }
