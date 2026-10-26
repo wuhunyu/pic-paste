@@ -8,6 +8,7 @@ pub enum HotkeyAction {
     Capture,
     PastePin,
     RecoverPins,
+    FinishScroll,
 }
 
 pub struct HotkeyController {
@@ -31,6 +32,11 @@ impl HotkeyController {
         manager
             .register(recover)
             .map_err(|error| format!("Recovery hotkey unavailable: {error}"))?;
+        let finish = HotKey::new(Some(Modifiers::CONTROL | Modifiers::ALT), Code::Digit4);
+        manager
+            .register(finish)
+            .map_err(|error| format!("Scroll finish hotkey unavailable: {error}"))?;
+        let finish_id = finish.id();
         let capture_id = capture.id();
         let pin_id = pin.id();
         let recover_id = recover.id();
@@ -44,6 +50,8 @@ impl HotkeyController {
                 Some(HotkeyAction::PastePin)
             } else if event.id == recover_id {
                 Some(HotkeyAction::RecoverPins)
+            } else if event.id == finish_id {
+                Some(HotkeyAction::FinishScroll)
             } else {
                 None
             };

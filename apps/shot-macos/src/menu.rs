@@ -8,6 +8,8 @@ pub enum MenuAction {
     Capture,
     Paste,
     Recover,
+    FinishScroll,
+    CancelScroll,
     Show,
     Quit,
 }
@@ -45,9 +47,11 @@ impl MenuBar {
         let capture = MenuItem::new("截图 · Ctrl+Option+1", true, None);
         let pin = MenuItem::new("贴图 · Ctrl+Option+2", true, None);
         let recover = MenuItem::new("恢复鼠标交互 · Ctrl+Option+3", true, None);
+        let finish_scroll = MenuItem::new("完成长截图 · Ctrl+Option+4", true, None);
+        let cancel_scroll = MenuItem::new("取消长截图", true, None);
         let show = MenuItem::new("显示 PicPaste", true, None);
         let quit = MenuItem::new("退出 PicPaste", true, None);
-        for item in [&capture, &pin, &recover, &show, &quit] {
+        for item in [&capture, &pin, &recover, &finish_scroll, &cancel_scroll, &show, &quit] {
             menu.append(item).map_err(|e| e.to_string())?;
         }
         let icon = Icon::from_rgba(pin_icon(), 24, 24).map_err(|e| e.to_string())?;
@@ -61,6 +65,8 @@ impl MenuBar {
         let capture_id = capture.id().clone();
         let pin_id = pin.id().clone();
         let recover_id = recover.id().clone();
+        let finish_id = finish_scroll.id().clone();
+        let cancel_id = cancel_scroll.id().clone();
         let show_id = show.id().clone();
         let quit_id = quit.id().clone();
         MenuEvent::set_event_handler(Some(move |event: MenuEvent| {
@@ -70,6 +76,10 @@ impl MenuBar {
                 Some(MenuAction::Paste)
             } else if event.id == recover_id {
                 Some(MenuAction::Recover)
+            } else if event.id == finish_id {
+                Some(MenuAction::FinishScroll)
+            } else if event.id == cancel_id {
+                Some(MenuAction::CancelScroll)
             } else if event.id == show_id {
                 Some(MenuAction::Show)
             } else if event.id == quit_id {
