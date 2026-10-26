@@ -17,9 +17,9 @@ fn validate_frame(frame: &RgbaFrame) -> io::Result<()> {
         .checked_mul(u64::from(frame.height))
         .and_then(|value| value.checked_mul(4))
         .ok_or_else(|| invalid("invalid image dimensions"))?;
-    if frame.width == 0 || frame.height == 0
-        || usize::try_from(expected).map_err(|_| invalid("image too large"))?
-            != frame.rgba.len()
+    if frame.width == 0
+        || frame.height == 0
+        || usize::try_from(expected).map_err(|_| invalid("image too large"))? != frame.rgba.len()
     {
         return Err(invalid("invalid RGBA buffer"));
     }
@@ -108,9 +108,7 @@ impl TileStore {
         validate_canvas(u64::from(first.width), u64::from(first.height))
             .map_err(|_| invalid("scroll image exceeds canvas limit"))?;
         let directory = temporary_directory(temp_root)?;
-        let first_path = match write_strip(
-            &directory, 0, first, 0, 0, first.width, first.height,
-        ) {
+        let first_path = match write_strip(&directory, 0, first, 0, 0, first.width, first.height) {
             Ok(path) => path,
             Err(error) => {
                 let _ = fs::remove_dir_all(&directory);
@@ -159,22 +157,38 @@ impl TileStore {
                     if displacement < 2 || displacement >= next.height {
                         return Err(invalid("invalid vertical overlap"));
                     }
-                    let canvas_h = self.height.checked_add(displacement)
+                    let canvas_h = self
+                        .height
+                        .checked_add(displacement)
                         .ok_or_else(|| invalid("canvas height overflow"))?;
                     (
-                        self.width, canvas_h, 0, next.height - displacement,
-                        next.width, displacement, 0, self.height,
+                        self.width,
+                        canvas_h,
+                        0,
+                        next.height - displacement,
+                        next.width,
+                        displacement,
+                        0,
+                        self.height,
                     )
                 }
                 ScrollAxis::Horizontal => {
                     if displacement < 2 || displacement >= next.width {
                         return Err(invalid("invalid horizontal overlap"));
                     }
-                    let canvas_w = self.width.checked_add(displacement)
+                    let canvas_w = self
+                        .width
+                        .checked_add(displacement)
                         .ok_or_else(|| invalid("canvas width overflow"))?;
                     (
-                        canvas_w, self.height, next.width - displacement, 0,
-                        displacement, next.height, self.width, 0,
+                        canvas_w,
+                        self.height,
+                        next.width - displacement,
+                        0,
+                        displacement,
+                        next.height,
+                        self.width,
+                        0,
                     )
                 }
             };
@@ -187,7 +201,10 @@ impl TileStore {
             &self.directory,
             self.strips.len(),
             next,
-            crop_x, crop_y, strip_w, strip_h,
+            crop_x,
+            crop_y,
+            strip_w,
+            strip_h,
         )?;
         self.strips.push(Strip {
             path,
@@ -231,32 +248,24 @@ impl TileStore {
 
     pub fn encode_png<W: Write>(&self, output: W) -> io::Result<()> {
         // Reuse open file handles across all output rows.
-        let mut readers: Vec<File> = self.strips.iter()
+        let mut readers: Vec<File> = self
+            .strips
+            .iter()
             .map(|strip| File::open(&strip.path))
             .collect::<io::Result<_>>()?;
-        shot_image::stream_png::encode_png_rows(
-            output,
-            self.width,
-            self.height,
-            |y, out| {
-                out.fill(0);
-                for (strip, file) in self.strips.iter().zip(readers.iter_mut()) {
-                    if y >= strip.start_y && y < strip.start_y + strip.height {
-                        read_strip_row(strip, file, y, out)?;
-                    }
+        shot_image::stream_png::encode_png_rows(output, self.width, self.height, |y, out| {
+            out.fill(0);
+            for (strip, file) in self.strips.iter().zip(readers.iter_mut()) {
+                if y >= strip.start_y && y < strip.start_y + strip.height {
+                    read_strip_row(strip, file, y, out)?;
                 }
-                Ok(())
-            },
-        )
+            }
+            Ok(())
+        })
     }
 }
 
-fn read_strip_row(
-    strip: &Strip,
-    file: &mut File,
-    row: u32,
-    output: &mut [u8],
-) -> io::Result<()> {
+fn read_strip_row(strip: &Strip, file: &mut File, row: u32, output: &mut [u8]) -> io::Result<()> {
     let relative_y = u64::from(row - strip.start_y);
     let offset = relative_y * u64::from(strip.width) * 4;
     let start = strip.start_x as usize * 4;

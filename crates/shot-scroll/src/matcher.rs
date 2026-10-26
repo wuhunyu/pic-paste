@@ -122,7 +122,6 @@ mod tests {
     }
 }
 
-
 /// Apply the same conservative overlap rules along the horizontal X axis.
 /// Transposing is an explicit correctness baseline; production matching must
 /// downsample and verify high-information regions before accepting new tiles.
