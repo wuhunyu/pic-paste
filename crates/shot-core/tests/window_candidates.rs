@@ -48,11 +48,21 @@ fn clips_partial_offscreen_windows_to_capture_and_rejects_outside() {
     assert_eq!(list.len(), 2);
     assert_eq!(
         list[0].rect,
-        RectPx { x: 0, y: 50, width: 200, height: 400 }
+        RectPx {
+            x: 0,
+            y: 50,
+            width: 200,
+            height: 400
+        }
     );
     assert_eq!(
         list[1].rect,
-        RectPx { x: 950, y: 300, width: 50, height: 300 }
+        RectPx {
+            x: 950,
+            y: 300,
+            width: 50,
+            height: 300
+        }
     );
 }
 
