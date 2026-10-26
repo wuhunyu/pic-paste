@@ -21,6 +21,7 @@ use shot_image::pixel_tools::{magnifier_patch, sample_rgba};
 use shot_ocr_protocol::hit_test::{hit_line_in_capture, selected_text};
 use shot_ocr_protocol::{MAX_RGBA_BYTES, OcrDocument};
 use shot_platform::macos::MacCapture;
+use shot_scroll::fixed_bands::FixedBands;
 use std::borrow::Cow;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -548,6 +549,7 @@ pub struct PicPasteApp {
     scroll_control: Option<ScrollCaptureControl>,
     scroll_review: Option<scroll::ScrollReview>,
     scroll_keep_segments: usize,
+    scroll_fixed_bands: FixedBands,
     scroll_preview_pending: Option<RgbaFrame>,
     scroll_preview_texture: Option<egui::TextureHandle>,
     menu_rx: Receiver<MenuAction>,
@@ -614,6 +616,7 @@ impl PicPasteApp {
             scroll_control: None,
             scroll_review: None,
             scroll_keep_segments: 1,
+            scroll_fixed_bands: FixedBands::default(),
             scroll_preview_pending: None,
             scroll_preview_texture: None,
             menu_rx,
@@ -706,17 +709,29 @@ impl PicPasteApp {
             self.status = String::from("长截图只能处理原始区域。请先撤销标注或重新截图");
             return;
         }
-        let selected = screen.selected_region();
-        if selected.width < 24 || selected.height < 24 {
+        let original = screen.selected_region();
+        if original.width < 24 || original.height < 24 {
             self.status = String::from("长截图区域太小，宽高均需至少 24 个物理像素");
             return;
         }
+        // Exclude fixed page chrome before the FIRST ScreenCaptureKit request.
+        // The same cropped region is captured on every frame and every retry,
+        // so excluded pixels never enter overlap matching or the exported PNG.
+        let selected = match self.scroll_fixed_bands.content_roi(original, axis) {
+            Ok(region) => region,
+            Err(message) => {
+                self.status = format!("长截图固定区域设置无效：{message}；请减少排除边距");
+                return;
+            }
+        };
         let direction = match axis {
             ScrollAxis::Vertical => "纵向",
             ScrollAxis::Horizontal => "横向",
         };
         self.status = format!(
-            "开始{direction}手动滚动，请滚动目标应用；结束时按 {} 或在菜单栏点击完成",
+            "开始{direction}手动滚动，已排除固定区域 {} / {} 像素；请滚动目标应用，结束时按 {}",
+            self.scroll_fixed_bands.leading,
+            self.scroll_fixed_bands.trailing,
             self.shortcuts.label(ShortcutAction::FinishScroll)
         );
         // The selection is a physical-pixel, display-local rectangle.
@@ -1578,6 +1593,27 @@ impl PicPasteApp {
                         recognize_text = true;
                     }
                 });
+                // Leading/trailing physical-pixel bands apply to either scroll
+                // direction. The chosen offsets stay fixed for this capture.
+                ui.horizontal_wrapped(|ui| {
+                    let max_band = screen
+                        .selected_region()
+                        .width
+                        .max(screen.selected_region().height)
+                        .saturating_sub(24);
+                    ui.label("长截图排除固定栏（物理像素）");
+                    ui.label("开头（上／左）");
+                    ui.add(
+                        egui::DragValue::new(&mut self.scroll_fixed_bands.leading)
+                            .range(0..=max_band),
+                    );
+                    ui.label("末尾（下／右）");
+                    ui.add(
+                        egui::DragValue::new(&mut self.scroll_fixed_bands.trailing)
+                            .range(0..=max_band),
+                    );
+                });
+                ui.label("固定栏不进入长图 PNG；纵向忽略顶部/底部，横向忽略左侧/右侧");
                 ui.separator();
                 ui.horizontal_wrapped(|ui| {
                     ui.selectable_value(&mut screen.tool, Tool::Select, "选区");

@@ -1,4 +1,5 @@
 #![forbid(unsafe_code)]
+pub mod fixed_bands;
 pub mod limits;
 pub mod live_preview;
 pub mod matcher;
