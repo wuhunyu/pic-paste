@@ -83,6 +83,34 @@ pub fn match_vertical(
     })
 }
 
+/// Apply the same conservative overlap rules along the horizontal X axis.
+/// Transposing is an explicit correctness baseline; production matching must
+/// downsample and verify high-information regions before accepting new tiles.
+pub fn match_horizontal(
+    previous: &GrayFrame,
+    next: &GrayFrame,
+    min_overlap_fraction: f64,
+    maximum_error: f64,
+    minimum_ambiguity_gap: f64,
+) -> Option<ScrollMatch> {
+    fn transpose(image: &GrayFrame) -> Option<GrayFrame> {
+        let mut data = vec![0; image.width.checked_mul(image.height)?];
+        for y in 0..image.height {
+            for x in 0..image.width {
+                data[x * image.height + y] = image.data[y * image.width + x];
+            }
+        }
+        GrayFrame::new(image.height, image.width, data)
+    }
+    match_vertical(
+        &transpose(previous)?,
+        &transpose(next)?,
+        min_overlap_fraction,
+        maximum_error,
+        minimum_ambiguity_gap,
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -120,32 +148,4 @@ mod tests {
         assert!(match_vertical(&sample(0), &sample(1), 1.0, 1.0, 1.0).is_none());
         assert!(match_vertical(&sample(0), &sample(1), 0.4, f64::NAN, 1.0).is_none());
     }
-}
-
-/// Apply the same conservative overlap rules along the horizontal X axis.
-/// Transposing is an explicit correctness baseline; production matching must
-/// downsample and verify high-information regions before accepting new tiles.
-pub fn match_horizontal(
-    previous: &GrayFrame,
-    next: &GrayFrame,
-    min_overlap_fraction: f64,
-    maximum_error: f64,
-    minimum_ambiguity_gap: f64,
-) -> Option<ScrollMatch> {
-    fn transpose(image: &GrayFrame) -> Option<GrayFrame> {
-        let mut data = vec![0; image.width.checked_mul(image.height)?];
-        for y in 0..image.height {
-            for x in 0..image.width {
-                data[x * image.height + y] = image.data[y * image.width + x];
-            }
-        }
-        GrayFrame::new(image.height, image.width, data)
-    }
-    match_vertical(
-        &transpose(previous)?,
-        &transpose(next)?,
-        min_overlap_fraction,
-        maximum_error,
-        minimum_ambiguity_gap,
-    )
 }
