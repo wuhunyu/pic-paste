@@ -1,9 +1,11 @@
 use screencapturekit::prelude::*;
 use screencapturekit::screenshot_manager::{CGImageExt, SCScreenshotManager};
-use screencapturekit::shareable_content::{SCDisplay, SCShareableContentInfo};
+use screencapturekit::shareable_content::{SCDisplay, SCShareableContentInfo, SCWindow};
 use shot_core::display::OverlayPlacement;
 use shot_core::platform::{CapturedFrame, DisplayId, PlatformError, ScreenCapture};
-use shot_core::window_candidates::{WindowBounds, WindowCandidate, candidates_for_capture};
+use shot_core::window_candidates::{
+    WindowBounds, WindowCandidate, candidates_for_capture, is_self_capture_window,
+};
 use shot_core::{RectPx, RgbaFrame};
 
 /// macOS 14+ ScreenCaptureKit adapter. Capture calls must run on a worker thread,
@@ -33,7 +35,8 @@ impl MacCapture {
             .into_iter()
             .next()
             .ok_or(PlatformError::Unavailable)?;
-        Self::capture_native(&display)
+        let windows = content.windows();
+        Self::capture_native(&display, &windows)
     }
 
     /// Capture and native window bounds are resolved from the same SCDisplay.
@@ -53,14 +56,18 @@ impl MacCapture {
             (frame.origin.x, frame.origin.y),
             (frame.size.width, frame.size.height),
         )?;
-        let capture = Self::capture_native(&target)?;
-        let windows = content
-            .windows()
+        // The same SCShareableContent window snapshot drives both capture
+        // exclusions and smart window candidates, avoiding inconsistent frames.
+        let all_windows = content.windows();
+        let capture = Self::capture_native(&target, &all_windows)?;
+        let own_pid = i32::try_from(std::process::id()).map_err(|_| PlatformError::InvalidInput)?;
+        let windows = all_windows
             .iter()
             .filter(|window| {
-                window
-                    .owning_application()
-                    .is_none_or(|app| app.process_id() != std::process::id() as i32)
+                !is_self_capture_window(
+                    window.owning_application().map(|app| app.process_id()),
+                    own_pid,
+                )
             })
             .map(|window| {
                 let bounds = window.frame();
@@ -82,10 +89,25 @@ impl MacCapture {
         Ok((capture, placement, candidates))
     }
 
-    fn capture_native(display: &SCDisplay) -> Result<CapturedFrame, PlatformError> {
+    fn capture_native(
+        display: &SCDisplay,
+        windows: &[SCWindow],
+    ) -> Result<CapturedFrame, PlatformError> {
+        let own_pid = i32::try_from(std::process::id()).map_err(|_| PlatformError::InvalidInput)?;
+        let excluded: Vec<&SCWindow> = windows
+            .iter()
+            .filter(|window| {
+                is_self_capture_window(
+                    window.owning_application().map(|app| app.process_id()),
+                    own_pid,
+                )
+            })
+            .collect();
+        // Exclude all our windows including live preview and pins, not only
+        // the (usually hidden) editor root. Other apps stay in the screenshot.
         let filter = SCContentFilter::create()
             .with_display(display)
-            .with_excluding_windows(&[])
+            .with_excluding_windows(&excluded)
             .build()
             .map_err(map_capture_error)?;
 
@@ -145,7 +167,8 @@ impl ScreenCapture for MacCapture {
             .into_iter()
             .find(|entry| u64::from(entry.display_id()) == display.0)
             .ok_or(PlatformError::Unavailable)?;
-        Self::capture_native(&target)
+        let windows = content.windows();
+        Self::capture_native(&target, &windows)
     }
 
     fn capture_region(
