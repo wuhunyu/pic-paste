@@ -4,10 +4,10 @@
 
 ## 当前基线
 
-- 已合并：PR [#1](https://github.com/wuhunyu/pic-paste/pull/1)、[#2](https://github.com/wuhunyu/pic-paste/pull/2)、[#3](https://github.com/wuhunyu/pic-paste/pull/3)、[#12](https://github.com/wuhunyu/pic-paste/pull/12)–[#22](https://github.com/wuhunyu/pic-paste/pull/22)。截至本次核验共 **14 个已合并 PR**。
-- 最新功能合并：[#22 贴图离线 OCR 行级选择](https://github.com/wuhunyu/pic-paste/pull/22)，合并提交 `79b476ba5812d7d051fab3748bc50154452d2e89`，其 [CI #40309834503](https://github.com/wuhunyu/pic-paste/actions/runs/40309834503) **success**：Linux core tests/Clippy、macOS workspace tests/Clippy/Release、Swift Apple Vision helper IPC、Lite/Full 开发包。此前 [#21](https://github.com/wuhunyu/pic-paste/pull/21) 长截图可信前缀裁剪，合并 `7205c526abbadbdfc5e2fbfb64aa450c2c138370`；[CI #40305352112](https://github.com/wuhunyu/pic-paste/actions/runs/40305352112) success。
+- 已合并：PR [#1](https://github.com/wuhunyu/pic-paste/pull/1)、[#2](https://github.com/wuhunyu/pic-paste/pull/2)、[#3](https://github.com/wuhunyu/pic-paste/pull/3)、[#12](https://github.com/wuhunyu/pic-paste/pull/12)–[#23](https://github.com/wuhunyu/pic-paste/pull/23)。截至本次核验共 **15 个已合并 PR**。
+- 最新功能合并：[#23 手动长截图失败恢复](https://github.com/wuhunyu/pic-paste/pull/23)，合并提交 `32afacba153e51c5a84cccce08860d9ec548d10e`，完整 [CI #40314126081](https://github.com/wuhunyu/pic-paste/actions/runs/40314126081) **success**：Linux core tests/Clippy、macOS workspace tests/Clippy/Release、Swift OCR IPC、Lite/Full 开发包。此前 [#22](https://github.com/wuhunyu/pic-paste/pull/22) 贴图行级 OCR [CI #40309834503](https://github.com/wuhunyu/pic-paste/actions/runs/40309834503) success。
 - #17 合并提交 `7e492a4bb91f6062c225dfb33f524cc51756e556`；[main CI #40297130672](https://github.com/wuhunyu/pic-paste/actions/runs/40297130672) **success**。
-- #20 合并后 [main CI #40305434870](https://github.com/wuhunyu/pic-paste/actions/runs/40305434870) success；#21 及其文档同步后 [main CI #40306737945](https://github.com/wuhunyu/pic-paste/actions/runs/40306737945) **success**。#22 合并及本次文档同步后的 main CI 仍需单独核验，不以 PR CI 替代。
+- #22 合并及文档同步后 [main CI #40311227304](https://github.com/wuhunyu/pic-paste/actions/runs/40311227304) **success**；#23 合并及本次文档同步后的 main CI 仍需核验，不以 PR CI 替代。
 - 跟踪 Issues：[#5 原生窗口和多屏](https://github.com/wuhunyu/pic-paste/issues/5)、[#6 标注与贴图](https://github.com/wuhunyu/pic-paste/issues/6)、[#7 长截图](https://github.com/wuhunyu/pic-paste/issues/7)、[#8 OCR/二维码/Add-on](https://github.com/wuhunyu/pic-paste/issues/8)、[#10 真机与性能](https://github.com/wuhunyu/pic-paste/issues/10)、[#9 macOS 正式发布](https://github.com/wuhunyu/pic-paste/issues/9)、[#11 Windows](https://github.com/wuhunyu/pic-paste/issues/11)。[#4](https://github.com/wuhunyu/pic-paste/issues/4) 已关闭。
 - **GitHub Releases：0。** 目前只有 ARM64 Lite/Full ad-hoc 签名开发 ZIP，非正式发行件。
 

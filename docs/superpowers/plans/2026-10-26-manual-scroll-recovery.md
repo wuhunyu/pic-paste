@@ -103,7 +103,7 @@ impl RecoveryTracker {
 - [x] Step 3: Replace `mismatches += 1; if mismatches >= 3 { partial=true; break }` in `capture_loop` with `RecoveryTracker::observe(Untrusted)`. If `Pause`, CAS RUNNING→PAUSED, send `RecoveryNeeded`, keep `TileStore` and `previous`. While paused, stop taking screenshots. On RETRY, CAS RETRY→RUNNING, call `tracker.resume()`, send `RecoveryResumed`, and resume at the **same trusted anchor**.
 - [x] Step 4: Do not allow changed source pixels to mutate TileStore after command != RUNNING; do not count identical frames as mismatches. Set `review.partial` when the session is finished while `tracker.needs_partial_review()`.
 - [x] Step 5: Add tray menu item “继续手动长截图（慢速重试）”→`MenuAction::ResumeScroll`. In `app.rs`, add `resume_manual_scroll` and status messages. In live preview, use `ScrollCaptureControl::is_paused()` to show clear instructions to roll back manually and resume via the tray; preview remains `with_mouse_passthrough(true)`.
-- [ ] Step 6: Run full macOS fmt/test/Clippy/Release/Swift OCR IPC/Lite+Full workflow; fix any failures before merge.
+- [x] Step 6: Run full macOS fmt/test/Clippy/Release/Swift OCR IPC/Lite+Full workflow; fix any failures before merge.
 
 ### Task 3: Documentation, acceptance, merge
 
@@ -117,3 +117,9 @@ impl RecoveryTracker {
 - [x] Step 2: Update P4-T3 to “手动失败恢复/固定区域过滤/中间段纠错” and state code vs real-device acceptance separately.
 - [x] Step 3: Record reproducible cases: jump >65% viewport, scroll backward, changing header, animated body, no-motion, repeated failures, finish-paused, cancel-paused, both axes, PNG export.
 - [ ] Step 4: Merge only full-green PR; verify current `main` CI. Do not claim 50-scene acceptance or true pixel-perfect macOS performance from CI.
+
+## Execution evidence (2026-10-26)
+
+- Test-first RED: core missing recovery module in [CI #40313095098](https://github.com/wuhunyu/pic-paste/actions/runs/40313095098), then macOS missing pause/retry control in [CI #40313417053](https://github.com/wuhunyu/pic-paste/actions/runs/40313417053).
+- Implemented explicit pause/retry, retained trusted TileStore anchor and menu recovery; full [PR CI #40314126081](https://github.com/wuhunyu/pic-paste/actions/runs/40314126081) successful. Merged in [PR #23](https://github.com/wuhunyu/pic-paste/pull/23), commit `32afacba153e51c5a84cccce08860d9ec548d10e`.
+- **Unverified:** real Mac manual backtrack/scroll, fixed headers, animations and ≥50 scenario acceptance; follow [Issue #7](https://github.com/wuhunyu/pic-paste/issues/7).
