@@ -38,14 +38,17 @@ mod tests {
                 pixel.copy_from_slice(&[y as u8, 80, 120, 255]);
             }
             Ok(())
-        }).unwrap();
+        })
+        .unwrap();
         assert_eq!(&output[..8], b"\x89PNG\r\n\x1a\n");
     }
 
     #[test]
     fn cancellation_propagates() {
         let result = encode_png_rows(Vec::new(), 4, 10, |y, _| {
-            if y == 3 { return Err(io::Error::new(io::ErrorKind::Interrupted, "cancelled")); }
+            if y == 3 {
+                return Err(io::Error::new(io::ErrorKind::Interrupted, "cancelled"));
+            }
             Ok(())
         });
         assert_eq!(result.unwrap_err().kind(), io::ErrorKind::Interrupted);

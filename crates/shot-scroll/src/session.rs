@@ -1,12 +1,25 @@
+use crate::limits::{SizeError, validate_canvas};
 use shot_core::platform::ScrollAxis;
-use crate::limits::{validate_canvas, SizeError};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Phase { Configuring, Capturing, Paused, Mismatch, Reviewing, Cancelled }
+pub enum Phase {
+    Configuring,
+    Capturing,
+    Paused,
+    Mismatch,
+    Reviewing,
+    Cancelled,
+}
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Input { Manual, Auto }
+pub enum Input {
+    Manual,
+    Auto,
+}
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum SessionError { InvalidTransition, Size(SizeError) }
+pub enum SessionError {
+    InvalidTransition,
+    Size(SizeError),
+}
 
 #[derive(Clone, Debug)]
 pub struct Session {
@@ -32,7 +45,9 @@ impl Session {
     }
 
     pub fn start(&mut self, input: Input) -> Result<(), SessionError> {
-        if self.phase != Phase::Configuring { return Err(SessionError::InvalidTransition); }
+        if self.phase != Phase::Configuring {
+            return Err(SessionError::InvalidTransition);
+        }
         self.input = input;
         self.phase = Phase::Capturing;
         Ok(())
@@ -58,13 +73,17 @@ impl Session {
     }
 
     pub fn pause(&mut self) -> Result<(), SessionError> {
-        if self.phase != Phase::Capturing { return Err(SessionError::InvalidTransition); }
+        if self.phase != Phase::Capturing {
+            return Err(SessionError::InvalidTransition);
+        }
         self.phase = Phase::Paused;
         Ok(())
     }
 
     pub fn mismatch(&mut self) -> Result<(), SessionError> {
-        if self.phase != Phase::Capturing { return Err(SessionError::InvalidTransition); }
+        if self.phase != Phase::Capturing {
+            return Err(SessionError::InvalidTransition);
+        }
         self.phase = Phase::Mismatch;
         Ok(())
     }
@@ -79,7 +98,10 @@ impl Session {
     }
 
     pub fn finish(&mut self) -> Result<(), SessionError> {
-        if !matches!(self.phase, Phase::Capturing | Phase::Paused | Phase::Mismatch) {
+        if !matches!(
+            self.phase,
+            Phase::Capturing | Phase::Paused | Phase::Mismatch
+        ) {
             return Err(SessionError::InvalidTransition);
         }
         self.phase = Phase::Reviewing;
@@ -114,7 +136,10 @@ mod tests {
     fn limit_failure_does_not_mutate_canvas() {
         let mut s = Session::new(100, 59_999, ScrollAxis::Vertical).unwrap();
         s.start(Input::Manual).unwrap();
-        assert_eq!(s.accept_strip(2), Err(SessionError::Size(SizeError::TooLong)));
+        assert_eq!(
+            s.accept_strip(2),
+            Err(SessionError::Size(SizeError::TooLong))
+        );
         assert_eq!(s.canvas_height, 59_999);
     }
 }

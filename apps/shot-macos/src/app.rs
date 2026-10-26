@@ -1,18 +1,20 @@
 use crate::hotkey::{HotkeyAction, HotkeyController};
-use crate::pin::PinnedImage;
 use crate::menu::{MenuAction, MenuBar};
+use crate::ocr;
+use crate::pin::PinnedImage;
+use crate::scroll::{self, ScrollCaptureControl, ScrollEvent};
 use arboard::{Clipboard, ImageData};
 use eframe::egui;
-use shot_core::platform::{CapturedFrame, PlatformError};
+use shot_core::platform::{CapturedFrame, DisplayId, PlatformError, ScrollAxis};
 use shot_core::selection::from_drag;
 use shot_core::{RectPx, RgbaFrame};
+use shot_image::annotation_tools::{Tool, annotation_for_drag};
+use shot_image::history::{Annotation, AnnotationDocument};
 use shot_platform::macos::MacCapture;
-use shot_image::annotation_tools::{annotation_for_drag, Tool};
-use shot_image::history::AnnotationDocument;
 use std::borrow::Cow;
 use std::path::PathBuf;
-use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::Arc;
+use std::sync::mpsc::{self, Receiver, Sender};
 use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
@@ -20,6 +22,7 @@ enum WorkerResult {
     Captured(Result<CapturedFrame, PlatformError>),
     Prepared(PrepareAction, Result<RgbaFrame, String>),
     Saved(Result<PathBuf, String>),
+    Ocr(Result<shot_ocr_protocol::OcrDocument, String>),
 }
 
 #[derive(Clone, Copy)]
@@ -30,6 +33,7 @@ enum PrepareAction {
 }
 
 struct SelectionView {
+    display_id: DisplayId,
     source: Arc<RgbaFrame>,
     rendered: Arc<RgbaFrame>,
     annotations: AnnotationDocument,
@@ -37,11 +41,12 @@ struct SelectionView {
     render_error: Option<String>,
     texture: egui::TextureHandle,
     drag_anchor: Option<egui::Pos2>,
+    brush_points: Vec<(f32, f32)>,
     selection: Option<RectPx>,
 }
 
 impl SelectionView {
-    fn new(ctx: &egui::Context, source: Arc<RgbaFrame>) -> Self {
+    fn new(ctx: &egui::Context, display_id: DisplayId, source: Arc<RgbaFrame>) -> Self {
         let texture = ctx.load_texture(
             "capture-preview",
             egui::ColorImage::from_rgba_unmultiplied(
@@ -51,6 +56,7 @@ impl SelectionView {
             egui::TextureOptions::LINEAR,
         );
         Self {
+            display_id,
             rendered: Arc::clone(&source),
             annotations: AnnotationDocument::new(Arc::clone(&source)),
             tool: Tool::Select,
@@ -58,6 +64,7 @@ impl SelectionView {
             source,
             texture,
             drag_anchor: None,
+            brush_points: Vec::new(),
             selection: None,
         }
     }
@@ -105,24 +112,44 @@ impl SelectionView {
         let width = self.source.width as f32;
         let height = self.source.height as f32;
         let available = ui.available_size() - egui::vec2(0.0, 12.0);
-        let scale = (available.x / width).min(available.y / height).clamp(0.01, 1.0);
+        let scale = (available.x / width)
+            .min(available.y / height)
+            .clamp(0.01, 1.0);
         let displayed = egui::vec2(width * scale, height * scale);
         let response = ui.add(
-            egui::Image::new((self.texture.id(), displayed))
-                .sense(egui::Sense::click_and_drag()),
+            egui::Image::new((self.texture.id(), displayed)).sense(egui::Sense::click_and_drag()),
         );
 
         if response.drag_started() {
             self.drag_anchor = response.interact_pointer_pos();
+            self.brush_points.clear();
+            if self.tool == Tool::Brush
+                && let Some(start) = self.drag_anchor
+            {
+                let (x, y) = point_to_pixel(&response.rect, &self.source, start);
+                self.brush_points.push((x as f32, y as f32));
+            }
         }
         if (response.dragged() || response.drag_stopped())
-            && let (Some(start), Some(end)) =
-                (self.drag_anchor, response.interact_pointer_pos())
+            && let (Some(start), Some(end)) = (self.drag_anchor, response.interact_pointer_pos())
         {
             let a = point_to_pixel(&response.rect, &self.source, start);
             let b = point_to_pixel(&response.rect, &self.source, end);
             if self.tool == Tool::Select {
                 self.selection = from_drag(a, b).ok();
+            } else if self.tool == Tool::Brush {
+                let last = (b.0 as f32, b.1 as f32);
+                if self.brush_points.last() != Some(&last) && self.brush_points.len() < 20_000 {
+                    self.brush_points.push(last);
+                }
+                if response.drag_stopped() && !self.brush_points.is_empty() {
+                    self.annotations.apply(Annotation::Brush {
+                        points: std::mem::take(&mut self.brush_points),
+                        rgba: [39, 178, 231, 255],
+                        width: 3.0,
+                    });
+                    self.refresh_preview();
+                }
             } else if response.drag_stopped()
                 && let Some(annotation) = annotation_for_drag(self.tool, a, b)
             {
@@ -169,11 +196,11 @@ fn point_to_pixel(rect: &egui::Rect, frame: &RgbaFrame, point: egui::Pos2) -> (i
 }
 
 fn save_in_pictures(image: &RgbaFrame) -> Result<PathBuf, String> {
-    let home = std::env::var_os("HOME")
-        .ok_or_else(|| String::from("HOME is unavailable"))?;
+    let home = std::env::var_os("HOME").ok_or_else(|| String::from("HOME is unavailable"))?;
     let folder = PathBuf::from(home).join("Pictures").join("PicPaste");
     std::fs::create_dir_all(&folder).map_err(|e| e.to_string())?;
-    let time = SystemTime::now().duration_since(UNIX_EPOCH)
+    let time = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
         .map_err(|e| e.to_string())?
         .as_nanos();
     let path = folder.join(format!("PicPaste-{time}.png"));
@@ -197,6 +224,9 @@ pub struct PicPasteApp {
     radius: u32,
     capturing: bool,
     processing: bool,
+    ocr_waiting: bool,
+    ocr_text: String,
+    ocr_lines: usize,
     pending_frame: Option<CapturedFrame>,
     prepared: Vec<(PrepareAction, RgbaFrame)>,
     screen: Option<SelectionView>,
@@ -205,6 +235,9 @@ pub struct PicPasteApp {
     work_tx: Sender<WorkerResult>,
     work_rx: Receiver<WorkerResult>,
     hotkey_rx: Receiver<HotkeyAction>,
+    scroll_tx: Sender<ScrollEvent>,
+    scroll_rx: Receiver<ScrollEvent>,
+    scroll_control: Option<ScrollCaptureControl>,
     menu_rx: Receiver<MenuAction>,
     _menu: Option<MenuBar>,
     quit_requested: bool,
@@ -215,21 +248,24 @@ impl PicPasteApp {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
         let (work_tx, work_rx) = mpsc::channel();
         let (hotkey_tx, hotkey_rx) = mpsc::channel();
+        let (scroll_tx, scroll_rx) = mpsc::channel();
         let (menu_tx, menu_rx) = mpsc::channel();
         let (menu, menu_status) = match MenuBar::install(cc.egui_ctx.clone(), menu_tx) {
             Ok(menu) => (Some(menu), None),
             Err(error) => (None, Some(format!("菜单栏不可用：{error}"))),
         };
-        let (hotkeys, status) =
-            match HotkeyController::install(cc.egui_ctx.clone(), hotkey_tx) {
-                Ok(hotkeys) => (Some(hotkeys), String::from("快捷键已注册")),
-                Err(error) => (None, format!("热键不可用，仍可使用窗口按钮：{error}")),
-            };
+        let (hotkeys, status) = match HotkeyController::install(cc.egui_ctx.clone(), hotkey_tx) {
+            Ok(hotkeys) => (Some(hotkeys), String::from("快捷键已注册")),
+            Err(error) => (None, format!("热键不可用，仍可使用窗口按钮：{error}")),
+        };
         Self {
             status: menu_status.unwrap_or(status),
             radius: 16,
             capturing: false,
             processing: false,
+            ocr_waiting: false,
+            ocr_text: String::new(),
+            ocr_lines: 0,
             pending_frame: None,
             prepared: Vec::new(),
             screen: None,
@@ -238,6 +274,9 @@ impl PicPasteApp {
             work_tx,
             work_rx,
             hotkey_rx,
+            scroll_tx,
+            scroll_rx,
+            scroll_control: None,
             menu_rx,
             _menu: menu,
             quit_requested: false,
@@ -246,12 +285,14 @@ impl PicPasteApp {
     }
 
     fn begin_capture(&mut self, ctx: &egui::Context) {
-        if self.capturing || self.processing {
+        if self.capturing || self.processing || self.scroll_control.is_some() {
             return;
         }
         self.capturing = true;
         self.status = String::from("正在获取屏幕快照…");
         self.screen = None;
+        self.ocr_text.clear();
+        self.ocr_lines = 0;
         // Hide our own window first, so it cannot contaminate the screenshot.
         ctx.send_viewport_cmd(egui::ViewportCommand::Visible(false));
         let sender = self.work_tx.clone();
@@ -262,6 +303,57 @@ impl PicPasteApp {
             let _ = sender.send(WorkerResult::Captured(result));
             wake.request_repaint();
         });
+    }
+
+    fn start_manual_scroll(&mut self, ctx: &egui::Context, axis: ScrollAxis) {
+        if self.capturing || self.processing || self.scroll_control.is_some() {
+            self.status = String::from("已有截图任务正在执行，请先完成或取消");
+            return;
+        }
+        let Some(screen) = &self.screen else {
+            self.status = String::from("请先选择一张截图及滚动区域");
+            return;
+        };
+        if !screen.annotations.visible().is_empty() {
+            self.status = String::from("长截图只能处理原始区域。请先撤销标注或重新截图");
+            return;
+        }
+        let selected = screen.selected_region();
+        if selected.width < 24 || selected.height < 24 {
+            self.status = String::from("长截图区域太小，宽高均需至少 24 个物理像素");
+            return;
+        }
+        let direction = match axis {
+            ScrollAxis::Vertical => "纵向",
+            ScrollAxis::Horizontal => "横向",
+        };
+        self.status = format!(
+            "开始{direction}手动滚动，请滚动目标应用；结束时按 Ctrl+Option+4 或在菜单栏点击完成"
+        );
+        // The selection is a physical-pixel, display-local rectangle.
+        let control = scroll::launch(
+            screen.display_id,
+            selected,
+            axis,
+            self.scroll_tx.clone(),
+            ctx.clone(),
+        );
+        self.scroll_control = Some(control);
+        ctx.send_viewport_cmd(egui::ViewportCommand::Visible(false));
+    }
+
+    fn finish_manual_scroll(&mut self) {
+        if let Some(control) = &self.scroll_control {
+            control.finish();
+            self.status = String::from("结束滚动，正在写入 PNG 文件");
+        }
+    }
+
+    fn cancel_manual_scroll(&mut self) {
+        if let Some(control) = &self.scroll_control {
+            control.cancel();
+            self.status = String::from("取消滚动，正在删除临时图片");
+        }
     }
 
     fn request_prepared(&mut self, ctx: &egui::Context, action: PrepareAction) {
@@ -288,14 +380,34 @@ impl PicPasteApp {
         });
     }
 
-    fn paste_clipboard_as_pin(&mut self, ctx: &egui::Context) {
-        if self.pins.iter().any(|pin| pin.passthrough) {
-            self.recover_pins();
+    fn request_ocr(&mut self, ctx: &egui::Context) {
+        if self.ocr_waiting || self.processing || self.scroll_control.is_some() {
             return;
         }
+        let Some(screen) = &self.screen else { return };
+        self.ocr_waiting = true;
+        self.ocr_text.clear();
+        self.ocr_lines = 0;
+        self.status = String::from("正在使用离线 Vision Accurate 识别文字…");
+        let source = Arc::clone(&screen.rendered);
+        let region = screen.selected_region();
+        let sender = self.work_tx.clone();
+        let ctx = ctx.clone();
+        thread::spawn(move || {
+            let result = shot_image::crop_rgba(&source, region)
+                .map_err(|error| format!("OCR 区域无效：{error:?}"))
+                .and_then(ocr::recognize);
+            let _ = sender.send(WorkerResult::Ocr(result));
+            ctx.request_repaint();
+        });
+    }
+
+    fn paste_clipboard_as_pin(&mut self, ctx: &egui::Context) {
         let result = (|| {
-            let image = Clipboard::new().map_err(|e| e.to_string())?
-                .get_image().map_err(|e| e.to_string())?;
+            let image = Clipboard::new()
+                .map_err(|e| e.to_string())?
+                .get_image()
+                .map_err(|e| e.to_string())?;
             let w = u32::try_from(image.width).map_err(|e| e.to_string())?;
             let h = u32::try_from(image.height).map_err(|e| e.to_string())?;
             RgbaFrame::new(w, h, image.bytes.into_owned())
@@ -332,6 +444,8 @@ impl PicPasteApp {
                 MenuAction::Capture => self.begin_capture(ctx),
                 MenuAction::Paste => self.paste_clipboard_as_pin(ctx),
                 MenuAction::Recover => self.recover_pins(),
+                MenuAction::FinishScroll => self.finish_manual_scroll(),
+                MenuAction::CancelScroll => self.cancel_manual_scroll(),
                 MenuAction::Show => {
                     ctx.send_viewport_cmd(egui::ViewportCommand::Visible(true));
                     ctx.send_viewport_cmd(egui::ViewportCommand::Focus);
@@ -347,6 +461,8 @@ impl PicPasteApp {
             match action {
                 HotkeyAction::Capture => self.begin_capture(ctx),
                 HotkeyAction::PastePin => self.paste_clipboard_as_pin(ctx),
+                HotkeyAction::RecoverPins => self.recover_pins(),
+                HotkeyAction::FinishScroll => self.finish_manual_scroll(),
             }
         }
         let events: Vec<_> = self.work_rx.try_iter().collect();
@@ -361,9 +477,8 @@ impl PicPasteApp {
                             self.status = String::from("截图已完成，请拖动框选区域");
                         }
                         Err(error) => {
-                            self.status = format!(
-                                "截图失败: {error:?}。请检查系统设置→隐私与安全→屏幕录制"
-                            );
+                            self.status =
+                                format!("截图失败: {error:?}。请检查系统设置→隐私与安全→屏幕录制");
                         }
                     }
                 }
@@ -374,10 +489,62 @@ impl PicPasteApp {
                         Err(error) => self.status = format!("图像处理失败: {error}"),
                     }
                 }
+                WorkerResult::Ocr(outcome) => {
+                    self.ocr_waiting = false;
+                    match outcome {
+                        Ok(document) => {
+                            self.ocr_lines = document.lines.len();
+                            self.ocr_text = document
+                                .lines
+                                .iter()
+                                .map(|line| line.text.as_str())
+                                .collect::<Vec<_>>()
+                                .join("\n");
+                            self.status = format!(
+                                "Vision OCR 完成，共识别 {} 行；可以选择或复制文本",
+                                self.ocr_lines
+                            );
+                        }
+                        Err(error) => self.status = format!("文字识别失败：{error}"),
+                    }
+                }
                 WorkerResult::Saved(result) => {
                     self.status = match result {
                         Ok(path) => format!("PNG 已保存: {}", path.display()),
                         Err(error) => format!("PNG 保存失败: {error}"),
+                    };
+                }
+            }
+        }
+        let scroll_events: Vec<_> = self.scroll_rx.try_iter().collect();
+        for event in scroll_events {
+            match event {
+                ScrollEvent::Progress {
+                    segments,
+                    width,
+                    height,
+                } => {
+                    self.status = format!(
+                        "长截图正在拼接：{segments} 段，{width}×{height}px。滚动后按 Ctrl+Option+4 完成"
+                    );
+                }
+                ScrollEvent::Finished(outcome) => {
+                    self.scroll_control.take();
+                    ctx.send_viewport_cmd(egui::ViewportCommand::Visible(true));
+                    ctx.send_viewport_cmd(egui::ViewportCommand::Focus);
+                    self.status = match outcome {
+                        Ok(Some(completion)) if completion.partial => format!(
+                            "滚动位置匹配失败或达到限制，已安全保存前 {} 段为部分 PNG：{}",
+                            completion.segments,
+                            completion.path.display()
+                        ),
+                        Ok(Some(completion)) => format!(
+                            "长截图完成：{} 段，PNG 位于 {}",
+                            completion.segments,
+                            completion.path.display()
+                        ),
+                        Ok(None) => String::from("已取消长截图，所有临时分块已清理"),
+                        Err(error) => format!("长截图失败：{error}"),
                     };
                 }
             }
@@ -387,7 +554,11 @@ impl PicPasteApp {
 
     fn process_ui_images(&mut self, ctx: &egui::Context) {
         if let Some(captured) = self.pending_frame.take() {
-            self.screen = Some(SelectionView::new(ctx, Arc::new(captured.image)));
+            self.screen = Some(SelectionView::new(
+                ctx,
+                captured.display_id,
+                Arc::new(captured.image),
+            ));
         }
         for (action, image) in std::mem::take(&mut self.prepared) {
             match action {
@@ -438,7 +609,7 @@ impl eframe::App for PicPasteApp {
                 if ui.button("从剪贴板贴图  Ctrl+Option+2").clicked() {
                     self.paste_clipboard_as_pin(ui.ctx());
                 }
-                if ui.button("解除所有穿透").clicked() {
+                if ui.button("解除穿透 Ctrl+Option+3").clicked() {
                     self.recover_pins();
                 }
             });
@@ -450,6 +621,16 @@ impl eframe::App for PicPasteApp {
                 }
             });
             ui.label(&self.status);
+            if self.scroll_control.is_some() {
+                ui.horizontal(|ui| {
+                    if ui.button("完成长截图 Ctrl+Option+4").clicked() {
+                        self.finish_manual_scroll();
+                    }
+                    if ui.button("取消并清理").clicked() {
+                        self.cancel_manual_scroll();
+                    }
+                });
+            }
             ui.separator();
 
             if ui.ctx().input(|i| i.key_pressed(egui::Key::Escape)) {
@@ -457,6 +638,8 @@ impl eframe::App for PicPasteApp {
             }
 
             let mut selected_action = None;
+            let mut start_scroll = None;
+            let mut recognize_text = false;
             if let Some(screen) = &mut self.screen {
                 ui.horizontal(|ui| {
                     if ui.button("保存 PNG").clicked() {
@@ -471,13 +654,26 @@ impl eframe::App for PicPasteApp {
                     if ui.button("重置选区").clicked() {
                         screen.selection = None;
                     }
+                    if ui.button("手动长截图 ↓").clicked() {
+                        start_scroll = Some(ScrollAxis::Vertical);
+                    }
+                    if ui.button("手动长截图 →").clicked() {
+                        start_scroll = Some(ScrollAxis::Horizontal);
+                    }
+                    if ui.button("识别文字 (Full)").clicked() {
+                        recognize_text = true;
+                    }
                 });
                 ui.separator();
                 ui.horizontal_wrapped(|ui| {
                     ui.selectable_value(&mut screen.tool, Tool::Select, "选区");
                     ui.selectable_value(&mut screen.tool, Tool::Line, "线条");
+                    ui.selectable_value(&mut screen.tool, Tool::Arrow, "箭头");
+                    ui.selectable_value(&mut screen.tool, Tool::Brush, "画笔");
                     ui.selectable_value(&mut screen.tool, Tool::Rectangle, "矩形");
+                    ui.selectable_value(&mut screen.tool, Tool::Ellipse, "椭圆");
                     ui.selectable_value(&mut screen.tool, Tool::Pixelate, "马赛克");
+                    ui.selectable_value(&mut screen.tool, Tool::Blur, "模糊");
                     if ui.small_button("撤销").clicked() {
                         screen.undo();
                     }
@@ -485,7 +681,10 @@ impl eframe::App for PicPasteApp {
                         screen.redo();
                     }
                 });
-                if ui.ctx().input(|input| input.modifiers.command && input.key_pressed(egui::Key::Z)) {
+                if ui
+                    .ctx()
+                    .input(|input| input.modifiers.command && input.key_pressed(egui::Key::Z))
+                {
                     if ui.ctx().input(|input| input.modifiers.shift) {
                         screen.redo();
                     } else {
@@ -502,6 +701,31 @@ impl eframe::App for PicPasteApp {
             if let Some(action) = selected_action {
                 self.request_prepared(ui.ctx(), action);
             }
+            if let Some(axis) = start_scroll {
+                self.start_manual_scroll(ui.ctx(), axis);
+            }
+            if recognize_text {
+                self.request_ocr(ui.ctx());
+            }
+            if self.ocr_waiting {
+                ui.horizontal(|ui| {
+                    ui.spinner();
+                    ui.label("Vision OCR 正在独立进程中运行");
+                });
+            }
+            if self.ocr_lines > 0 {
+                ui.separator();
+                ui.heading(format!("识别文字 · {} 行", self.ocr_lines));
+                if ui.button("复制全部文字").clicked() {
+                    self.status = match Clipboard::new()
+                        .and_then(|mut clipboard| clipboard.set_text(self.ocr_text.clone()))
+                    {
+                        Ok(()) => String::from("识别文字已复制到剪贴板"),
+                        Err(error) => format!("文本复制失败：{error}"),
+                    };
+                }
+                ui.add(egui::TextEdit::multiline(&mut self.ocr_text).desired_rows(7));
+            }
             if !self.pins.is_empty() {
                 ui.separator();
                 ui.heading("悬浮贴图");
@@ -510,6 +734,7 @@ impl eframe::App for PicPasteApp {
                         ui.label(format!("#{}", pin.id));
                         ui.checkbox(&mut pin.passthrough, "鼠标穿透");
                         ui.add(egui::Slider::new(&mut pin.opacity, 0.2..=1.0).text("透明度"));
+                        ui.add(egui::Slider::new(&mut pin.zoom, 0.25..=3.0).text("缩放"));
                         if ui.small_button("关闭").clicked() {
                             pin.closed.store(true, std::sync::atomic::Ordering::Relaxed);
                         }
@@ -531,11 +756,18 @@ mod tests {
     #[test]
     fn selection_maps_logical_preview_to_source_pixels() {
         let frame = RgbaFrame::new(200, 100, vec![0; 200 * 100 * 4]).unwrap();
-        let rect = egui::Rect::from_min_size(
-            egui::pos2(50.0, 80.0), egui::vec2(100.0, 50.0),
+        let rect = egui::Rect::from_min_size(egui::pos2(50.0, 80.0), egui::vec2(100.0, 50.0));
+        assert_eq!(
+            point_to_pixel(&rect, &frame, egui::pos2(50.0, 80.0)),
+            (0, 0)
         );
-        assert_eq!(point_to_pixel(&rect, &frame, egui::pos2(50.0, 80.0)), (0, 0));
-        assert_eq!(point_to_pixel(&rect, &frame, egui::pos2(149.0, 129.0)), (198, 98));
-        assert_eq!(point_to_pixel(&rect, &frame, egui::pos2(170.0, 140.0)), (199, 99));
+        assert_eq!(
+            point_to_pixel(&rect, &frame, egui::pos2(149.0, 129.0)),
+            (198, 98)
+        );
+        assert_eq!(
+            point_to_pixel(&rect, &frame, egui::pos2(170.0, 140.0)),
+            (199, 99)
+        );
     }
 }

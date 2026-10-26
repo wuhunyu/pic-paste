@@ -10,7 +10,11 @@ impl GrayFrame {
         if width == 0 || height == 0 || width.checked_mul(height)? != data.len() {
             return None;
         }
-        Some(Self { width, height, data })
+        Some(Self {
+            width,
+            height,
+            data,
+        })
     }
 }
 
@@ -32,10 +36,13 @@ pub fn match_vertical(
     maximum_error: f64,
     minimum_ambiguity_gap: f64,
 ) -> Option<ScrollMatch> {
-    if previous.width != next.width || previous.height != next.height
+    if previous.width != next.width
+        || previous.height != next.height
         || !(0.0..1.0).contains(&min_overlap_fraction)
-        || !maximum_error.is_finite() || maximum_error < 0.0
-        || !minimum_ambiguity_gap.is_finite() || minimum_ambiguity_gap < 0.0
+        || !maximum_error.is_finite()
+        || maximum_error < 0.0
+        || !minimum_ambiguity_gap.is_finite()
+        || minimum_ambiguity_gap < 0.0
     {
         return None;
     }
@@ -43,7 +50,9 @@ pub fn match_vertical(
     let h = previous.height;
     let min_overlap = ((h as f64 * min_overlap_fraction).ceil() as usize).max(1);
     let limit = h.checked_sub(min_overlap)?;
-    if limit < 2 { return None; }
+    if limit < 2 {
+        return None;
+    }
     let mut candidates = Vec::new();
     for shift in 2..=limit {
         let overlap = h - shift;
@@ -52,19 +61,54 @@ pub fn match_vertical(
             let start_previous = (y + shift) * w;
             let start_next = y * w;
             for x in 0..w {
-                sum += u64::from(previous.data[start_previous + x]
-                    .abs_diff(next.data[start_next + x]));
+                sum += u64::from(
+                    previous.data[start_previous + x].abs_diff(next.data[start_next + x]),
+                );
             }
         }
         candidates.push((shift, sum as f64 / (overlap * w) as f64));
     }
     candidates.sort_by(|a, b| a.1.total_cmp(&b.1));
     let &(displacement_px, best_error) = candidates.first()?;
-    let ambiguity_gap = candidates.get(1).map_or(f64::INFINITY, |x| x.1 - best_error);
-    if best_error > maximum_error || ambiguity_gap < minimum_ambiguity_gap { return None; }
+    let ambiguity_gap = candidates
+        .get(1)
+        .map_or(f64::INFINITY, |x| x.1 - best_error);
+    if best_error > maximum_error || ambiguity_gap < minimum_ambiguity_gap {
+        return None;
+    }
     Some(ScrollMatch {
-        displacement_px, mean_absolute_error: best_error, ambiguity_gap,
+        displacement_px,
+        mean_absolute_error: best_error,
+        ambiguity_gap,
     })
+}
+
+/// Apply the same conservative overlap rules along the horizontal X axis.
+/// Transposing is an explicit correctness baseline; production matching must
+/// downsample and verify high-information regions before accepting new tiles.
+pub fn match_horizontal(
+    previous: &GrayFrame,
+    next: &GrayFrame,
+    min_overlap_fraction: f64,
+    maximum_error: f64,
+    minimum_ambiguity_gap: f64,
+) -> Option<ScrollMatch> {
+    fn transpose(image: &GrayFrame) -> Option<GrayFrame> {
+        let mut data = vec![0; image.width.checked_mul(image.height)?];
+        for y in 0..image.height {
+            for x in 0..image.width {
+                data[x * image.height + y] = image.data[y * image.width + x];
+            }
+        }
+        GrayFrame::new(image.height, image.width, data)
+    }
+    match_vertical(
+        &transpose(previous)?,
+        &transpose(next)?,
+        min_overlap_fraction,
+        maximum_error,
+        minimum_ambiguity_gap,
+    )
 }
 
 #[cfg(test)]
@@ -73,18 +117,24 @@ mod tests {
     fn sample(offset: usize) -> GrayFrame {
         let width = 13;
         let height = 32;
-        let data = (0..height).flat_map(|y| {
-            (0..width).map(move |x| {
-                let v = y + offset;
-                ((v * v * 19 + v * x * 7 + x * 37) % 251) as u8
+        let data = (0..height)
+            .flat_map(|y| {
+                (0..width).map(move |x| {
+                    let v = y + offset;
+                    ((v * v * 19 + v * x * 7 + x * 37) % 251) as u8
+                })
             })
-        }).collect();
+            .collect();
         GrayFrame::new(width, height, data).unwrap()
     }
     #[test]
     fn finds_known_displacement() {
-        assert_eq!(match_vertical(&sample(0), &sample(5), 0.4, 1.0, 1.0)
-            .unwrap().displacement_px, 5);
+        assert_eq!(
+            match_vertical(&sample(0), &sample(5), 0.4, 1.0, 1.0)
+                .unwrap()
+                .displacement_px,
+            5
+        );
     }
     #[test]
     fn rejects_uniform_and_misaligned_frames() {

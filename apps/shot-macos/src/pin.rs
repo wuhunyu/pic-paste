@@ -1,12 +1,13 @@
 use eframe::egui;
 use shot_core::RgbaFrame;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 pub struct PinnedImage {
     pub id: u64,
     pub source: Arc<RgbaFrame>,
     pub opacity: f32,
+    pub zoom: f32,
     pub passthrough: bool,
     pub closed: Arc<AtomicBool>,
     texture: egui::TextureHandle,
@@ -18,15 +19,12 @@ impl PinnedImage {
             [frame.width as usize, frame.height as usize],
             &frame.rgba,
         );
-        let texture = ctx.load_texture(
-            format!("pin-{id}"),
-            image,
-            egui::TextureOptions::LINEAR,
-        );
+        let texture = ctx.load_texture(format!("pin-{id}"), image, egui::TextureOptions::LINEAR);
         Self {
             id,
             source: frame,
             opacity: 1.0,
+            zoom: 1.0,
             passthrough: false,
             closed: Arc::new(AtomicBool::new(false)),
             texture,
@@ -41,7 +39,7 @@ impl PinnedImage {
         let width = self.source.width as f32;
         let height = self.source.height as f32;
         let scale = (600.0 / width).min(420.0 / height).min(1.0);
-        let size = egui::vec2(width * scale, height * scale);
+        let size = egui::vec2(width * scale, height * scale) * self.zoom.clamp(0.25, 3.0);
         let texture = self.texture.clone();
         let opacity = self.opacity;
         let closed = Arc::clone(&self.closed);
@@ -71,9 +69,8 @@ impl PinnedImage {
                     let available = ui.available_size();
                     let shrink = (available.x / size.x).min(available.y / size.y).min(1.0);
                     let view_size = size * shrink;
-                    let tint = egui::Color32::from_white_alpha(
-                        (opacity.clamp(0.0, 1.0) * 255.0) as u8,
-                    );
+                    let tint =
+                        egui::Color32::from_white_alpha((opacity.clamp(0.0, 1.0) * 255.0) as u8);
                     let reply = ui.add(
                         egui::Image::new((texture.id(), view_size))
                             .tint(tint)

@@ -1,3 +1,5 @@
 #![forbid(unsafe_code)]
+pub mod response;
+pub use response::{OcrDocument, OcrLine, OcrResponse, OcrWord, read_response};
 pub mod request;
-pub use request::{OcrRequest, PROTOCOL_VERSION, MAX_RGBA_BYTES};
+pub use request::{MAX_RGBA_BYTES, OcrRequest, PROTOCOL_VERSION};
