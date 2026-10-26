@@ -1,2 +1,3 @@
 #![forbid(unsafe_code)]
-// Offline OCR IPC protocol is intentionally not enabled during P0.
+pub mod request;
+pub use request::{OcrRequest, PROTOCOL_VERSION, MAX_RGBA_BYTES};
