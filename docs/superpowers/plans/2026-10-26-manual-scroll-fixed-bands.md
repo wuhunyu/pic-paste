@@ -36,8 +36,8 @@ impl FixedBands {
 ```
 
 - [x] Write failing tests showing actual input/output ROI geometry at negative origins; vertical/horizontal scroll scene matching and TileStore export without sticky chrome; identical/flat content remains untrusted.
-- [ ] Run `cargo test -p shot-scroll --test fixed_bands --locked` via GitHub Actions and verify **RED** specifically because `shot_scroll::fixed_bands` does not exist.
-- [ ] Implement the following bounded ROI transform (use unchanged `RectPx` for `FixedBands::default()`):
+- [x] Run `cargo test -p shot-scroll --test fixed_bands --locked` via GitHub Actions and verify **RED** specifically because `shot_scroll::fixed_bands` does not exist.
+- [x] Implement the following bounded ROI transform (use unchanged `RectPx` for `FixedBands::default()`):
 
 ```rust
 use shot_core::{RectPx, platform::ScrollAxis};
@@ -94,3 +94,9 @@ impl FixedBands {
 - [ ] Merge only when PR-specific Linux+macOS CI is full-green. Check post-merge `main` CI and keep physical-device 50-scene acceptance open.
 
 **Acceptance rationale:** Removing fixed chrome from the actual physical ROI is safer than ignoring arbitrary changing pixels in matching scores, and automatically ensures the on-disk PNG contains only the scrollable area. It does **not** solve animated content within the chosen ROI, nor arbitrary middle-segment edit/resume.
+
+## Evidence and limitations
+
+- RED due to missing `shot_scroll::fixed_bands`: [CI #40316689699](https://github.com/wuhunyu/pic-paste/actions/runs/40316689699); formatting corrected before RED confirmation.
+- Pure geometry plus vertical/horizontal sticky-region tests passed the Linux core job [CI #40316842815](https://github.com/wuhunyu/pic-paste/actions/runs/40316842815) before the job was superseded by new changes.
+- Physical Mac sticky bars, dynamic areas, focus and mouse passthrough remain unverified; slow-scroll recovery remains the fallback.

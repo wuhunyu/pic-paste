@@ -16,9 +16,9 @@
 | P3-T1 | OCR helper、SHOC、生命周期 | **代码基本完成** | 本机 Swift Vision helper、IPC、超时/退出/签名校验；外置 Add-on 安全还未提供 | [#8](https://github.com/wuhunyu/pic-paste/issues/8) |
 | P3-T2 | OCR 行/词选择与 400 图测试 | **部分实现** | 截图与贴图行级选择/复制 (#22)；仍无词/字符 bbox 和 400 图 CER 证据 | [#8](https://github.com/wuhunyu/pic-paste/issues/8) |
 | P3-T3 | Lite / Full / Add-on 交付 | **部分实现** | Lite/Full 开发包自动打包；独立签名 Add-on 安装/版本兼容未实现 | [#8](https://github.com/wuhunyu/pic-paste/issues/8) |
-| P4-T1 | 手动纵向/横向滚动及 ROI | **代码基本完成** | 手动区域采样与纵横方向；真实网页/文档和鼠标穿透未验收 | [#7](https://github.com/wuhunyu/pic-paste/issues/7) |
+| P4-T1 | 手动纵向/横向滚动及 ROI | **代码基本完成** | 手动区域采样与纵横方向；[#24](https://github.com/wuhunyu/pic-paste/pull/24) 增加可配置固定边距后再取帧（PR 待验证）；真实网页/文档和鼠标穿透未验收 | [#7](https://github.com/wuhunyu/pic-paste/issues/7) |
 | P4-T2 | 重叠拼接、磁盘块与实时预览 | **代码基本完成** | 匹配拒绝/TileStore/实时小窗 #18；[#20](https://github.com/wuhunyu/pic-paste/pull/20) 已按 PID 排除自身窗口；复杂页面与真实无残影效果仍待实测 | [#7](https://github.com/wuhunyu/pic-paste/issues/7) |
-| P4-T3 | 手动滚动失败恢复、拼接纠错、编辑 | **部分实现** | [#23](https://github.com/wuhunyu/pic-paste/pull/23) 失败暂停、人工回滚慢速重试、复用可信锚点；[#21](https://github.com/wuhunyu/pic-paste/pull/21) 可裁剪尾部；**仍缺固定页头遮罩、真正中间段纠错、长图二次标注与 50 场景实测**。自动滚动为用户明确取消的需求，不计为缺项 | [#7](https://github.com/wuhunyu/pic-paste/issues/7) |
+| P4-T3 | 手动滚动失败恢复、拼接纠错、编辑 | **部分实现** | [#23](https://github.com/wuhunyu/pic-paste/pull/23) 失败暂停、人工回滚慢速重试、复用可信锚点；[#21](https://github.com/wuhunyu/pic-paste/pull/21) 可裁剪尾部；**[#24](https://github.com/wuhunyu/pic-paste/pull/24) 提供手动固定页眉/页脚/侧栏裁剪（待 CI），仍缺自动动态内容过滤、真正中间段纠错、长图二次标注与 50 场景实测**。自动滚动为用户明确取消的需求，不计为缺项 | [#7](https://github.com/wuhunyu/pic-paste/issues/7) |
 | P4-T4 | 行流式 PNG/30k–60k 限制 | **代码基本完成** | 行流式 PNG 和 60k/200MP 上限；极端尺寸/内存压力报告缺失 | [#7](https://github.com/wuhunyu/pic-paste/issues/7)、[#10](https://github.com/wuhunyu/pic-paste/issues/10) |
 | P5-T1 | 稳定性、质量、性能验收 | **部分实现** | CI 和统计脚本存在；真实设备 P95/CPU/RSS、400 OCR/50 长截图报告尚无 | [#10](https://github.com/wuhunyu/pic-paste/issues/10) |
 | P5-T2 | Developer ID、公证、正式发布/回滚 | **未开始正式发布** | ad-hoc 开发 ZIP 有；正式 ID、双架构、Developer ID/notarization/Gatekeeper、回滚未完成；Release 0 | [#9](https://github.com/wuhunyu/pic-paste/issues/9) |
