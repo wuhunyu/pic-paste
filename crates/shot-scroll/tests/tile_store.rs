@@ -1,7 +1,10 @@
 use shot_core::{RgbaFrame, platform::ScrollAxis};
 use shot_scroll::matcher::{GrayFrame, match_horizontal};
 use shot_scroll::tile_store::TileStore;
-use std::{fs, time::{SystemTime, UNIX_EPOCH}};
+use std::{
+    fs,
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 fn frame(width: u32, height: u32, offset_x: u32, offset_y: u32) -> RgbaFrame {
     let mut pixels = Vec::new();
@@ -15,8 +18,12 @@ fn frame(width: u32, height: u32, offset_x: u32, offset_y: u32) -> RgbaFrame {
 }
 
 fn root() -> std::path::PathBuf {
-    let nonce = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
-    let path = std::env::temp_dir().join(format!("picpaste-tile-test-{}-{nonce}", std::process::id()));
+    let nonce = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    let path =
+        std::env::temp_dir().join(format!("picpaste-tile-test-{}-{nonce}", std::process::id()));
     fs::create_dir_all(&path).unwrap();
     path
 }
@@ -38,7 +45,11 @@ fn vertical_append_reads_exact_rows_without_duplicate_overlap() {
         assert_eq!(&bytes[..8], b"\x89PNG\r\n\x1a\n");
         assert!(fs::read_dir(store.working_dir()).unwrap().count() >= 2);
     }
-    assert_eq!(fs::read_dir(&dir).unwrap().count(), 0, "store must clean private tiles on drop");
+    assert_eq!(
+        fs::read_dir(&dir).unwrap().count(),
+        0,
+        "store must clean private tiles on drop"
+    );
     fs::remove_dir_all(dir).unwrap();
 }
 
@@ -87,17 +98,20 @@ fn removing_a_trusted_strip_is_reversible_only_by_recapture() {
 #[test]
 fn horizontal_match_discovers_rightward_shift_and_rejects_flat_frames() {
     let sample = |offset: usize| {
-        let data = (0..12).flat_map(|y| {
-            (0..30).map(move |x| {
-                let v = x + offset;
-                ((v * v * 17 + 31 * y + 9 * v * y) % 251) as u8
+        let data = (0..12)
+            .flat_map(|y| {
+                (0..30).map(move |x| {
+                    let v = x + offset;
+                    ((v * v * 17 + 31 * y + 9 * v * y) % 251) as u8
+                })
             })
-        }).collect();
+            .collect();
         GrayFrame::new(30, 12, data).unwrap()
     };
     assert_eq!(
         match_horizontal(&sample(0), &sample(4), 0.40, 1.0, 1.0)
-            .unwrap().displacement_px,
+            .unwrap()
+            .displacement_px,
         4
     );
     let flat = GrayFrame::new(30, 12, vec![128; 360]).unwrap();
