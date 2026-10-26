@@ -12,6 +12,7 @@ use shot_core::selection::{ResizeHandle, adjust_selection, from_drag, hit_select
 use shot_core::{RectPx, RgbaFrame};
 use shot_image::annotation_tools::{Tool, annotation_for_drag};
 use shot_image::history::{Annotation, AnnotationDocument};
+use shot_image::pixel_tools::{magnifier_patch, sample_rgba};
 use shot_ocr_protocol::OcrDocument;
 use shot_ocr_protocol::hit_test::{hit_line_in_capture, selected_text};
 use shot_platform::macos::MacCapture;
@@ -51,6 +52,8 @@ struct SelectionView {
     tool: Tool,
     render_error: Option<String>,
     texture: egui::TextureHandle,
+    magnifier_texture: egui::TextureHandle,
+    last_hover_color: Option<((i32, i32), [u8; 4])>,
     drag_anchor: Option<egui::Pos2>,
     resize_drag: Option<(ResizeHandle, RectPx, (i32, i32))>,
     brush_points: Vec<(f32, f32)>,
@@ -76,6 +79,11 @@ impl SelectionView {
             ),
             egui::TextureOptions::LINEAR,
         );
+        let magnifier_texture = ctx.load_texture(
+            "capture-magnifier",
+            egui::ColorImage::from_rgba_unmultiplied([9, 9], &[0; 9 * 9 * 4]),
+            egui::TextureOptions::NEAREST,
+        );
         Self {
             display_id,
             capture_revision,
@@ -86,6 +94,8 @@ impl SelectionView {
             render_error: None,
             source,
             texture,
+            magnifier_texture,
+            last_hover_color: None,
             drag_anchor: None,
             resize_drag: None,
             brush_points: Vec::new(),
@@ -142,6 +152,12 @@ impl SelectionView {
 
     fn end_selection_adjustment(&mut self) {
         self.resize_drag = None;
+    }
+
+    fn magnifier_at(&self, point: (i32, i32)) -> Option<(RgbaFrame, [u8; 4])> {
+        let color = sample_rgba(&self.source, point)?;
+        let patch = magnifier_patch(&self.source, point, 9).ok()?;
+        Some((patch, color))
     }
 
     fn ocr_ticket(&self) -> OcrTicket {
@@ -273,6 +289,49 @@ impl SelectionView {
             }
         }
 
+        if !self.ocr_mode
+            && let Some(pointer) = response.hover_pos()
+        {
+            let point = point_to_pixel(&response.rect, &self.source, pointer);
+            if let Some((patch, color)) = self.magnifier_at(point) {
+                self.last_hover_color = Some((point, color));
+                self.magnifier_texture.set(
+                    egui::ColorImage::from_rgba_unmultiplied(
+                        [patch.width as usize, patch.height as usize],
+                        &patch.rgba,
+                    ),
+                    egui::TextureOptions::NEAREST,
+                );
+                let left = (pointer.x + 18.0)
+                    .min(response.rect.right() - 134.0)
+                    .max(response.rect.left());
+                let top = (pointer.y + 18.0)
+                    .min(response.rect.bottom() - 150.0)
+                    .max(response.rect.top());
+                let bubble = egui::Rect::from_min_size(
+                    egui::pos2(left, top),
+                    egui::vec2(134.0, 150.0),
+                );
+                ui.painter().rect_filled(bubble, 4.0, egui::Color32::from_black_alpha(235));
+                let sample_rect = egui::Rect::from_min_size(
+                    egui::pos2(left + 13.0, top + 7.0),
+                    egui::vec2(108.0, 108.0),
+                );
+                ui.painter().image(
+                    self.magnifier_texture.id(),
+                    sample_rect,
+                    egui::Rect::from_min_max(egui::Pos2::ZERO, egui::pos2(1.0, 1.0)),
+                    egui::Color32::WHITE,
+                );
+                ui.painter().text(
+                    egui::pos2(left + 7.0, top + 123.0),
+                    egui::Align2::LEFT_TOP,
+                    format!("{} , {}  #{:02X}{:02X}{:02X}", point.0, point.1, color[0], color[1], color[2]),
+                    egui::FontId::monospace(11.0),
+                    egui::Color32::WHITE,
+                );
+            }
+        }
         if self.ocr_mode {
             if response.clicked()
                 && let Some(pointer) = response.interact_pointer_pos()
@@ -979,6 +1038,7 @@ impl eframe::App for PicPasteApp {
             let mut selected_action = None;
             let mut start_scroll = None;
             let mut recognize_text = false;
+            let mut color_to_copy = None;
             if let Some(screen) = &mut self.screen {
                 ui.horizontal(|ui| {
                     if ui.button("保存 PNG").clicked() {
@@ -1034,6 +1094,15 @@ impl eframe::App for PicPasteApp {
                     ui.colored_label(egui::Color32::RED, format!("预览渲染失败：{error}"));
                 }
                 screen.show(ui);
+                if let Some((point, rgba)) = screen.last_hover_color {
+                    let color = format!("#{:02X}{:02X}{:02X}", rgba[0], rgba[1], rgba[2]);
+                    ui.horizontal(|ui| {
+                        ui.label(format!("取色 {}（{}, {}）", color, point.0, point.1));
+                        if ui.button("复制 HEX").clicked() {
+                            color_to_copy = Some(color);
+                        }
+                    });
+                }
                 if screen.ocr_result.is_some() {
                     let picked = screen.ocr_line.and_then(|index| {
                         screen
@@ -1061,6 +1130,14 @@ impl eframe::App for PicPasteApp {
                 }
             } else {
                 ui.label("按 Ctrl+Option+1 开始截图；或点击“截图”。");
+            }
+            if let Some(color) = color_to_copy {
+                self.status = match Clipboard::new()
+                    .and_then(|mut clipboard| clipboard.set_text(color))
+                {
+                    Ok(()) => String::from("取色结果已复制"),
+                    Err(error) => format!("复制颜色失败：{error}"),
+                };
             }
             if let Some(action) = selected_action {
                 self.request_prepared(ui.ctx(), action);
