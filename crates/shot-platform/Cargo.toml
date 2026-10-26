@@ -2,5 +2,10 @@
 name = "shot-platform"
 version.workspace = true
 edition.workspace = true
+
 [dependencies]
 shot-core = { path = "../shot-core" }
+shot-image = { path = "../shot-image" }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+screencapturekit = { version = "=11.0.0", features = ["macos_14_0"] }
