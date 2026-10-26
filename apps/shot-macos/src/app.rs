@@ -683,7 +683,11 @@ impl PicPasteApp {
                 }
                 WorkerResult::Ocr { ticket, outcome } => {
                     self.ocr_waiting = false;
-                    if !self.screen.as_ref().is_some_and(|screen| screen.accepts_ocr(ticket)) {
+                    if !self
+                        .screen
+                        .as_ref()
+                        .is_some_and(|screen| screen.accepts_ocr(ticket))
+                    {
                         self.ocr_text.clear();
                         self.ocr_lines = 0;
                         self.status = String::from("截图或选区已变化，已丢弃过期 OCR 结果");
