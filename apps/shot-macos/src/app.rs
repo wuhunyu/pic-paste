@@ -65,7 +65,7 @@ impl SelectionView {
         let width = self.source.width as f32;
         let height = self.source.height as f32;
         let available = ui.available_size() - egui::vec2(0.0, 12.0);
-        let scale = (available.x / width).min(available.y / height).min(1.0).max(0.01);
+        let scale = (available.x / width).min(available.y / height).clamp(0.01, 1.0);
         let displayed = egui::vec2(width * scale, height * scale);
         let response = ui.add(
             egui::Image::new((self.texture.id(), displayed))
@@ -75,14 +75,13 @@ impl SelectionView {
         if response.drag_started() {
             self.drag_anchor = response.interact_pointer_pos();
         }
-        if response.dragged() || response.drag_stopped() {
-            if let (Some(start), Some(end)) =
+        if (response.dragged() || response.drag_stopped())
+            && let (Some(start), Some(end)) =
                 (self.drag_anchor, response.interact_pointer_pos())
-            {
+        {
                 let a = point_to_pixel(&response.rect, &self.source, start);
                 let b = point_to_pixel(&response.rect, &self.source, end);
                 self.selection = from_drag(a, b).ok();
-            }
         }
         if response.drag_stopped() {
             self.drag_anchor = None;
