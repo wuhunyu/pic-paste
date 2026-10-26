@@ -1,5 +1,6 @@
 use crate::hotkey::{HotkeyAction, HotkeyController};
 use crate::pin::PinnedImage;
+use crate::menu::{MenuAction, MenuBar};
 use arboard::{Clipboard, ImageData};
 use eframe::egui;
 use shot_core::platform::{CapturedFrame, PlatformError};
@@ -158,6 +159,9 @@ pub struct PicPasteApp {
     work_tx: Sender<WorkerResult>,
     work_rx: Receiver<WorkerResult>,
     hotkey_rx: Receiver<HotkeyAction>,
+    menu_rx: Receiver<MenuAction>,
+    _menu: Option<MenuBar>,
+    quit_requested: bool,
     _hotkeys: Option<HotkeyController>,
 }
 
@@ -165,13 +169,18 @@ impl PicPasteApp {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
         let (work_tx, work_rx) = mpsc::channel();
         let (hotkey_tx, hotkey_rx) = mpsc::channel();
+        let (menu_tx, menu_rx) = mpsc::channel();
+        let (menu, menu_status) = match MenuBar::install(cc.egui_ctx.clone(), menu_tx) {
+            Ok(menu) => (Some(menu), None),
+            Err(error) => (None, Some(format!("菜单栏不可用：{error}"))),
+        };
         let (hotkeys, status) =
             match HotkeyController::install(cc.egui_ctx.clone(), hotkey_tx) {
                 Ok(hotkeys) => (Some(hotkeys), String::from("快捷键已注册")),
                 Err(error) => (None, format!("热键不可用，仍可使用窗口按钮：{error}")),
             };
         Self {
-            status,
+            status: menu_status.unwrap_or(status),
             radius: 16,
             capturing: false,
             processing: false,
@@ -183,6 +192,9 @@ impl PicPasteApp {
             work_tx,
             work_rx,
             hotkey_rx,
+            menu_rx,
+            _menu: menu,
+            quit_requested: false,
             _hotkeys: hotkeys,
         }
     }
@@ -268,6 +280,22 @@ impl PicPasteApp {
     }
 
     fn process_events(&mut self, ctx: &egui::Context) {
+        let menu_actions: Vec<_> = self.menu_rx.try_iter().collect();
+        for action in menu_actions {
+            match action {
+                MenuAction::Capture => self.begin_capture(ctx),
+                MenuAction::Paste => self.paste_clipboard_as_pin(ctx),
+                MenuAction::Recover => self.recover_pins(),
+                MenuAction::Show => {
+                    ctx.send_viewport_cmd(egui::ViewportCommand::Visible(true));
+                    ctx.send_viewport_cmd(egui::ViewportCommand::Focus);
+                }
+                MenuAction::Quit => {
+                    self.quit_requested = true;
+                    ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+                }
+            }
+        }
         let actions: Vec<_> = self.hotkey_rx.try_iter().collect();
         for action in actions {
             match action {
@@ -341,6 +369,15 @@ impl PicPasteApp {
 impl eframe::App for PicPasteApp {
     fn logic(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         self.process_events(ctx);
+        // macOS convention: closing the settings window hides it while the
+        // status bar icon and global hotkeys stay active.
+        if self._menu.is_some()
+            && !self.quit_requested
+            && ctx.input(|input| input.viewport().close_requested())
+        {
+            ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
+            ctx.send_viewport_cmd(egui::ViewportCommand::Visible(false));
+        }
     }
 
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
