@@ -17,7 +17,7 @@
 | P3-T2 | OCR 行/词选择与 400 图测试 | **部分实现** | 截图上行级选择与全量复制；无贴图词/字符选择和 400 图 CER 证据 | [#8](https://github.com/wuhunyu/pic-paste/issues/8) |
 | P3-T3 | Lite / Full / Add-on 交付 | **部分实现** | Lite/Full 开发包自动打包；独立签名 Add-on 安装/版本兼容未实现 | [#8](https://github.com/wuhunyu/pic-paste/issues/8) |
 | P4-T1 | 手动纵向/横向滚动及 ROI | **代码基本完成** | 手动区域采样与纵横方向；真实网页/文档和鼠标穿透未验收 | [#7](https://github.com/wuhunyu/pic-paste/issues/7) |
-| P4-T2 | 重叠拼接、磁盘块与实时预览 | **代码基本完成** | 匹配拒绝/TileStore/实时小窗 #18；复杂页面和截取自身预览窗的污染风险需实测 | [#7](https://github.com/wuhunyu/pic-paste/issues/7) |
+| P4-T2 | 重叠拼接、磁盘块与实时预览 | **代码基本完成** | 匹配拒绝/TileStore/实时小窗 #18；[#20](https://github.com/wuhunyu/pic-paste/pull/20) 已按 PID 排除自身窗口；复杂页面与真实无残影效果仍待实测 | [#7](https://github.com/wuhunyu/pic-paste/issues/7) |
 | P4-T3 | 自动滚动、纠错、编辑 | **部分实现** | 结束后可以删除最后可信段或保留前 N 段裁剪尾部（PR #21）；**仍无自动滚动、固定页头遮罩、真正中间删段后连续纠错、长图二次标注** | [#7](https://github.com/wuhunyu/pic-paste/issues/7) |
 | P4-T4 | 行流式 PNG/30k–60k 限制 | **代码基本完成** | 行流式 PNG 和 60k/200MP 上限；极端尺寸/内存压力报告缺失 | [#7](https://github.com/wuhunyu/pic-paste/issues/7)、[#10](https://github.com/wuhunyu/pic-paste/issues/10) |
 | P5-T1 | 稳定性、质量、性能验收 | **部分实现** | CI 和统计脚本存在；真实设备 P95/CPU/RSS、400 OCR/50 长截图报告尚无 | [#10](https://github.com/wuhunyu/pic-paste/issues/10) |

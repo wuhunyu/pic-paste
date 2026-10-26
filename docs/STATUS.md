@@ -4,10 +4,10 @@
 
 ## 当前基线
 
-- 已合并：PR [#1](https://github.com/wuhunyu/pic-paste/pull/1)、[#2](https://github.com/wuhunyu/pic-paste/pull/2)、[#3](https://github.com/wuhunyu/pic-paste/pull/3)、[#12](https://github.com/wuhunyu/pic-paste/pull/12)–[#18](https://github.com/wuhunyu/pic-paste/pull/18)。本轮核验时共 **10 个已合并 PR**。
-- 最新合并：[#18 长截图实时预览](https://github.com/wuhunyu/pic-paste/pull/18)，合并提交 `e631c75cdfe9c0993de010b3003fac7fa7c078f6`。其 [CI #40297435616](https://github.com/wuhunyu/pic-paste/actions/runs/40297435616) 完整成功：Linux core tests/Clippy、macOS workspace tests/Clippy/Release、Swift Apple Vision helper IPC、Lite/Full 开发包。
+- 已合并：PR [#1](https://github.com/wuhunyu/pic-paste/pull/1)、[#2](https://github.com/wuhunyu/pic-paste/pull/2)、[#3](https://github.com/wuhunyu/pic-paste/pull/3)、[#12](https://github.com/wuhunyu/pic-paste/pull/12)–[#21](https://github.com/wuhunyu/pic-paste/pull/21)。截至本次核验共 **13 个已合并 PR**。
+- 最新功能合并：[#21 长截图可信前缀批量裁剪](https://github.com/wuhunyu/pic-paste/pull/21)，合并提交 `7205c526abbadbdfc5e2fbfb64aa450c2c138370`，其 [CI #40305352112](https://github.com/wuhunyu/pic-paste/actions/runs/40305352112) **success**：Linux core tests/Clippy、macOS workspace tests/Clippy/Release、Swift Apple Vision helper IPC、Lite/Full 开发包。此前 [#20](https://github.com/wuhunyu/pic-paste/pull/20) 排除自身窗口，合并 `ca6e5e45919514a9b586df42115e2cfe41f5cc80`；[CI #40303930840](https://github.com/wuhunyu/pic-paste/actions/runs/40303930840) success。
 - #17 合并提交 `7e492a4bb91f6062c225dfb33f524cc51756e556`；[main CI #40297130672](https://github.com/wuhunyu/pic-paste/actions/runs/40297130672) **success**。
-- **#18 合并后的 main CI [#40302600472](https://github.com/wuhunyu/pic-paste/actions/runs/40302600472) 已 success**；后续每次合并仍必须重新检查最新 main 构建。
+- #18 合并后 [main CI #40302600472](https://github.com/wuhunyu/pic-paste/actions/runs/40302600472) success；#20 合并后 [main CI #40305434870](https://github.com/wuhunyu/pic-paste/actions/runs/40305434870) **success**。#21 合并和本次文档同步后的最新 main CI 仍需单独核验，不以分支 CI 替代。
 - 跟踪 Issues：[#5 原生窗口和多屏](https://github.com/wuhunyu/pic-paste/issues/5)、[#6 标注与贴图](https://github.com/wuhunyu/pic-paste/issues/6)、[#7 长截图](https://github.com/wuhunyu/pic-paste/issues/7)、[#8 OCR/二维码/Add-on](https://github.com/wuhunyu/pic-paste/issues/8)、[#10 真机与性能](https://github.com/wuhunyu/pic-paste/issues/10)、[#9 macOS 正式发布](https://github.com/wuhunyu/pic-paste/issues/9)、[#11 Windows](https://github.com/wuhunyu/pic-paste/issues/11)。[#4](https://github.com/wuhunyu/pic-paste/issues/4) 已关闭。
 - **GitHub Releases：0。** 目前只有 ARM64 Lite/Full ad-hoc 签名开发 ZIP，非正式发行件。
 
@@ -15,11 +15,11 @@
 
 | 工作流 | 已实现 / 已通过 CI 的代码 | 尚缺失或未验收 |
 | --- | --- | --- |
-| P0 macOS 截图 | 原生 ScreenCaptureKit 选显示器；负坐标/缩放映射测试；独立无边框 eframe/winit 选区视口；窗口候选单击选区；9×9 像素放大镜/HEX；菜单、可配置 Ctrl+Option+1…9 热键与失败回滚 | 不是专用 AppKit NSPanel；真实多屏/Spaces/不同 TCC 权限、热键冲突、启动/延迟没有验收；捕获浮窗自污染风险待实测 |
+| P0 macOS 截图 | 原生 ScreenCaptureKit 选显示器；负坐标/缩放映射测试；独立无边框 eframe/winit 选区视口；窗口候选单击选区；9×9 像素放大镜/HEX；菜单、可配置 Ctrl+Option+1…9 热键与失败回滚 | 不是专用 AppKit NSPanel；真实多屏/Spaces/不同 TCC 权限、热键冲突、启动/延迟没有验收；[#20](https://github.com/wuhunyu/pic-paste/pull/20) 已在代码层按当前 PID 排除本应用浮窗；真实系统完整排除情况待验收 |
 | P1 标注与 PNG | 线、箭头、画笔、矩形、椭圆、马赛克、模糊、**中英文离线文字**（[#17](https://github.com/wuhunyu/pic-paste/pull/17)）；Undo/Redo；PNG-only 无覆盖原子保存、透明圆角、限定大小的 PNG 缩略图、⌘S 保存（[#16](https://github.com/wuhunyu/pic-paste/pull/16)） | 文字字体回退与跨版本系统覆盖、Native 剪贴板粘贴/色彩/Alpha 真机验证、工具边界压力测试 |
 | P2 多贴图 | 多窗口置顶、缩放、透明度、鼠标穿透和一键恢复 | pin OCR 文字选择；移动/选择/穿透模式互斥；GPU 纹理与 5 张贴图帧延迟实测；跨 Spaces |
 | P3 OCR | Swift Apple Vision 本地 OCR helper（Full）、版本化 SHOC IPC、20s 超时、无 helper 的 Lite 降级、截图行级 hit test/复制 | 词/字符与贴图文字选择、400 张 CER 统计、独立签名 Add-on；**QR 离线识别 R-010 尚未实现** |
-| P4 长截图 | 手动纵向/横向、保守拼接、磁盘块存储、行流式 PNG、60k/200MP 限制、完成后预览/删最后段/保留前 N 段裁剪尾部（[#21](https://github.com/wuhunyu/pic-paste/pull/21)）；[#18](https://github.com/wuhunyu/pic-paste/pull/18) 新增“最新一帧”实时缩略图与鼠标穿透预览窗 | 自动滚动、固定页头/动态区域过滤、中间段纠错/断点续接、长图标注/贴图；50 场景 ≥95% 的实证数据与实时窗自污染验收 |
+| P4 长截图 | 手动纵向/横向、保守拼接、磁盘块存储、行流式 PNG、60k/200MP 限制、完成后预览/删最后段/保留前 N 段裁剪尾部（[#21](https://github.com/wuhunyu/pic-paste/pull/21)）；[#18](https://github.com/wuhunyu/pic-paste/pull/18) 新增“最新一帧”实时缩略图与鼠标穿透预览窗 | 自动滚动、固定页头/动态区域过滤、中间段纠错/断点续接、长图标注/贴图；50 场景 ≥95% 的实证数据、实时窗真正鼠标穿透及排除自窗口后无残影的真机验收 |
 | P5 测试/发布 | macOS CI fmt/test/clippy/release、Swift OCR IPC，Lite/Full 开发包、SHA256；基础 `scripts/bench_report.py` 测试 | P50/P95、RSS/CPU、OLED/Retina/Spaces、TCC、CER、50 场景报告；x86_64、正式 Bundle ID/图标、Developer ID 签名/公证/Gatekeeper、发行和回滚 |
 | P6 Windows | Rust core/platform 接口可复用 | **无 Windows 原生捕获/贴图/OCR/安装包**；按计划在 macOS 验收后开始 |
 

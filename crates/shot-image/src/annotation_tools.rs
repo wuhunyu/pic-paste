@@ -1,7 +1,8 @@
 use crate::history::Annotation;
 
-/// Tools that are implemented in the lightweight built-in raster compositor.
-/// This list does not imply OCR or text/blur tools are already usable.
+/// Screenshot annotation tools supported by the offline raster compositor.
+/// Text is placed with a click and handled separately from drag annotations;
+/// OCR recognition is an independent operation, not an annotation tool.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Tool {
     #[default]
