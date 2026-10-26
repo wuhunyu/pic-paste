@@ -26,7 +26,10 @@ fn magnifier_preserves_center_and_clamps_edges() {
     assert_eq!(center.rgba, frame.rgba);
     let edge = magnifier_patch(&frame, (0, 0), 3).unwrap();
     assert_eq!(&edge.rgba[0..4], &[0, 0, 0, 255]);
-    assert_eq!(&edge.rgba[(2 * 3 + 2) * 4..(2 * 3 + 2) * 4 + 4], &[20, 30, 2, 255]);
+    assert_eq!(
+        &edge.rgba[(2 * 3 + 2) * 4..(2 * 3 + 2) * 4 + 4],
+        &[20, 30, 2, 255]
+    );
 }
 
 #[test]
