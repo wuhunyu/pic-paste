@@ -1244,6 +1244,16 @@ mod tests {
     }
 
     #[test]
+    fn magnifier_samples_source_pixels_without_altering_screenshot() {
+        let screen = test_screen(2);
+        let (patch, color) = screen.magnifier_at((0, 0)).unwrap();
+        assert_eq!((patch.width, patch.height), (9, 9));
+        assert_eq!(color, [255, 255, 255, 255]);
+        assert!(screen.magnifier_at((-1, 0)).is_none());
+        assert_eq!(screen.source.rgba[0..4], [255, 255, 255, 255]);
+    }
+
+    #[test]
     fn selection_maps_logical_preview_to_source_pixels() {
         let frame = RgbaFrame::new(200, 100, vec![0; 200 * 100 * 4]).unwrap();
         let rect = egui::Rect::from_min_size(egui::pos2(50.0, 80.0), egui::vec2(100.0, 50.0));
