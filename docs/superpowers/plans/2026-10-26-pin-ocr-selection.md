@@ -28,25 +28,25 @@
 **Interface:** `pub struct PinImageView { image_width: u32, image_height: u32, left: f32, top: f32, width: f32, height: f32 }`; `pub fn map_pin_click(view: PinImageView, point: (f32,f32)) -> Option<(f32,f32)>`.
 
 - [x] Write tests for source-pixel placement, retina/zoom, toolbar margin rejection and invalid dimensions.
-- [ ] Confirm RED with `cargo test -p shot-core --test pin_view --locked` (expected unresolved import).
-- [ ] Implement bounded finite transform; do not up/downsample pixels.
-- [ ] Confirm GREEN with core tests and clippy; commit.
+- [x] Confirm RED with `cargo test -p shot-core --test pin_view --locked` (expected unresolved import).
+- [x] Implement bounded finite transform; do not up/downsample pixels.
+- [x] Confirm GREEN with core tests and clippy; commit.
 
 ### Task 2: Pin mode and event loop
 
 **Files:** `apps/shot-macos/src/pin.rs` (modify), `apps/shot-macos/src/app.rs` (modify).
 
-- [ ] Add `PinEvent` (`Recognize`, `Move`, `PickLine`, `CopyLine`) with source pixel positions and monotonically unique pin IDs.
-- [ ] Replace pin's independent passthrough bool with `PinMode` enum; pin viewport mouse passthrough derives only from `PinMode::Passthrough`, and root recovery switches to Move. Click never initiates drag in TextSelect mode; Shift+drag enables temporary Move.
-- [ ] Add explicit OCR button inside each pin, one async worker/pin, and isolated `WorkerResult::PinOcr`.
-- [ ] On successful OCR, store `Arc<OcrDocument>` and line index, draw only selected-line quadrilateral; do not fake missing word boxes.
-- [ ] Connect `PinEvent::PickLine` to `hit_line_in_capture(doc,(0,0),point)` and explicit copy via `selected_text`; avoid unnecessary repeated OCR.
-- [ ] Reuse existing copy/error status UI and Lite fallback, ensure unchanged `SelectionView` OCR functionality.
+- [x] Add `PinEvent` (`Recognize`, `Move`, `PickLine`, `CopyLine`) with source pixel positions and monotonically unique pin IDs.
+- [x] Replace pin's independent passthrough bool with `PinMode` enum; pin viewport mouse passthrough derives only from `PinMode::Passthrough`, and root recovery switches to Move. Click never initiates drag in TextSelect mode; Shift+drag enables temporary Move.
+- [x] Add explicit OCR button inside each pin, one async worker/pin, and isolated `WorkerResult::PinOcr`.
+- [x] On successful OCR, store `Arc<OcrDocument>` and line index, draw only selected-line quadrilateral; do not fake missing word boxes.
+- [x] Connect `PinEvent::PickLine` to `hit_line_in_capture(doc,(0,0),point)` and explicit copy via `selected_text`; avoid unnecessary repeated OCR.
+- [x] Reuse existing copy/error status UI and Lite fallback, ensure unchanged `SelectionView` OCR functionality.
 
 ### Task 3: CI, docs and merge
 
 **Files:** `README.md`, `docs/STATUS.md`, `docs/TASKS.md`.
 
-- [ ] Verify `cargo fmt --all -- --check`, `cargo test --workspace --locked`, `cargo clippy --workspace --all-targets --locked -- -D warnings`, macOS Release build, Swift helper IPC and Lite/Full package on GitHub Actions.
-- [ ] Update P2-T2 / P3-T2 to partial, explicitly leave word-level/QR/Add-on and physical multi-monitor tests open.
+- [x] Verify `cargo fmt --all -- --check`, `cargo test --workspace --locked`, `cargo clippy --workspace --all-targets --locked -- -D warnings`, macOS Release build, Swift helper IPC and Lite/Full package on GitHub Actions.
+- [x] Update P2-T2 / P3-T2 to partial, explicitly leave word-level/QR/Add-on and physical multi-monitor tests open.
 - [ ] Merge full-green PR and run main CI. Issue #6/#8 update with exact SHA and CI evidence.
