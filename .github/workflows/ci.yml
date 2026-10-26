@@ -25,8 +25,16 @@ jobs:
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
       - name: Build macOS development binary
         run: cargo build --release -p shot-macos --locked
-      - name: Assemble development app
-        run: bash scripts/package-macos.sh
+      - name: Compile offline Apple Vision OCR helper
+        run: |
+          swiftc -O -target arm64-apple-macos14.0 \
+            -framework Vision -framework CoreGraphics -framework Foundation \
+            -framework CryptoKit packaging/macos/PicPasteOCR.swift \
+            -o target/release/PicPasteOCR
+      - name: Assemble Lite development app
+        run: PICPASTE_VARIANT=Lite bash scripts/package-macos.sh
+      - name: Assemble Full development app
+        run: PICPASTE_VARIANT=Full bash scripts/package-macos.sh
       - name: Upload unsigned development package
         uses: actions/upload-artifact@v4
         with:
