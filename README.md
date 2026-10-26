@@ -6,13 +6,15 @@ A small, offline screenshot and pinned-image utility. **macOS-first**, Rust 2024
 
 ## Available macOS preview workflow
 
-- **Ctrl+Option+1:** snapshot the primary display and open the screenshot selection/editor. The screenshot is captured **before** opening the fullscreen main-editor viewport. Drag to select; PR #3 adds eight edge/corner handles, drag-to-move, 9x9 pixel magnifier, and exact HEX eyedropper copy. Esc cancels.
+- **Ctrl+Option+1:** snapshot the currently selected display (the first available screen by default) and open the screenshot selection/editor. The screenshot is captured **before** opening the fullscreen main-editor viewport. Drag to select; PR #3 adds eight edge/corner handles, drag-to-move, 9x9 pixel magnifier, and exact HEX eyedropper copy. Esc cancels.
 - Annotate using **line, arrow, brush, rectangle, ellipse, pixelate, blur**; undo/redo is non-destructive. Text annotation is not yet implemented.
 - **Save PNG**, **Copy image**, or **Pin** the selected/composited screenshot. The corner radius is configurable from 0–64 physical pixels; image file formats are always **PNG only**, with alpha preserved.
 - **Ctrl+Option+2:** create a pin from the clipboard image. Supports multiple independent always-on-top panes, per-pin opacity, scale and optional mouse passthrough. **Ctrl+Option+3** disables all passthrough as a recovery shortcut.
 - **Manual scrolling screenshots:** select a single scroll region in the screenshot editor and choose vertical (↓) or horizontal (→). The main window hides while you scroll the target application. Use **Ctrl+Option+4** or the menu bar to finish, or choose Cancel from the menu. The implementation rejects uncertain overlaps and respects a 60,000px long-edge / 200MP area limit.
 - **Scroll review (in development PR #3):** finish returns a bounded thumbnail, accepts removal of the last trusted segment, and waits for explicit **Save PNG** or **Discard**. It keeps raw tile strips on disk rather than allocating a full RGBA long image; exported PNG is streamed row-by-row.
 - **OCR (Full package):** explicit '识别文字' action invokes a separate local Apple Vision Accurate helper. Copy all recognition text; PR #3 additionally supports choosing an OCR line on the capture preview by clicking its Vision-detected polygon. **Lite** contains no OCR helper. The OCR helper is never required for normal screenshot, pin or scroll operations.
+
+- **截取下一块屏幕:** the settings-window action cycles the discovered ScreenCaptureKit display IDs, selecting a secondary display on multi-monitor systems. Capture enumeration and image retrieval both run on the worker thread. The editor is still an eframe preview rather than an AppKit window placed over the captured display; true native multi-display overlays remain to be implemented and device-tested.
 
 ### Preview limitations
 
