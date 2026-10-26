@@ -1,32 +1,25 @@
 # PicPaste
 
-A small, offline screenshot and pinned-image utility. **macOS-first**, Rust 2024 + egui/eframe 0.37 + wgpu, with a native ScreenCaptureKit capture adapter. Windows support comes after macOS release acceptance.
+An offline, macOS-first screenshot and pinned-image utility written in Rust 2024, egui/eframe + wgpu and native ScreenCaptureKit. No Electron or WebView. **Development preview, not a signed/notarized public release.** Windows integration is planned after the macOS acceptance gates.
 
-> **Development preview only.** A green macOS GitHub Actions build means the code compiles, passes automated tests and can be packaged. It does **not** establish real-device Screen Recording permission behavior, mixed-DPI/Spaces positioning, input passthrough reliability or performance limits.
+> **Progress truth:** [Current status](docs/STATUS.md) · [Original 20-task acceptance tracker](docs/TASKS.md) · [Open work](https://github.com/wuhunyu/pic-paste/issues). This README describes the code on `main`, not work in an unmerged PR. As of 2026-10-26, PR #18 (live scroll preview) is merged and CI passed; physical multi-display, Spaces, capture TCC and performance tests remain **unverified**.
 
-## Available macOS preview workflow
+## Implemented macOS development workflow
 
-- **Ctrl+Option+1:** snapshot the currently selected display (the first available screen by default) and open the screenshot selection/editor. The screenshot is captured **before** opening the fullscreen main-editor viewport. Drag to select; PR #3 adds eight edge/corner handles, drag-to-move, 9x9 pixel magnifier, and exact HEX eyedropper copy. Esc cancels.
-- Annotate using **line, arrow, brush, rectangle, ellipse, pixelate, blur**; undo/redo is non-destructive. Text annotation is not yet implemented.
-- **Save PNG**, **Copy image**, or **Pin** the selected/composited screenshot. The corner radius is configurable from 0–64 physical pixels; image file formats are always **PNG only**, with alpha preserved.
-- **Ctrl+Option+2:** create a pin from the clipboard image. Supports multiple independent always-on-top panes, per-pin opacity, scale and optional mouse passthrough. **Ctrl+Option+3** disables all passthrough as a recovery shortcut.
-- **Manual scrolling screenshots:** select a single scroll region in the screenshot editor and choose vertical (↓) or horizontal (→). The main window hides while you scroll the target application. Use **Ctrl+Option+4** or the menu bar to finish, or choose Cancel from the menu. The implementation rejects uncertain overlaps and respects a 60,000px long-edge / 200MP area limit.
-- **Scroll review (in development PR #3):** finish returns a bounded thumbnail, accepts removal of the last trusted segment, and waits for explicit **Save PNG** or **Discard**. It keeps raw tile strips on disk rather than allocating a full RGBA long image; exported PNG is streamed row-by-row.
-- **OCR (Full package):** explicit '识别文字' action invokes a separate local Apple Vision Accurate helper. Copy all recognition text; PR #3 additionally supports choosing an OCR line on the capture preview by clicking its Vision-detected polygon. **Lite** contains no OCR helper. The OCR helper is never required for normal screenshot, pin or scroll operations.
+1. **Screenshot:** `Ctrl+Option+1` captures the selected display. The settings window can switch to the next detected monitor. The selection/editor opens in a **separate borderless native eframe/winit viewport** positioned using the selected screen's logical bounds; it is **not** a dedicated AppKit NSPanel. Drag to select, click a recognized window candidate, or adjust selection with eight handles; move an existing selection. The 9×9 source-pixel magnifier samples exact RGBA values and can copy HEX color. Mixed-DPI/Spaces and permission behavior still require physical-device verification.
+2. **Annotations:** line, arrow, brush, rectangle, ellipse, pixelate, blur and **offline English/Chinese text** (choose Text, enter text/font size, click to place). Non-destructive Undo/Redo. Text rasterizes with available local system fonts; missing glyphs/system-font availability are not yet verified across clean macOS installations.
+3. **Output:** screenshot file exports are **PNG-only**. Save PNG or `⌘S` quick-save; copy image to the native clipboard, or create a pin. The adjustable 0–64 px transparent rounded-corner alpha is preserved in PNG output; a bounded thumbnail previews the export. Verify color fidelity, alpha and clipboard pasting in real Mac applications before release.
+4. **Pins:** `Ctrl+Option+2` pins clipboard images. Multiple independent always-on-top image viewports support opacity, scaling and mouse passthrough. `Ctrl+Option+3` recovers interactivity after passthrough. Multi-pin GPU/resource budgets, drag vs selection routing and native Spaces compatibility have not passed device acceptance.
+5. **Manual long screenshots:** select a scroll region, choose vertical or horizontal capture, then scroll the target page or document manually. The worker stores matching strips on disk, rejects uncertain displacement and supports a last-segment rollback; post-capture review requires explicit Save PNG or Discard. Capture size limits are 60,000 px per long edge / 200 MP. A newest-frame **live preview** (PR #18, merged) is produced at up to 420×600 pixels in a separate pointer-passthrough viewport without allocating a full long-image RGBA preview. **Automatic scrolling, sticky-header masks, middle-segment editing and the 50-scene accuracy acceptance are not implemented/verified.** Real-device live-preview positioning and capture self-contamination must be tested.
+6. **Offline OCR (Full only):** explicitly request Apple Vision accurate recognition through the signed-at-build local Swift helper and SHOC IPC. Supports copying the full recognized text and clicking a recognized **line** on the screenshot preview. The helper has bounded input and timeout, and missing helper in Lite degrades without breaking screenshot/PNG functions. **Pinned-image word/character selection, word-level boxes, QR decoding, 400-image quality benchmark and independent Add-on installer are not delivered.**
 
-- **截取下一块屏幕:** the settings-window action cycles the discovered ScreenCaptureKit display IDs, selecting a secondary display on multi-monitor systems. Capture enumeration and image retrieval both run on the worker thread. The editor is still an eframe preview rather than an AppKit window placed over the captured display; true native multi-display overlays remain to be implemented and device-tested.
+### Configurable hotkeys
 
-### Preview limitations
+Open **全局快捷键设置** in the settings window. You can assign each of the four actions to a distinct `Ctrl+Option+1…9` combination, apply/save, or restore defaults. Settings are saved under `~/Library/Application Support/PicPaste/hotkeys.conf`. Registration failures attempt to roll back to the previous bindings. Custom modifier combinations and real-world conflict/restart testing are still pending.
 
-- The screenshot editor now opens in a dedicated borderless native macOS window positioned using the chosen display's logical bounds. This is **not yet** a dedicated AppKit NSPanel; mixed-DPI positioning and fullscreen Spaces still require real-device validation. Mixed-DPI/negative-origin and fullscreen Spaces behavior remain real-device acceptance gates.
-- OCR line hit-testing is being integrated for screenshot previews; *pin text-selection mode*, exact word/character hit testing without provider word boxes, and independent offline OCR Add-on installation remain incomplete.
-- Manual scroll capture and post-capture review are implemented at the code level, but automatic scroll injection, live continually updated preview, adjustable sticky-header masks, middle-segment editing and empirical 50-scene accuracy verification are pending.
-- Window candidate recognition, true native cross-display magnifier geometry, text annotations, configurable global hotkeys and Windows support are not delivered. The basic 9x9 screenshot-local magnifier/eyedropper in PR #3 is not a substitute for mixed-DPI real-device acceptance.
-- Release artifacts are ad-hoc signed **development-only** and are not Developer-ID signed or Apple-notarized. The advertised macOS 14 deployment target has not yet been confirmed on an actual macOS 14 machine.
+### macOS build and test
 
-## Build and tests (macOS)
-
-Requires a recent Xcode/macOS SDK and Rust stable. The current `screencapturekit 11` dependency builds against the macOS 26 SDK on Actions, although `MACOSX_DEPLOYMENT_TARGET` is 14.0.
+Current CI uses a macOS 26 runner SDK and `MACOSX_DEPLOYMENT_TARGET=14.0`. **The minimum supported macOS 14 runtime has not been verified on a physical macOS 14 host.** On a compatible macOS development machine:
 
 ```sh
 export MACOSX_DEPLOYMENT_TARGET=14.0
@@ -34,31 +27,34 @@ cargo fmt --all -- --check
 cargo test --workspace --locked
 cargo clippy --workspace --all-targets --locked -- -D warnings
 cargo build --release -p shot-macos --locked
-swiftc -O -target arm64-apple-macos14.0 -framework Vision \
-  -framework CoreGraphics -framework Foundation -framework CryptoKit \
-  packaging/macos/PicPasteOCR.swift -o target/release/PicPasteOCR
+
+swiftc -O -target arm64-apple-macos14.0 \
+  -framework Vision -framework CoreGraphics -framework Foundation \
+  -framework CryptoKit packaging/macos/PicPasteOCR.swift \
+  -o target/release/PicPasteOCR
 python3 scripts/check_ocr_helper.py target/release/PicPasteOCR
 
 PICPASTE_VARIANT=Lite bash scripts/package-macos.sh
 PICPASTE_VARIANT=Full bash scripts/package-macos.sh
 ```
 
-GitHub Actions publishes `picpaste-macos-dev-ARM64` with **Lite and Full** unsigned-for-distribution (ad-hoc signed) bundles. Look in the relevant [Actions run](https://github.com/wuhunyu/pic-paste/actions) → Artifacts. The last fully verified merged baseline is **[main CI #111](https://github.com/wuhunyu/pic-paste/actions/runs/40270735124)**; PR #3 must pass its own complete CI before merge.
+The relevant [GitHub Actions runs](https://github.com/wuhunyu/pic-paste/actions) publish the `picpaste-macos-dev-ARM64` artifact with Lite/Full **ad-hoc-signed development ZIPs** and SHA256 digests. These artifacts are **not** Developer ID–signed, notarized, or suitable as an official distribution. No GitHub Release exists as of this ledger.
 
 ## Workspace
 
-| Component | Purpose |
+| Path | Responsibility |
 | --- | --- |
-| `shot-core` | Pixel geometry, input and selection states, screenshot lifecycle |
-| `shot-image` | PNG-only crop/export, alpha rounding, non-destructive annotations |
-| `shot-platform` | Native macOS ScreenCaptureKit capture adapter |
-| `shot-scroll` | Conservative overlap matching, disk-backed RGBA tiles, streaming PNG and bounded thumbnails |
-| `shot-ocr-protocol` | Bounded, versioned OCR pipe protocol, validated geometry, line hit tests |
-| `apps/shot-macos` | Main native UI, keyboard shortcuts, status menu, pins and scroll review |
-| `packaging/macos/PicPasteOCR.swift` | Optional isolated system-Vision offline OCR helper in Full package |
+| `crates/shot-core` | Source pixel geometry, capture and selection states, display/window candidate mapping and shortcut validation |
+| `crates/shot-image` | Non-destructive annotation rendering (including local Unicode fonts), PNG-only crop/export, alpha rounding and preview |
+| `crates/shot-platform` | Native macOS ScreenCaptureKit capture and window information |
+| `crates/shot-scroll` | Conservative overlap matching, on-disk tile strips, bounded live preview, streaming PNG and size limits |
+| `crates/shot-ocr-protocol` | Bounded/versioned SHOC protocol, OCR geometry and line hit tests |
+| `apps/shot-macos` | Native menu/settings, per-monitor editor viewport, pins, hotkeys, offline OCR client, manual long-screenshot UI |
+| `packaging/macos/PicPasteOCR.swift` | On-demand, offline Apple Vision helper for the Full variant |
+| `scripts/package-macos.sh` | Developer-only Lite/Full app assembly, ad-hoc codesigning and ZIP SHA256 |
 
-For precise delivery and acceptance gaps, see [development status](docs/STATUS.md). The original v1.2 specification remains the authority for P0–P6 goals; green CI is not a substitute for its measured device acceptance criteria.
+## Current limitations
 
-### Configurable global hotkeys
+No verified physical macOS multi-monitor/Spaces/TCC/clipboard/performance report; no automatic scrolling; no QR or pin-specific OCR text selection; no separate signed OCR Add-on; no x86_64 macOS release or Developer ID notarization; no Windows native implementation. `packaging/macos/Info.plist` retains development bundle ID `com.example.picpaste`.
 
-In the settings window, expand **全局快捷键设置** to assign four distinct Ctrl+Option+digit (1–9) bindings. Changes apply immediately after clicking **应用快捷键** and persist in `~/Library/Application Support/PicPaste/hotkeys.conf`. If another app holds a shortcut, PicPaste attempts to restore the previous registrations and does not save the rejected configuration. Full modifier editing, repeated launch/hotkey conflict tests, and multi-Space behavior remain system-device acceptance work.
+See [task-by-task acceptance and evidence](docs/TASKS.md). **CI-green proves build and automated tests only—not real screen capture or sustained performance on a user's device.**
