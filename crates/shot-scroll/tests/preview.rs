@@ -1,6 +1,7 @@
 use shot_core::{RgbaFrame, platform::ScrollAxis};
 use shot_scroll::tile_store::TileStore;
 use std::fs;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 fn frame(width: u32, height: u32, ox: u32, oy: u32) -> RgbaFrame {
@@ -15,16 +16,19 @@ fn frame(width: u32, height: u32, ox: u32, oy: u32) -> RgbaFrame {
     RgbaFrame::new(width, height, data).unwrap()
 }
 
+static TEST_DIR_SEQUENCE: AtomicU64 = AtomicU64::new(0);
+
 fn temp_dir() -> std::path::PathBuf {
     let stamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap()
         .as_nanos();
+    let serial = TEST_DIR_SEQUENCE.fetch_add(1, Ordering::Relaxed);
     let root = std::env::temp_dir().join(format!(
-        "picpaste-preview-test-{}-{stamp}",
+        "picpaste-preview-test-{}-{stamp}-{serial}",
         std::process::id()
     ));
-    fs::create_dir_all(&root).unwrap();
+    fs::create_dir(&root).unwrap();
     root
 }
 
