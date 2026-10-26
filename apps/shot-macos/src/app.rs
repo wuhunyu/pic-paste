@@ -126,7 +126,10 @@ impl SelectionView {
         let Some((handle, original, start)) = self.resize_drag else {
             return;
         };
-        let delta = (point.0.saturating_sub(start.0), point.1.saturating_sub(start.1));
+        let delta = (
+            point.0.saturating_sub(start.0),
+            point.1.saturating_sub(start.1),
+        );
         if let Ok(next) = adjust_selection(
             original,
             handle,
