@@ -1130,9 +1130,7 @@ impl eframe::App for PicPasteApp {
                         ui.label("可鼠标穿透；滚动目标应用，结束请按全局快捷键");
                         if let Some(texture) = texture {
                             let full = texture.size_vec2();
-                            let scale = (240.0 / full.x)
-                                .min(290.0 / full.y)
-                                .min(1.0);
+                            let scale = (240.0 / full.x).min(290.0 / full.y).min(1.0);
                             ui.add(egui::Image::new((texture.id(), full * scale)));
                         } else {
                             ui.spinner();
