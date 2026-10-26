@@ -15,8 +15,8 @@ where
     let mut encoder = png::Encoder::new(sink, width, height);
     encoder.set_color(png::ColorType::Rgba);
     encoder.set_depth(png::BitDepth::Eight);
-    let writer = encoder.write_header().map_err(io::Error::other)?;
-    let mut stream = writer.into_stream_writer().map_err(io::Error::other)?;
+    let mut writer = encoder.write_header().map_err(io::Error::other)?;
+    let mut stream = writer.stream_writer().map_err(io::Error::other)?;
     let mut row = vec![0; row_bytes];
     for y in 0..height {
         fill_row(y, &mut row)?;
