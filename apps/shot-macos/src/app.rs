@@ -11,9 +11,9 @@ use shot_core::selection::from_drag;
 use shot_core::{RectPx, RgbaFrame};
 use shot_image::annotation_tools::{Tool, annotation_for_drag};
 use shot_image::history::{Annotation, AnnotationDocument};
-use shot_platform::macos::MacCapture;
-use shot_ocr_protocol::hit_test::{hit_line_in_capture, selected_text};
 use shot_ocr_protocol::OcrDocument;
+use shot_ocr_protocol::hit_test::{hit_line_in_capture, selected_text};
+use shot_platform::macos::MacCapture;
 use std::borrow::Cow;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -155,7 +155,8 @@ impl SelectionView {
                 }
             }
             if (response.dragged() || response.drag_stopped())
-                && let (Some(start), Some(end)) = (self.drag_anchor, response.interact_pointer_pos())
+                && let (Some(start), Some(end)) =
+                    (self.drag_anchor, response.interact_pointer_pos())
             {
                 let a = point_to_pixel(&response.rect, &self.source, start);
                 let b = point_to_pixel(&response.rect, &self.source, end);
@@ -192,11 +193,8 @@ impl SelectionView {
                 && let Some(document) = self.ocr_result.as_ref()
             {
                 let (x, y) = point_to_pixel(&response.rect, &self.source, pointer);
-                self.ocr_line = hit_line_in_capture(
-                    document,
-                    self.ocr_origin,
-                    (x as f32, y as f32),
-                );
+                self.ocr_line =
+                    hit_line_in_capture(document, self.ocr_origin, (x as f32, y as f32));
             }
             if let Some(document) = self.ocr_result.as_ref() {
                 let sx = response.rect.width() / self.source.width as f32;
@@ -701,15 +699,15 @@ impl eframe::App for PicPasteApp {
             }
             if !self.overlay.is_fullscreen() {
                 ui.horizontal(|ui| {
-                if ui.button("截图  Ctrl+Option+1").clicked() {
-                    self.begin_capture(ui.ctx());
-                }
-                if ui.button("从剪贴板贴图  Ctrl+Option+2").clicked() {
-                    self.paste_clipboard_as_pin(ui.ctx());
-                }
-                if ui.button("解除穿透 Ctrl+Option+3").clicked() {
-                    self.recover_pins();
-                }
+                    if ui.button("截图  Ctrl+Option+1").clicked() {
+                        self.begin_capture(ui.ctx());
+                    }
+                    if ui.button("从剪贴板贴图  Ctrl+Option+2").clicked() {
+                        self.paste_clipboard_as_pin(ui.ctx());
+                    }
+                    if ui.button("解除穿透 Ctrl+Option+3").clicked() {
+                        self.recover_pins();
+                    }
                 });
             }
             ui.horizontal(|ui| {
@@ -735,7 +733,8 @@ impl eframe::App for PicPasteApp {
             if ui.ctx().input(|i| i.key_pressed(egui::Key::Escape)) {
                 self.screen = None;
                 if self.overlay.dismiss() {
-                    ui.ctx().send_viewport_cmd(egui::ViewportCommand::Fullscreen(false));
+                    ui.ctx()
+                        .send_viewport_cmd(egui::ViewportCommand::Fullscreen(false));
                 }
             }
 
