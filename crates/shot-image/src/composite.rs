@@ -185,14 +185,14 @@ mod tests {
         assert!(source.rgba.iter().all(|x| *x == 0));
     }
     #[test]
-    fn rejects_unsupported_text_instead_of_silently_dropping_it() {
+    fn rejects_empty_text_instead_of_silently_dropping_it() {
         let source = RgbaFrame::new(2, 2, vec![0; 16]).unwrap();
         assert!(
             composite(
                 &source,
                 &[Annotation::Text {
                     at: (0.0, 0.0),
-                    content: String::from("abc"),
+                    content: String::new(),
                     size: 12.0,
                     rgba: [255; 4],
                 }]

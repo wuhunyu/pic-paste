@@ -5,3 +5,4 @@ edition.workspace = true
 [dependencies]
 shot-core = { path = "../shot-core" }
 png = "=0.18.1"
+ab_glyph = "=0.2.32"

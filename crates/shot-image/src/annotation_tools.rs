@@ -6,6 +6,7 @@ use crate::history::Annotation;
 pub enum Tool {
     #[default]
     Select,
+    Text,
     Line,
     Arrow,
     Brush,
@@ -16,7 +17,7 @@ pub enum Tool {
 }
 
 pub fn annotation_for_drag(tool: Tool, start: (i32, i32), end: (i32, i32)) -> Option<Annotation> {
-    if tool == Tool::Select {
+    if matches!(tool, Tool::Select | Tool::Text) {
         return None;
     }
     if [start.0, start.1, end.0, end.1]
@@ -29,7 +30,7 @@ pub fn annotation_for_drag(tool: Tool, start: (i32, i32), end: (i32, i32)) -> Op
     let from = (start.0 as f32, start.1 as f32);
     let to = (end.0 as f32, end.1 as f32);
     match tool {
-        Tool::Select => None,
+        Tool::Select | Tool::Text => None,
         Tool::Line => Some(Annotation::Line {
             from,
             to,

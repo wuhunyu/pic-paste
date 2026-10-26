@@ -3447,6 +3447,7 @@ version = "0.1.0"
 name = "shot-image"
 version = "0.1.0"
 dependencies = [
+ "ab_glyph",
  "png",
  "shot-core",
 ]

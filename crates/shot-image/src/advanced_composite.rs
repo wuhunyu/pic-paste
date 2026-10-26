@@ -246,6 +246,14 @@ pub(crate) fn render_advanced(
         } => {
             blur_roi(frame, *left, *top, *width, *height, *radius)?;
         }
+        Annotation::Text {
+            at,
+            content,
+            size,
+            rgba,
+        } => {
+            crate::text_composite::draw_text(frame, *at, content, *size, *rgba)?;
+        }
         _ => return Ok(false),
     }
     Ok(true)
