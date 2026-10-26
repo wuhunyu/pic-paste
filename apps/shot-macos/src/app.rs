@@ -8,7 +8,7 @@ use eframe::egui;
 use shot_core::async_ticket::OcrTicket;
 use shot_core::overlay::OverlayState;
 use shot_core::platform::{CapturedFrame, DisplayId, PlatformError, ScrollAxis};
-use shot_core::selection::from_drag;
+use shot_core::selection::{ResizeHandle, adjust_selection, from_drag, hit_selection_handle};
 use shot_core::{RectPx, RgbaFrame};
 use shot_image::annotation_tools::{Tool, annotation_for_drag};
 use shot_image::history::{Annotation, AnnotationDocument};
@@ -52,6 +52,7 @@ struct SelectionView {
     render_error: Option<String>,
     texture: egui::TextureHandle,
     drag_anchor: Option<egui::Pos2>,
+    resize_drag: Option<(ResizeHandle, RectPx, (i32, i32))>,
     brush_points: Vec<(f32, f32)>,
     selection: Option<RectPx>,
     ocr_result: Option<OcrDocument>,
@@ -86,6 +87,7 @@ impl SelectionView {
             source,
             texture,
             drag_anchor: None,
+            resize_drag: None,
             brush_points: Vec::new(),
             selection: None,
             ocr_result: None,
@@ -107,6 +109,36 @@ impl SelectionView {
             self.selection = selection;
             self.invalidate_ocr();
         }
+    }
+
+    fn begin_selection_adjustment(&mut self, point: (i32, i32), tolerance: i32) -> bool {
+        let Some(rect) = self.selection else {
+            return false;
+        };
+        let Some(handle) = hit_selection_handle(rect, point, tolerance) else {
+            return false;
+        };
+        self.resize_drag = Some((handle, rect, point));
+        true
+    }
+
+    fn drag_selection_adjustment(&mut self, point: (i32, i32)) {
+        let Some((handle, original, start)) = self.resize_drag else {
+            return;
+        };
+        let delta = (point.0.saturating_sub(start.0), point.1.saturating_sub(start.1));
+        if let Ok(next) = adjust_selection(
+            original,
+            handle,
+            delta,
+            (self.source.width, self.source.height),
+        ) {
+            self.set_selection(Some(next));
+        }
+    }
+
+    fn end_selection_adjustment(&mut self) {
+        self.resize_drag = None;
     }
 
     fn ocr_ticket(&self) -> OcrTicket {
@@ -169,7 +201,7 @@ impl SelectionView {
         if self.ocr_mode {
             ui.label("文字选择模式：点击高亮的识别行以选中；仅当明确启用时才响应文字点击。");
         } else {
-            ui.label("在预览中拖动选择区域；不选择则处理整个显示器。Esc 取消。");
+            ui.label("拖动框选；拖动选区内部可移动，拖动四角和边缘可调整。Esc 取消。");
         }
         let width = self.source.width as f32;
         let height = self.source.height as f32;
@@ -186,6 +218,13 @@ impl SelectionView {
             if response.drag_started() {
                 self.drag_anchor = response.interact_pointer_pos();
                 self.brush_points.clear();
+                if self.tool == Tool::Select
+                    && let Some(start) = self.drag_anchor
+                {
+                    let point = point_to_pixel(&response.rect, &self.source, start);
+                    let tolerance = (6.0 / scale).ceil().clamp(2.0, 60.0) as i32;
+                    self.begin_selection_adjustment(point, tolerance);
+                }
                 if self.tool == Tool::Brush
                     && let Some(start) = self.drag_anchor
                 {
@@ -200,7 +239,11 @@ impl SelectionView {
                 let a = point_to_pixel(&response.rect, &self.source, start);
                 let b = point_to_pixel(&response.rect, &self.source, end);
                 if self.tool == Tool::Select {
-                    self.set_selection(from_drag(a, b).ok());
+                    if self.resize_drag.is_some() {
+                        self.drag_selection_adjustment(b);
+                    } else {
+                        self.set_selection(from_drag(a, b).ok());
+                    }
                 } else if self.tool == Tool::Brush {
                     let last = (b.0 as f32, b.1 as f32);
                     if self.brush_points.last() != Some(&last) && self.brush_points.len() < 20_000 {
@@ -223,6 +266,7 @@ impl SelectionView {
             }
             if response.drag_stopped() {
                 self.drag_anchor = None;
+                self.end_selection_adjustment();
             }
         }
 
@@ -278,6 +322,28 @@ impl SelectionView {
                 egui::Stroke::new(2.0, egui::Color32::from_rgb(80, 210, 240)),
                 egui::StrokeKind::Inside,
             );
+            if self.tool == Tool::Select && !self.ocr_mode {
+                let corners_and_edges = [
+                    clip.left_top(),
+                    egui::pos2(clip.center().x, clip.top()),
+                    clip.right_top(),
+                    egui::pos2(clip.right(), clip.center().y),
+                    clip.right_bottom(),
+                    egui::pos2(clip.center().x, clip.bottom()),
+                    clip.left_bottom(),
+                    egui::pos2(clip.left(), clip.center().y),
+                ];
+                for center in corners_and_edges {
+                    let handle = egui::Rect::from_center_size(center, egui::vec2(7.0, 7.0));
+                    ui.painter().rect_filled(handle, 1.0, egui::Color32::WHITE);
+                    ui.painter().rect_stroke(
+                        handle,
+                        1.0,
+                        egui::Stroke::new(1.0, egui::Color32::from_rgb(35, 120, 160)),
+                        egui::StrokeKind::Inside,
+                    );
+                }
+            }
             ui.label(format!(
                 "选区: {} × {} px",
                 selection.width, selection.height
