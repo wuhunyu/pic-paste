@@ -7,6 +7,7 @@ pub struct PinnedImage {
     pub id: u64,
     pub source: Arc<RgbaFrame>,
     pub opacity: f32,
+    pub zoom: f32,
     pub passthrough: bool,
     pub closed: Arc<AtomicBool>,
     texture: egui::TextureHandle,
@@ -27,6 +28,7 @@ impl PinnedImage {
             id,
             source: frame,
             opacity: 1.0,
+            zoom: 1.0,
             passthrough: false,
             closed: Arc::new(AtomicBool::new(false)),
             texture,
@@ -41,7 +43,7 @@ impl PinnedImage {
         let width = self.source.width as f32;
         let height = self.source.height as f32;
         let scale = (600.0 / width).min(420.0 / height).min(1.0);
-        let size = egui::vec2(width * scale, height * scale);
+        let size = egui::vec2(width * scale, height * scale) * self.zoom.clamp(0.25, 3.0);
         let texture = self.texture.clone();
         let opacity = self.opacity;
         let closed = Arc::clone(&self.closed);

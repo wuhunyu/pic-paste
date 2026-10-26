@@ -7,6 +7,7 @@ use std::sync::mpsc::Sender;
 pub enum HotkeyAction {
     Capture,
     PastePin,
+    RecoverPins,
 }
 
 pub struct HotkeyController {
@@ -30,8 +31,15 @@ impl HotkeyController {
             .map_err(|error| format!("Screenshot hotkey unavailable: {error}"))?;
         manager.register(pin)
             .map_err(|error| format!("Pin hotkey unavailable: {error}"))?;
+        let recover = HotKey::new(
+            Some(Modifiers::CONTROL | Modifiers::ALT),
+            Code::Digit3,
+        );
+        manager.register(recover)
+            .map_err(|error| format!("Recovery hotkey unavailable: {error}"))?;
         let capture_id = capture.id();
         let pin_id = pin.id();
+        let recover_id = recover.id();
         GlobalHotKeyEvent::set_event_handler(Some(move |event: GlobalHotKeyEvent| {
             if event.state != HotKeyState::Pressed {
                 return;
@@ -40,6 +48,8 @@ impl HotkeyController {
                 Some(HotkeyAction::Capture)
             } else if event.id == pin_id {
                 Some(HotkeyAction::PastePin)
+            } else if event.id == recover_id {
+                Some(HotkeyAction::RecoverPins)
             } else {
                 None
             };

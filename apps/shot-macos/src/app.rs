@@ -8,7 +8,7 @@ use shot_core::selection::from_drag;
 use shot_core::{RectPx, RgbaFrame};
 use shot_platform::macos::MacCapture;
 use shot_image::annotation_tools::{annotation_for_drag, Tool};
-use shot_image::history::AnnotationDocument;
+use shot_image::history::{Annotation, AnnotationDocument};
 use std::borrow::Cow;
 use std::path::PathBuf;
 use std::sync::mpsc::{self, Receiver, Sender};
@@ -37,6 +37,7 @@ struct SelectionView {
     render_error: Option<String>,
     texture: egui::TextureHandle,
     drag_anchor: Option<egui::Pos2>,
+    brush_points: Vec<(f32, f32)>,
     selection: Option<RectPx>,
 }
 
@@ -58,6 +59,7 @@ impl SelectionView {
             source,
             texture,
             drag_anchor: None,
+            brush_points: Vec::new(),
             selection: None,
         }
     }
@@ -114,6 +116,13 @@ impl SelectionView {
 
         if response.drag_started() {
             self.drag_anchor = response.interact_pointer_pos();
+            self.brush_points.clear();
+            if self.tool == Tool::Brush
+                && let Some(start) = self.drag_anchor
+            {
+                let (x, y) = point_to_pixel(&response.rect, &self.source, start);
+                self.brush_points.push((x as f32, y as f32));
+            }
         }
         if (response.dragged() || response.drag_stopped())
             && let (Some(start), Some(end)) =
@@ -123,6 +132,21 @@ impl SelectionView {
             let b = point_to_pixel(&response.rect, &self.source, end);
             if self.tool == Tool::Select {
                 self.selection = from_drag(a, b).ok();
+            } else if self.tool == Tool::Brush {
+                let last = (b.0 as f32, b.1 as f32);
+                if self.brush_points.last() != Some(&last)
+                    && self.brush_points.len() < 20_000
+                {
+                    self.brush_points.push(last);
+                }
+                if response.drag_stopped() && !self.brush_points.is_empty() {
+                    self.annotations.apply(Annotation::Brush {
+                        points: std::mem::take(&mut self.brush_points),
+                        rgba: [39, 178, 231, 255],
+                        width: 3.0,
+                    });
+                    self.refresh_preview();
+                }
             } else if response.drag_stopped()
                 && let Some(annotation) = annotation_for_drag(self.tool, a, b)
             {
@@ -289,10 +313,6 @@ impl PicPasteApp {
     }
 
     fn paste_clipboard_as_pin(&mut self, ctx: &egui::Context) {
-        if self.pins.iter().any(|pin| pin.passthrough) {
-            self.recover_pins();
-            return;
-        }
         let result = (|| {
             let image = Clipboard::new().map_err(|e| e.to_string())?
                 .get_image().map_err(|e| e.to_string())?;
@@ -347,6 +367,7 @@ impl PicPasteApp {
             match action {
                 HotkeyAction::Capture => self.begin_capture(ctx),
                 HotkeyAction::PastePin => self.paste_clipboard_as_pin(ctx),
+                HotkeyAction::RecoverPins => self.recover_pins(),
             }
         }
         let events: Vec<_> = self.work_rx.try_iter().collect();
@@ -438,7 +459,7 @@ impl eframe::App for PicPasteApp {
                 if ui.button("从剪贴板贴图  Ctrl+Option+2").clicked() {
                     self.paste_clipboard_as_pin(ui.ctx());
                 }
-                if ui.button("解除所有穿透").clicked() {
+                if ui.button("解除穿透 Ctrl+Option+3").clicked() {
                     self.recover_pins();
                 }
             });
@@ -476,8 +497,12 @@ impl eframe::App for PicPasteApp {
                 ui.horizontal_wrapped(|ui| {
                     ui.selectable_value(&mut screen.tool, Tool::Select, "选区");
                     ui.selectable_value(&mut screen.tool, Tool::Line, "线条");
+                    ui.selectable_value(&mut screen.tool, Tool::Arrow, "箭头");
+                    ui.selectable_value(&mut screen.tool, Tool::Brush, "画笔");
                     ui.selectable_value(&mut screen.tool, Tool::Rectangle, "矩形");
+                    ui.selectable_value(&mut screen.tool, Tool::Ellipse, "椭圆");
                     ui.selectable_value(&mut screen.tool, Tool::Pixelate, "马赛克");
+                    ui.selectable_value(&mut screen.tool, Tool::Blur, "模糊");
                     if ui.small_button("撤销").clicked() {
                         screen.undo();
                     }
@@ -510,6 +535,7 @@ impl eframe::App for PicPasteApp {
                         ui.label(format!("#{}", pin.id));
                         ui.checkbox(&mut pin.passthrough, "鼠标穿透");
                         ui.add(egui::Slider::new(&mut pin.opacity, 0.2..=1.0).text("透明度"));
+                        ui.add(egui::Slider::new(&mut pin.zoom, 0.25..=3.0).text("缩放"));
                         if ui.small_button("关闭").clicked() {
                             pin.closed.store(true, std::sync::atomic::Ordering::Relaxed);
                         }
