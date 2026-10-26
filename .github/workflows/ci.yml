@@ -17,18 +17,14 @@ jobs:
         run: xcodebuild -version && xcrun --show-sdk-version
       - name: Benchmark tooling regression tests
         run: python3 -m unittest discover -s tests -p 'test_*.py'
-      - name: Generate dependency lockfile
-        run: cargo generate-lockfile
-      - name: Format source before validation
-        run: cargo fmt --all
       - name: Check formatting
         run: cargo fmt --all -- --check
       - name: Test workspace
-        run: cargo test --workspace
+        run: cargo test --workspace --locked
       - name: Lint workspace
-        run: cargo clippy --workspace --all-targets -- -D warnings
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
       - name: Build macOS development binary
-        run: cargo build --release -p shot-macos
+        run: cargo build --release -p shot-macos --locked
       - name: Assemble development app
         run: bash scripts/package-macos.sh
       - name: Upload unsigned development package
