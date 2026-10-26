@@ -308,11 +308,10 @@ impl SelectionView {
                 let top = (pointer.y + 18.0)
                     .min(response.rect.bottom() - 150.0)
                     .max(response.rect.top());
-                let bubble = egui::Rect::from_min_size(
-                    egui::pos2(left, top),
-                    egui::vec2(134.0, 150.0),
-                );
-                ui.painter().rect_filled(bubble, 4.0, egui::Color32::from_black_alpha(235));
+                let bubble =
+                    egui::Rect::from_min_size(egui::pos2(left, top), egui::vec2(134.0, 150.0));
+                ui.painter()
+                    .rect_filled(bubble, 4.0, egui::Color32::from_black_alpha(235));
                 let sample_rect = egui::Rect::from_min_size(
                     egui::pos2(left + 13.0, top + 7.0),
                     egui::vec2(108.0, 108.0),
@@ -320,13 +319,16 @@ impl SelectionView {
                 ui.painter().image(
                     self.magnifier_texture.id(),
                     sample_rect,
-                    egui::Rect::from_min_max(egui::Pos2::ZERO, egui::pos2(1.0, 1.0)),
+                    egui::Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0)),
                     egui::Color32::WHITE,
                 );
                 ui.painter().text(
                     egui::pos2(left + 7.0, top + 123.0),
                     egui::Align2::LEFT_TOP,
-                    format!("{} , {}  #{:02X}{:02X}{:02X}", point.0, point.1, color[0], color[1], color[2]),
+                    format!(
+                        "{}, {}  #{:02X}{:02X}{:02X}",
+                        point.0, point.1, color[0], color[1], color[2]
+                    ),
                     egui::FontId::monospace(11.0),
                     egui::Color32::WHITE,
                 );
@@ -1132,12 +1134,11 @@ impl eframe::App for PicPasteApp {
                 ui.label("按 Ctrl+Option+1 开始截图；或点击“截图”。");
             }
             if let Some(color) = color_to_copy {
-                self.status = match Clipboard::new()
-                    .and_then(|mut clipboard| clipboard.set_text(color))
-                {
-                    Ok(()) => String::from("取色结果已复制"),
-                    Err(error) => format!("复制颜色失败：{error}"),
-                };
+                self.status =
+                    match Clipboard::new().and_then(|mut clipboard| clipboard.set_text(color)) {
+                        Ok(()) => String::from("取色结果已复制"),
+                        Err(error) => format!("复制颜色失败：{error}"),
+                    };
             }
             if let Some(action) = selected_action {
                 self.request_prepared(ui.ctx(), action);

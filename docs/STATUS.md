@@ -14,10 +14,10 @@
 | P0 workspace | Rust workspace, tracked `Cargo.lock`, macOS CI fmt/test/clippy/Release + dev bundle | Real macOS 14 host, cold/warm startup and idle RSS/CPU |
 | P0 screenshot | ScreenCaptureKit primary display; display ID and image physical pixels; fullscreen root editor in PR #3 | Actual AppKit overlay multi-display, TCC/Spaces/Retina/DPI correctness |
 | P0 menu/hotkeys | Status bar, Ctrl+Option+1/2/3/4, recover passthrough | Hotkey settings/conflict, 30 restart tests, performance |
-| P1 annotation | Line/rectangle/ellipse/arrow/brush/pixelate/blur, undo/redo and raster compositor | Text with Chinese fonts, selection resize, candidate windows, magnifier, precise eyedropper |
+| P1 annotation | Line/rectangle/ellipse/arrow/brush/pixelate/blur, undo/redo; PR #3 adds eight selection handles, drag-to-move, an exact physical-pixel 9x9 magnifier and HEX copy | Text with Chinese fonts, automatic window candidates, real-device mixed-DPI magnifier verification |
 | P1 PNG | PNG-only atomic no-clobber export, rounded transparent alpha and clipboard | Paste tests in common native apps, color profile fidelity |
 | P2 pins | Multiple independent egui viewports, zoom, opacity, passthrough/recovery | Native Spaces and drag/scroll/selection routing tests, texture budget |
-| P3 OCR | Optional offline Apple Vision helper in Full, SHOC framing, 20s timeout, Lite missing-helper degrade; OCR line click in PR #3 | Pin text mode, real 400-image CER benchmark, word boxes/provider cache, Add-on signed installer |
+| P3 OCR | Optional offline Apple Vision helper in Full, SHOC framing, 20s timeout, Lite missing-helper degrade; PR #3 adds OCR line click and capture/edit/selection ticket validation to discard stale responses | Pin text mode, real 400-image CER benchmark, word boxes/provider cache, Add-on signed installer |
 | P4 scroll | Manual vertical/horizontal sampling, confidence reject, disk tile strips, streamed PNG, size limits; thumbnail and review in PR #3 | True real-time preview, automatic scrolling, seam edit, sticky-header mask, scene accuracy ≥95% |
 | P5 packaging | ARM64 ad-hoc-signed Lite/Full development zips and CI SHA256 | x86_64, Developer ID, notarization, device release matrix, rollback drills |
 | P6 Windows | Shared Rust interfaces only | Windows platform adaptation **after** macOS release |

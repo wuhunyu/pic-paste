@@ -6,7 +6,7 @@ A small, offline screenshot and pinned-image utility. **macOS-first**, Rust 2024
 
 ## Available macOS preview workflow
 
-- **Ctrl+Option+1:** snapshot the primary display and open the screenshot selection/editor. The screenshot is captured **before** opening the fullscreen main-editor viewport. Drag to select; Esc cancels.
+- **Ctrl+Option+1:** snapshot the primary display and open the screenshot selection/editor. The screenshot is captured **before** opening the fullscreen main-editor viewport. Drag to select; PR #3 adds eight edge/corner handles, drag-to-move, 9x9 pixel magnifier, and exact HEX eyedropper copy. Esc cancels.
 - Annotate using **line, arrow, brush, rectangle, ellipse, pixelate, blur**; undo/redo is non-destructive. Text annotation is not yet implemented.
 - **Save PNG**, **Copy image**, or **Pin** the selected/composited screenshot. The corner radius is configurable from 0–64 physical pixels; image file formats are always **PNG only**, with alpha preserved.
 - **Ctrl+Option+2:** create a pin from the clipboard image. Supports multiple independent always-on-top panes, per-pin opacity, scale and optional mouse passthrough. **Ctrl+Option+3** disables all passthrough as a recovery shortcut.
@@ -19,7 +19,7 @@ A small, offline screenshot and pinned-image utility. **macOS-first**, Rust 2024
 - The fullscreen screenshot editor uses the main eframe viewport. It is **not yet** a separate AppKit NSPanel, and only the primary display is currently captured. Mixed-DPI/negative-origin and fullscreen Spaces behavior remain real-device acceptance gates.
 - OCR line hit-testing is being integrated for screenshot previews; *pin text-selection mode*, exact word/character hit testing without provider word boxes, and independent offline OCR Add-on installation remain incomplete.
 - Manual scroll capture and post-capture review are implemented at the code level, but automatic scroll injection, live continually updated preview, adjustable sticky-header masks, middle-segment editing and empirical 50-scene accuracy verification are pending.
-- Window candidate recognition, resize handles, native magnifier/eyedropper, text annotations, configurable global hotkeys and Windows support are not delivered.
+- Window candidate recognition, true native cross-display magnifier geometry, text annotations, configurable global hotkeys and Windows support are not delivered. The basic 9x9 screenshot-local magnifier/eyedropper in PR #3 is not a substitute for mixed-DPI real-device acceptance.
 - Release artifacts are ad-hoc signed **development-only** and are not Developer-ID signed or Apple-notarized. The advertised macOS 14 deployment target has not yet been confirmed on an actual macOS 14 machine.
 
 ## Build and tests (macOS)
