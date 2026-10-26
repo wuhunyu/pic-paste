@@ -1,23 +1,46 @@
-# Implementation status (2026-10-26)
+# PicPaste implementation ledger — 2026-10-26
 
-## Repository foundation
+## Acceptance rule
 
-- P0-T1: **in progress**. Rust workspace, core geometry/state machine, PNG encoder and CI scaffold committed.
-- Native macOS 14+ ScreenCaptureKit capture: **not implemented**.
-- Global hotkeys, AppKit menu bar, transparent pinned windows and mouse passthrough: **not implemented**.
-- Screenshot/annotation workflow, OCR, scrolling capture and Windows adapters: **not implemented**.
-- The UI is a smoke test, not a functional screenshot application.
+Owner permits proceeding without macOS manual testing **after compilation succeeds**.
+This does not mean that an uncompiled source tree passes the gate.
+GitHub Actions currently exposes **no workflow runs or commit statuses** for the latest connector-created commits; compilation is not verified.
 
-## Verification
+## Completed source work (committed)
 
-The environment used to initialize the repository is Linux with no Rust toolchain and no direct GitHub network DNS access. It cannot compile these sources or run macOS TCC, Spaces, Retina or passthrough tests. GitHub Actions on macOS must provide the first compilation signal; treat until then as **unverified**. The lockfile must be generated and committed after toolchain verification.
+- P0-T1 partial: Rust workspace, crate boundaries, egui app smoke window, macOS CI workflow.
+- Shared core: physical-pixel region geometry including negative origins and reverse drag, explicit screenshot/scroll session transitions.
+- P1 foundations: PNG RGBA encoding, supersampled rounded-corner alpha operation, non-destructive annotation command history, undo/redo tests.
+- P2 foundations: multi-pin in-memory state, shared immutable image buffers, geometry validation, passthrough-recovery state and pointer-down input latch tests.
+- P3 foundations: bounded, versioned SHOC OCR request transport, invalid-length/version/truncation tests. No recognition provider is integrated.
+- P4 foundations: conservative vertical grayscale overlap matcher and strict 60,000-pixel / 200MP canvas limits with unit tests.
 
-## Next sequential gates
+## Not implemented
 
-1. Resolve any compiler/API mismatches surfaced by GitHub CI for eframe 0.37.0; run format, Clippy and tests on macOS.
-2. Implement P0-T2 global hotkeys, native menu bar and lifecycle.
-3. Implement P0-T3 ScreenCaptureKit frame capture and coordinate mapping.
-4. Implement P0-T4 pinned NSWindow/NSPanel and real latency measurements.
-5. Do not advance into P1 until the P0 platform acceptance gates pass.
+- P0-T2: native macOS status menu, hotkey service and event lifecycle.
+- P0-T3: ScreenCaptureKit and real screen coordinate mapping / selection overlay.
+- P0-T4: native floating windows, always-on-top and mouse hit-test passthrough.
+- P1: complete annotation rasterization, editing UI, clipboard, safe atomic PNG file writing.
+- P2: native multi-window behavior, zoom/opacity UI and texture cache.
+- P3: signed helper execution, Vision OCR, hit testing and Lite/Full packaging.
+- P4: actual scroll capture workers, ROI controls, horizontal matching, streaming tile store / recovery and export.
+- P5: release, signing, notarization, benchmark samples and rollback verification.
+- P6: Windows native implementation and independent validation.
 
-Refer to the v1.2 development package index and 08-implementation-plan.md for authoritative tasks.
+## Unverified work
+
+The Linux container has no Rust toolchain and cannot reach GitHub directly for clone or dependency retrieval. The GitHub connector can modify files but cannot run Rust tests. No macOS GitHub Actions workflow run was returned as of this update. Consequently **not one cargo check, format, test or Clippy execution may be marked passed**, and no binary may be described as usable.
+
+## Next gate
+
+Enable and run the existing macOS CI workflow; produce and commit Cargo.lock; fix compiler and formatter failures. Then add native platform work and only mark each task complete once its compile gate passes. macOS manual functionality and performance tests may remain deferred by owner approval.
+
+Commands required:
+
+```sh
+cargo generate-lockfile
+cargo fmt --all
+cargo fmt --all -- --check
+cargo test --workspace --locked
+cargo clippy --workspace --all-targets --locked -- -D warnings
+```
