@@ -31,6 +31,8 @@ jobs:
             -framework Vision -framework CoreGraphics -framework Foundation \
             -framework CryptoKit packaging/macos/PicPasteOCR.swift \
             -o target/release/PicPasteOCR
+      - name: Verify Vision OCR helper binary IPC
+        run: python3 scripts/check_ocr_helper.py target/release/PicPasteOCR
       - name: Assemble Lite development app
         run: PICPASTE_VARIANT=Lite bash scripts/package-macos.sh
       - name: Assemble Full development app
