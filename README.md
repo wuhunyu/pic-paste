@@ -1,25 +1,48 @@
 # PicPaste
 
-Lightweight offline screenshot and pinning application, macOS first, developed in Rust.
+Offline screenshot and pinned-image utility. Rust 2024 + **egui/eframe 0.37.0** + WGPU; native ScreenCaptureKit capture on macOS.
 
-> **Project status:** P0 prototype / engineering foundation. The native capture, hotkeys, pin windows, OCR and scrolling capture are **not implemented yet**. Do not treat this repository as a usable release.
+> **Development prototype, not an audited or production-ready app.** GitHub Actions compile/test/lint does not grant screen recording permissions or verify multi-display, Spaces, or mouse-passthrough behavior.
 
-## Design constraints
+## macOS preview
 
-- macOS 14+ first; Windows follows after macOS validation.
-- Rust 2024, egui/eframe, native OS adapters; no Electron or WebView.
-- Saved screenshots and exports are PNG only, preserving rounded-corner transparency.
-- Offline operation; OCR is optional and cannot block basic screenshots.
-- Scroll capture defaults to manual scrolling with recovery on mismatch.
+The current prototype supports:
 
-## Developer workflow
+- Global hotkey **Control + Option + 1** to capture the primary display with ScreenCaptureKit.
+- Drag a region inside the captured preview, or accept the full display.
+- Save a PNG to `~/Pictures/PicPaste/`, copy an image to the system clipboard, or pin it in a separate always-on-top window.
+- Adjustable PNG corner transparency (default 16 physical pixels).
+- Global hotkey **Control + Option + 2** to pin the clipboard image, or recover existing passthrough pins.
+- Multiple pinned viewports, opacity controls and a recovery action.
+- Native macOS status menu with capture, pin, recover, show and quit actions.
+
+**Known limitations:** selection is currently inside the main preview rather than a full-screen overlay; active pinned windows may be present in subsequent screen captures; native macOS window behavior and high-DPI coordinate calculations need real-device acceptance. Annotation history and compositing are core modules, but a full toolbar with all tools is not yet integrated. OCR recognition, live scrolling capture, Windows integration and production signing/notarization are not yet delivered.
+
+## Build
+
+Use a recent Xcode/SDK (the `screencapturekit 11` Swift/Metal dependency requires new SDK types) with Rust Stable. Deployment target is macOS 14.
 
 ```sh
-cargo generate-lockfile
-cargo fmt --all -- --check
+export MACOSX_DEPLOYMENT_TARGET=14.0
+cargo fmt --all
 cargo test --workspace
 cargo clippy --workspace --all-targets -- -D warnings
-cargo run -p shot-macos
+cargo build --release -p shot-macos
+bash scripts/package-macos.sh
 ```
 
-Run native integration and performance gates on real macOS hardware before advancing past P0. The development specification is under `docs/spec/`.
+`dist/PicPaste-macos-*-UNSIGNED-DEV.zip` is an **unnotarized development package**, suitable only for controlled testing. Developer ID distribution requires a real bundle ID, code-signing identity, and notarization; these are deliberately not faked in CI.
+
+## Workspace
+
+| Crate | Responsibility |
+| --- | --- |
+| `shot-core` | Pixel geometry, selection, pin interaction and state machines |
+| `shot-image` | PNG-only export, image compositing, rounded alpha |
+| `shot-platform` | Platform-native capture adapter |
+| `shot-scroll` | Scroll matching, canvas bounds and state |
+| `shot-ocr-protocol` | Bounded, versioned offline IPC request format |
+| `apps/shot-macos` | macOS UI, hotkeys and pinned viewports |
+| `apps/shot-ocr-helper` | Future independently packaged offline OCR helper |
+
+See [development ledger](docs/STATUS.md) for completed vs pending work and original v1.2 implementation plan for acceptance requirements. All image file exports are **PNG only**.
