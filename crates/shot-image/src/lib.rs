@@ -1,4 +1,5 @@
 #![forbid(unsafe_code)]
+pub mod history;
 use shot_core::RgbaFrame;
 use std::io::Write;
 
