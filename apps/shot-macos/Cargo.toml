@@ -1,0 +1,9 @@
+[package]
+name = "shot-macos"
+version.workspace = true
+edition.workspace = true
+[dependencies]
+eframe = "=0.37.0"
+shot-core = { path = "../../crates/shot-core" }
+shot-image = { path = "../../crates/shot-image" }
+shot-platform = { path = "../../crates/shot-platform" }
