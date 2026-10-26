@@ -16,7 +16,10 @@ fn chosen_monitor_survives_unstable_discovery_order() {
 #[test]
 fn unplugging_monitor_uses_available_display_without_stale_id() {
     let mut selection = DisplaySelection::default();
-    assert_eq!(selection.advance(&[DisplayId(5), DisplayId(8)]), Ok(DisplayId(8)));
+    assert_eq!(
+        selection.advance(&[DisplayId(5), DisplayId(8)]),
+        Ok(DisplayId(8))
+    );
     assert_eq!(selection.resolve(&[DisplayId(5)]), Ok(DisplayId(5)));
     assert_eq!(selection.current(), Some(DisplayId(5)));
 }
