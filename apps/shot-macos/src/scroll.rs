@@ -212,3 +212,41 @@ pub fn launch(
         live_preview,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn test_control(state: u8) -> ScrollCaptureControl {
+        ScrollCaptureControl {
+            command: Arc::new(AtomicU8::new(state)),
+            live_preview: LatestPreview::default(),
+        }
+    }
+
+    #[test]
+    fn retry_is_only_available_while_paused() {
+        let control = test_control(PAUSED);
+        assert!(control.is_paused());
+        assert!(control.resume());
+        assert_eq!(control.command.load(Ordering::SeqCst), RETRY);
+        assert!(!control.resume());
+        assert!(!control.is_paused());
+    }
+
+    #[test]
+    fn paused_capture_can_finish_without_discarding_trusted_segments() {
+        let control = test_control(PAUSED);
+        control.finish();
+        assert_eq!(control.command.load(Ordering::SeqCst), FINISH);
+    }
+
+    #[test]
+    fn cancel_cannot_be_overwritten_by_finish_or_retry() {
+        let control = test_control(PAUSED);
+        control.cancel();
+        control.finish();
+        assert!(!control.resume());
+        assert_eq!(control.command.load(Ordering::SeqCst), CANCEL);
+    }
+}
