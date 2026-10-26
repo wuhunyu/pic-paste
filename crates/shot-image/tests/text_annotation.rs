@@ -57,5 +57,12 @@ fn macos_system_cjk_font_renders_real_chinese_characters() {
         }],
     )
     .unwrap();
-    assert!(annotated.rgba.as_chunks::<4>().0.iter().any(|pixel| pixel[3] != 0));
+    assert!(
+        annotated
+            .rgba
+            .as_chunks::<4>()
+            .0
+            .iter()
+            .any(|pixel| pixel[3] != 0)
+    );
 }
