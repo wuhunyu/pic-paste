@@ -42,10 +42,7 @@ fn unchanged_or_low_information_frames_are_never_appended() {
         None
     );
     let flat = RgbaFrame::new(32, 48, vec![140; 32 * 48 * 4]).unwrap();
-    assert_eq!(
-        match_scroll_frame(&flat, &flat, ScrollAxis::Vertical),
-        None
-    );
+    assert_eq!(match_scroll_frame(&flat, &flat, ScrollAxis::Vertical), None);
 }
 
 #[test]
@@ -56,7 +53,10 @@ fn different_dimensions_or_invalid_rgba_are_rejected() {
         height: 48,
         rgba: Vec::new(),
     };
-    assert_eq!(match_scroll_frame(&before, &bad, ScrollAxis::Vertical), None);
+    assert_eq!(
+        match_scroll_frame(&before, &bad, ScrollAxis::Vertical),
+        None
+    );
     assert_eq!(
         match_scroll_frame(&before, &screenshot(32, 45, 0, 4), ScrollAxis::Vertical),
         None
