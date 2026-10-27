@@ -4,8 +4,8 @@
 
 ## 当前基线
 
-- 已合并：PR [#1](https://github.com/wuhunyu/pic-paste/pull/1)、[#2](https://github.com/wuhunyu/pic-paste/pull/2)、[#3](https://github.com/wuhunyu/pic-paste/pull/3)、[#12](https://github.com/wuhunyu/pic-paste/pull/12)–[#29](https://github.com/wuhunyu/pic-paste/pull/29)。截至本次核验共 **21 个已合并 PR**。
-- 最新功能合并：[#29 可信独立 OCR Add-on](https://github.com/wuhunyu/pic-paste/pull/29)，提交 [`3ec7a56`](https://github.com/wuhunyu/pic-paste/commit/3ec7a56092b7ffb43461b5747b16935c3c833ec0)，完整 [PR CI #40456135637](https://github.com/wuhunyu/pic-paste/actions/runs/40456135637) **success**（Linux/macOS、Swift IPC、Lite/Full、独立开发 ZIP 及 ad-hoc 拒绝测试）。#28 OCR/QR 与 #27 长图功能也已合并。**Developer ID 实际安装、公证和真机验收仍未完成。**
+- 已合并：PR [#1](https://github.com/wuhunyu/pic-paste/pull/1)、[#2](https://github.com/wuhunyu/pic-paste/pull/2)、[#3](https://github.com/wuhunyu/pic-paste/pull/3)、[#12](https://github.com/wuhunyu/pic-paste/pull/12)–[#30](https://github.com/wuhunyu/pic-paste/pull/30)。截至本次核验共 **22 个已合并 PR**。
+- 最新功能合并：[#30 多贴图资源预算与共享释放](https://github.com/wuhunyu/pic-paste/pull/30)，提交 [`0657fd5`](https://github.com/wuhunyu/pic-paste/commit/0657fd52dcb3f1250a2a5db8aae2ff63993ecd5e)；完整 [PR CI #40458668058](https://github.com/wuhunyu/pic-paste/actions/runs/40458668058) **success**（Linux 核心测试、macOS egui 共享纹理回归、严格 Clippy、Release 和 Lite/Full/Add-on 开发包）。#29 OCR Add-on、#28 OCR/QR 和 #27 长图也已合并。**5Pin 帧 P95、GPU/RSS/CPU、Retina/Spaces、真实剪贴板仍需设备验收。**
 - #17 合并提交 `7e492a4bb91f6062c225dfb33f524cc51756e556`；[main CI #40297130672](https://github.com/wuhunyu/pic-paste/actions/runs/40297130672) **success**。
 - 历史增量：[#23 手动失败恢复](https://github.com/wuhunyu/pic-paste/pull/23)、[#24 手动固定栏排除](https://github.com/wuhunyu/pic-paste/pull/24)、[#25 长图圆角](https://github.com/wuhunyu/pic-paste/pull/25)、[#26 长图标注/贴图](https://github.com/wuhunyu/pic-paste/pull/26) 均已合并；对应测试记录详见各 PR。合并后的主分支 CI 已在 #40440845772 覆盖这些功能。
 - 跟踪 Issues：[#5 原生窗口和多屏](https://github.com/wuhunyu/pic-paste/issues/5)、[#6 标注与贴图](https://github.com/wuhunyu/pic-paste/issues/6)、[#7 长截图](https://github.com/wuhunyu/pic-paste/issues/7)、[#8 OCR/二维码/Add-on](https://github.com/wuhunyu/pic-paste/issues/8)、[#10 真机与性能](https://github.com/wuhunyu/pic-paste/issues/10)、[#9 macOS 正式发布](https://github.com/wuhunyu/pic-paste/issues/9)、[#11 Windows](https://github.com/wuhunyu/pic-paste/issues/11)。[#4](https://github.com/wuhunyu/pic-paste/issues/4) 已关闭。
@@ -62,5 +62,5 @@
 ## 2026-10-27 — P2 GPU 贴图预算增量（PR #30）
 
 - [x] 纯 Rust 资源账本已通过 Linux 核心测试：12 Pin、64 MiB 唯一 RGBA8 估算、4MP/4096px 单图、8 张 HD 上限、同图引用计数/关闭回收、非法/重复 ID 与失败不改账。
-- [ ] macOS 共享 `egui::TextureHandle`、隐藏根窗口关闭通知和完整 PR CI 需以最新 run 为准（开发分支不等于真机验收）。
+- [x] macOS 共享 `egui::TextureHandle`、隐藏根窗口关闭通知及完整 [PR CI #40458668058](https://github.com/wuhunyu/pic-paste/actions/runs/40458668058) success；仍不能当作真机性能验收。
 - [ ] 五张 1080p 悬浮贴图帧 P95≤16.7ms、空闲 CPU/RSS、系统缩放/Retina/Spaces/剪贴板一致性需真实 macOS 采样，不能由核心单测替代。

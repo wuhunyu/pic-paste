@@ -72,5 +72,5 @@
 ## 2026-10-27 — P2-T1 纹理缓存与资源上限（PR #30）
 
 - [x] `shot-core::pin_texture_budget`：12 贴图、64MiB 唯一 RGBA8 纹理估算、4MP/4096px 单图限制、共享引用计数、拒绝不修改账本、最后引用关闭回收，Linux 核心测试/Clippy 通过。
-- [ ] macOS 集成的 Exact RGBA/TextureHandle 复用、全量 CI 与真机验证分别核查，不能以 eframe 测试当作设备 GPU P95。
+- [x] macOS 逐像素相同的 `TextureHandle` 复用、关闭时根窗口唤醒/资源回收，已通过 [PR CI #40458668058](https://github.com/wuhunyu/pic-paste/actions/runs/40458668058) Linux/macOS 测试、Clippy、Release 与打包；真机性能仍单独验收。
 - [ ] 核心实测仍需 5 张 1080p 贴图帧 P95≤16.7ms、RSS/CPU、焦点/穿透、Retina/Spaces、多应用剪贴板 Alpha。

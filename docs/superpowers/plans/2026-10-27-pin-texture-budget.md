@@ -72,13 +72,13 @@ pub enum PinEvent { /* preexisting variants */, Closed(u64) }
 - [x] On pin viewport close or explicit ×, set `closed`, send `PinEvent::Closed(id)`, and wake ROOT. Add `Closed` handling in the root event dispatch.
 - [x] Add `pin_budget: PinTextureBudget` in the root app. In `create_pin`, prune closed pins, reject unsafe dimensions/id/capacity, compare existing pins by exact frame dimensions and RGBA bytes, reserve group, then create/reuse pin. In `remove_closed_pins`, release matching ledger entries once and retain live pins; call from event loop and before admission.
 - [x] Display `resident_bytes` as an **estimated** texture usage and live pin count in settings; never label it actual VRAM/RSS.
-- [ ] Run workspace tests, fmt and strict Clippy on macOS CI and verify Lite/Full package builds; preserve PNG/OCR behavior.
+- [x] Run workspace tests, fmt and strict Clippy on macOS CI and verify Lite/Full package builds; preserve PNG/OCR behavior.
 
 ### Task 3: Evidence and merge
 
 - [x] Update README/status/remaining/tasks and Issue #6: resource cap is implemented, pin lifecycle unit evidence exists; keep real 5-pin P95, CPU/RSS, Spaces/Retina/clipboard validation **open**.
-- [ ] Verify the latest PR branch’s full CI (Linux core, macOS workspace tests/Clippy/Release, OCR IPC, Lite/Full and Add-on packaging).
-- [ ] Merge only after CI success and review, then sync the main branch ledger with PR link and leave Issue #6 open for physical-device acceptance.
+- [x] Verify the latest PR branch’s full CI (Linux core, macOS workspace tests/Clippy/Release, OCR IPC, Lite/Full and Add-on packaging).
+- [x] Merge only after CI success and review, then sync the main branch ledger with PR link and leave Issue #6 open for physical-device acceptance.
 
 ## QA matrix
 
@@ -96,3 +96,10 @@ pub enum PinEvent { /* preexisting variants */, Closed(u64) }
 | Mouse passthrough/drag/OCR | Existing behavior; close from hidden root wakes cleanup |
 | Actual 5-pin P95 ≤16.7ms and CPU/RSS | Pending physical macOS measurements; never fabricate |
 
+
+## Final evidence (2026-10-27)
+
+- [x] RED [CI #40457559308](https://github.com/wuhunyu/pic-paste/actions/runs/40457559308) failed with the expected missing pure ledger module; RED macOS [CI #40457875336](https://github.com/wuhunyu/pic-paste/actions/runs/40457875336) confirmed missing `from_shared` / `Closed` APIs.
+- [x] GREEN Linux + macOS complete [PR CI #40458668058](https://github.com/wuhunyu/pic-paste/actions/runs/40458668058): format, all workspace tests, strict Clippy, Release, Swift Vision IPC and Lite/Full/Add-on dev packaging succeeded.
+- [x] [PR #30](https://github.com/wuhunyu/pic-paste/pull/30) squash merged to main as `0657fd5`.
+- [ ] Genuine GPU VRAM usage, 5×1080p frame P95, CPU/RSS and Retina/Spaces/clipboard tests on macOS 14+ remain external acceptance in Issues #6/#10.
