@@ -112,11 +112,11 @@ fn output_path(partial: bool) -> Result<PathBuf, String> {
 
 /// Publish an explicitly approved long screenshot. Failed exports retain
 /// the source TileStore in the caller, so the user can retry.
-pub fn export_review(review: &ScrollReview) -> Result<PathBuf, String> {
+pub fn export_review(review: &ScrollReview, radius: u32) -> Result<PathBuf, String> {
     let path = output_path(review.partial)?;
     review
         .store
-        .save_png_no_clobber(&path)
+        .save_png_rounded_no_clobber(&path, radius)
         .map_err(|error| format!("scroll PNG export failed: {error}"))?;
     Ok(path)
 }
@@ -314,5 +314,25 @@ mod tests {
         control.finish();
         assert!(!control.resume());
         assert_eq!(control.command.load(Ordering::SeqCst), CANCEL);
+    }
+}
+
+/// Scale physical corner radius to a bounded preview using its width.
+pub fn preview_radius(radius: u32, canvas_width: u32, preview_width: u32) -> u32 {
+    if canvas_width == 0 || preview_width == 0 {
+        return 0;
+    }
+    (u64::from(radius) * u64::from(preview_width) / u64::from(canvas_width)) as u32
+}
+
+#[cfg(test)]
+mod rounded_preview_tests {
+    use super::preview_radius;
+    #[test]
+    fn thumbnail_radius_tracks_physical_pixels_without_upscaling() {
+        assert_eq!(preview_radius(0, 100, 100), 0);
+        assert_eq!(preview_radius(16, 200, 100), 8);
+        assert_eq!(preview_radius(64, 60_000, 60), 0);
+        assert_eq!(preview_radius(16, 100, 100), 16);
     }
 }

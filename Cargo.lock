@@ -3495,6 +3495,7 @@ dependencies = [
 name = "shot-scroll"
 version = "0.1.0"
 dependencies = [
+ "png",
  "shot-core",
  "shot-image",
 ]
