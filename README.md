@@ -110,3 +110,19 @@ The settings view reports **estimated** unique GPU RGBA bytes, not measured VRAM
 This is code and CI-level hardening, **not a physically verified macOS 14+ heterogeneous-monitor fix**. The runtime remains eframe/winit `NSWindow`, **not** AppKit `NSPanel`. See [macOS window architecture decision](docs/macos-window-strategy.md) for the staged design, device matrix and acceptance boundaries.
 
 [PR #31](https://github.com/wuhunyu/pic-paste/pull/31) merged as [`73122e0`](https://github.com/wuhunyu/pic-paste/commit/73122e009c4bef66b39c4ef0f0f60def4680c76e) after complete [PR CI #40461875462](https://github.com/wuhunyu/pic-paste/actions/runs/40461875462) success (Linux/macOS tests, strict Clippy, Swift IPC, release, Lite/Full/Add-on packaging). Dedicated NSPanel and macOS 14+ physical multi-DPI, Spaces, TCC, focus and P95 acceptance remain open.
+
+## 2026-10-27 — experimental AppKit NSPanel + WGPU Metal proof (#32)
+
+[PR #32](https://github.com/wuhunyu/pic-paste/pull/32) adds a **separately compiled, opt-in** companion program. It creates a real AppKit `NSPanel` containing a retained `NSView`, constructs a WGPU 30 Metal surface using that view's AppKit window handle, and attempts one solid navy-color render and present. It does **not** replace the production eframe/winit NSWindow screenshot or pin views.
+
+```sh
+# Pure command parser / geometry check: no GUI, GPU, TCC or ScreenCaptureKit.
+cargo run --locked -p shot-macos --features native-panel-probe --bin ns-panel-probe -- --check
+
+# Explicit interactive test on a personal macOS 14+ Mac with a visible desktop.
+# If the panel opens, observe the navy-colored Metal surface.
+# Use Ctrl+C in the invoking terminal to stop the probe.
+cargo run --locked -p shot-macos --features native-panel-probe --bin ns-panel-probe -- --show
+```
+
+The interactive `--show` path has **not been exercised on a real Mac** by automated CI. It is a *smoke test*, not an event-loop, IME, keyboard, close/cleanup, multiple-Spaces or real-display acceptance. In particular Ctrl+C force-terminates the process and does not prove graceful WGPU teardown. The default PicPaste application, Lite/Full archives, PNG-only Alpha export, scrolling and offline OCR/QR remain unchanged. [Architecture and acceptance checklist](docs/macos-window-strategy.md).

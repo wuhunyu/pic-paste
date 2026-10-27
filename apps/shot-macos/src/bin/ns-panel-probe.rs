@@ -93,6 +93,9 @@ mod native {
         let content_view = panel
             .contentView()
             .ok_or("AppKit NSPanel has no content NSView")?;
+        // WGPU's Metal surface uses the NSView as its retained drawable host.
+        // AppKit requires a layer-backed view before a Metal layer is attached.
+        content_view.setWantsLayer(true);
 
         // The panel must be on its target screen before reading the actual
         // Retina backing scale. A hidden panel may report the wrong screen.

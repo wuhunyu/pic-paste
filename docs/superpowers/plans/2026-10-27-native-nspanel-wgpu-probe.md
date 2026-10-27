@@ -33,10 +33,10 @@ impl PanelSurfaceSize {
 }
 ```
 
-- [ ] Write failing core tests for 640×360pt@2x → 1280×720 physical pixels, 640×360pt@1x, fractional 1.5x scaling, zero/negative/NaN/Infinity/oversized (>8192 px) and multiplication overflow.
-- [ ] Run `cargo test -p shot-core --test native_panel_surface --locked` on GitHub CI and confirm the expected `unresolved import shot_core::native_panel` RED, not an infrastructure error.
-- [ ] Implement `PanelSurfaceSize::from_points` using checked finite positive dimensions, rounded backing scale (no desktop-coordinate multiplication), and 8192px cap.
-- [ ] Export module and confirm GREEN on Linux core CI plus Clippy.
+- [x] Write failing core tests for 640×360pt@2x → 1280×720 physical pixels, 640×360pt@1x, fractional 1.5x scaling, zero/negative/NaN/Infinity/oversized (>8192 px) and multiplication overflow.
+- [x] Run `cargo test -p shot-core --test native_panel_surface --locked` on GitHub CI and confirm the expected `unresolved import shot_core::native_panel` RED, not an infrastructure error.
+- [x] Implement `PanelSurfaceSize::from_points` using checked finite positive dimensions, rounded backing scale (no desktop-coordinate multiplication), and 8192px cap.
+- [x] Export module and confirm GREEN on Linux core CI plus Clippy.
 
 ## Task 2: Real NSPanel and WGPU Metal surface (opt-in binary)
 
@@ -51,11 +51,11 @@ cargo run -p shot-macos --features native-panel-probe --bin ns-panel-probe -- --
 cargo run -p shot-macos --features native-panel-probe --bin ns-panel-probe -- --show
 ```
 
-- [ ] Write tests in the companion binary for `ProbeCommand::parse` (`--check`, `--show`, reject other flags) and a pure `--check` which does not touch AppKit, GPUs, screens or TCC.
-- [ ] Verify RED in macOS CI if the command/feature is missing; add an optional Cargo feature/dependency set pinned to existing lock versions.
-- [ ] `--show`: get `MainThreadMarker`, create actual `NSPanel` with `initWithContentRect_styleMask_backing_defer`; retain panel/content view, mark content view layer-backed, construct an `AppKitWindowHandle` pointing at NSView and an unsafe WGPU `Surface` with an explicit `METAL` instance. Request compatible adapter/device; reject non-Metal backend; configure and submit one clear render pass; present, show panel and run AppKit event loop.
-- [ ] Correct ownership: no unsafe lifetime extension beyond panel/view; close only after surface disposal; document manual termination and no headless GUI execution. No unsafe ObjC pointer reclassification.
-- [ ] Add CI step `cargo test -p shot-macos --features native-panel-probe --bin ns-panel-probe --locked`, `cargo build -p shot-macos --features native-panel-probe --bin ns-panel-probe --locked`, and `cargo run ... -- --check` (no GUI). Keep normal packaging unchanged.
+- [x] Write tests in the companion binary for `ProbeCommand::parse` (`--check`, `--show`, reject other flags) and a pure `--check` which does not touch AppKit, GPUs, screens or TCC.
+- [x] Verify RED in macOS CI if the command/feature is missing; add an optional Cargo feature/dependency set pinned to existing lock versions.
+- [x] `--show`: get `MainThreadMarker`, create actual `NSPanel` with `initWithContentRect_styleMask_backing_defer`; retain panel/content view, mark content view layer-backed, construct an `AppKitWindowHandle` pointing at NSView and an unsafe WGPU `Surface` with an explicit `METAL` instance. Request compatible adapter/device; reject non-Metal backend; configure and submit one clear render pass; present, show panel and run AppKit event loop.
+- [x] Correct ownership: no unsafe lifetime extension beyond panel/view; close only after surface disposal; document manual termination and no headless GUI execution. No unsafe ObjC pointer reclassification.
+- [x] Add CI step `cargo test -p shot-macos --features native-panel-probe --bin ns-panel-probe --locked`, `cargo build -p shot-macos --features native-panel-probe --bin ns-panel-probe --locked`, and `cargo run ... -- --check` (no GUI). Keep normal packaging unchanged.
 - [ ] Run latest full PR CI; correct any compiler/API differences from logs without weakening tests.
 
 ## Task 3: Evidence, merge and next gate
@@ -64,10 +64,10 @@ cargo run -p shot-macos --features native-panel-probe --bin ns-panel-probe -- --
 - Modify: `docs/macos-window-strategy.md`, `docs/TASKS.md`, `docs/REMAINING.md`, `docs/STATUS.md`, `README.md`
 - Update: GitHub Issue #5
 
-- [ ] Document what the compiled probe proves (NSPanel+NSView+WGPU Metal surface code), what it does not prove (visual presentation, egui input bridge, production screenshot/clip windows, Spaces/focus/TCC/performance).
-- [ ] Supply real-Mac manual acceptance procedure: `--show`, verify displayed solid-color panel, screenshot evidence, Escape/close/last surface teardown, 1×/2× displays, fullscreen Spaces and window activation, then record OS/GPU/scale and failures in Issue #5.
+- [x] Document what the compiled probe proves (NSPanel+NSView+WGPU Metal surface code), what it does not prove (visual presentation, egui input bridge, production screenshot/clip windows, Spaces/focus/TCC/performance).
+- [x] Supply real-Mac manual acceptance procedure: `--show`, verify displayed solid-color panel, screenshot evidence, Escape/close/last surface teardown, 1×/2× displays, fullscreen Spaces and window activation, then record OS/GPU/scale and failures in Issue #5.
 - [ ] PR only merges when full Linux/macOS CI succeeds. Update Issue #5 without closing; leave main UI and current screenshots intact.
-- [ ] Future distinct PR: egui-wgpu rendering + input/IME bridge on NSPanel; subsequent PR switches one capture overlay behind opt-in toggle after physical panel validation. Only then consider pins.
+- [x] Future distinct PR: egui-wgpu rendering + input/IME bridge on NSPanel; subsequent PR switches one capture overlay behind opt-in toggle after physical panel validation. Only then consider pins.
 
 ## Risk matrix
 
@@ -80,3 +80,10 @@ cargo run -p shot-macos --features native-panel-probe --bin ns-panel-probe -- --
 | DPI / resize mismatch | `PanelSurfaceSize` verified independent of desktop global origin |
 | Production regression | Optional feature/companion binary, no change to `shot-macos` default runtime |
 | Hidden GUI acceptance gap | Issue #5 remains open; require actual device screen recording/evidence |
+
+## Validation evidence as of 2026-10-27
+
+- RED #40465652103: expected missing `shot_core::native_panel`.
+- RED #40465947486: expected missing `ProbeCommand`.
+- Candidate GREEN: [CI #40467547957](https://github.com/wuhunyu/pic-paste/actions/runs/40467547957) validates opt-in native AppKit/WGPU code, CLI and existing workspace. **Real GUI mode --show is not exercised in hosted CI**.
+- [ ] Native close/resize/input-loop/IME/Spaces and per-display GPU presentation need actual device work.
