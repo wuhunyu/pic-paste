@@ -46,10 +46,7 @@ impl FloatingBarFrame {
     /// Return `None` rather than clipping into screenshot controls when the
     /// host is too small or AppKit reports transient invalid geometry.
     pub fn for_content_size(width_pt: f64, height_pt: f64) -> Option<Self> {
-        if !width_pt.is_finite()
-            || !height_pt.is_finite()
-            || width_pt < 268.0
-            || height_pt < 140.0
+        if !width_pt.is_finite() || !height_pt.is_finite() || width_pt < 268.0 || height_pt < 140.0
         {
             return None;
         }
