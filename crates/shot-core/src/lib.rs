@@ -3,6 +3,7 @@ pub mod async_ticket;
 pub mod display;
 pub mod input;
 pub mod overlay;
+pub mod pin_texture_budget;
 pub mod pin_view;
 pub mod pins;
 pub mod platform;

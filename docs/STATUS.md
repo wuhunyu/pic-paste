@@ -18,7 +18,7 @@
 | --- | --- | --- |
 | P0 macOS 截图 | 原生 ScreenCaptureKit 选显示器；负坐标/缩放映射测试；独立无边框 eframe/winit 选区视口；窗口候选单击选区；9×9 像素放大镜/HEX；菜单、可配置 Ctrl+Option+1…9 热键与失败回滚 | 不是专用 AppKit NSPanel；真实多屏/Spaces/不同 TCC 权限、热键冲突、启动/延迟没有验收；[#20](https://github.com/wuhunyu/pic-paste/pull/20) 已在代码层按当前 PID 排除本应用浮窗；真实系统完整排除情况待验收 |
 | P1 标注与 PNG | 线、箭头、画笔、矩形、椭圆、马赛克、模糊、**中英文离线文字**（[#17](https://github.com/wuhunyu/pic-paste/pull/17)）；Undo/Redo；PNG-only 无覆盖原子保存、透明圆角、限定大小的 PNG 缩略图、⌘S 保存（[#16](https://github.com/wuhunyu/pic-paste/pull/16)） | 文字字体回退与跨版本系统覆盖、Native 剪贴板粘贴/色彩/Alpha 真机验证、工具边界压力测试 |
-| P2 多贴图 | 多窗口置顶、缩放、透明度、鼠标穿透和恢复；[#22](https://github.com/wuhunyu/pic-paste/pull/22) 行级、[#28](https://github.com/wuhunyu/pic-paste/pull/28) 词/字符/二维码识别和复制 | GPU 纹理与 5 张贴图帧延迟实测、焦点恢复/拖动及跨 Spaces 真机验收 |
+| P2 多贴图 | 多窗口置顶、缩放、透明度、鼠标穿透和恢复；#22 行级、#28 词/字符/QR；[#30](https://github.com/wuhunyu/pic-paste/pull/30) 增加独立 RGBA 预算、逐像素相同的 TextureHandle 复用和关闭释放 | 5 张 1080p 帧 P95 ≤16.7ms、RSS/CPU、焦点/拖动/鼠标穿透、跨 Spaces 真机验收 |
 | P3 OCR | 本地 Vision、SHOC IPC、20s 超时、Lite 降级；#28 原生词/字符 bbox、显式离线 QR；Add-on 固定路径、Developer ID/Team ID/API 验证与安装/卸载代码已通过 #29 CI 并合并 | ≥400 张 CER 实测、旋转多码/权限/焦点、Developer ID 真签名安装、公证与真机验收 |
 | P4 长截图 | 由用户手动纵/横滚动、自动识别可信重叠并拼接；[#23](https://github.com/wuhunyu/pic-paste/pull/23) 连续匹配不可靠时暂停提示，用户手动回滚并在菜单栏继续慢速重试，同一磁盘会话保留可信分段；行流式 PNG、60k/200MP 限制、复核删最后段/保留前 N 段（#21）、实时缩略图（#18）、#25 透明圆角、#26 磁盘补丁标注/撤销重做、复核选区复制与贴图，以及 #27 动态区域稳定像素匹配和从指定中间段重拍后续；[#24](https://github.com/wuhunyu/pic-paste/pull/24) 已实现手动排除上/下固定栏或左/右侧栏（裁剪内容不进入 PNG） | **自动滚动已从需求移除**；自动识别固定栏和自动擦除动画像素仍未实现；#27 可容忍部分动画干扰并安全重拍中间段之后所有片段，但不保留未经验证的后续旧片段；50 场景真机验收仍缺；长图贴图/复制仅支持经过 4MP/4096px 限制的原像素选区 |
 | P5 测试/发布 | macOS CI fmt/test/clippy/release、Swift OCR IPC，Lite/Full 开发包、SHA256；基础 `scripts/bench_report.py` 测试 | P50/P95、RSS/CPU、OLED/Retina/Spaces、TCC、CER、50 场景报告；x86_64、正式 Bundle ID/图标、Developer ID 签名/公证/Gatekeeper、发行和回滚 |
@@ -58,3 +58,9 @@
 - [x] 复核可指定从第 2 段至最后一段的任一段“重新手动采集”，只保留前面可信片段，并删除目标段及后续内容；用磁盘原始片段重建最后一个完整 ROI，沿原显示器、原物理坐标与原方向继续采集。未确认后缀绝不直接拼接。取消或采集错误会保留可复核前缀，预览按实际最新磁盘数据重建。
 - [x] 新增纵横向动态干扰、动画独自变化、重复内容拒绝、260+ 分段视口提取、重拍剪尾/续采、异常预览恢复、实时预览纹理复用自动回归。完整 PR [CI #40440066887](https://github.com/wuhunyu/pic-paste/actions/runs/40440066887) 通过 Linux/macOS 工作区测试、严格 Clippy、Release、离线 OCR Helper 与 Lite/Full 打包。
 - [ ] 自动动态像素清理、错误中间段原位替换并保留后续旧片段、真实 50 场景质量统计、macOS 14/多屏/TCC/资源验收仍未完成。P4-T3 继续记为**部分实现**。
+
+## 2026-10-27 — P2 GPU 贴图预算增量（PR #30）
+
+- [x] 纯 Rust 资源账本已通过 Linux 核心测试：12 Pin、64 MiB 唯一 RGBA8 估算、4MP/4096px 单图、8 张 HD 上限、同图引用计数/关闭回收、非法/重复 ID 与失败不改账。
+- [ ] macOS 共享 `egui::TextureHandle`、隐藏根窗口关闭通知和完整 PR CI 需以最新 run 为准（开发分支不等于真机验收）。
+- [ ] 五张 1080p 悬浮贴图帧 P95≤16.7ms、空闲 CPU/RSS、系统缩放/Retina/Spaces/剪贴板一致性需真实 macOS 采样，不能由核心单测替代。
