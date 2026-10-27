@@ -4,7 +4,7 @@
 
 ## 当前基线
 
-- 已合并：PR [#1](https://github.com/wuhunyu/pic-paste/pull/1)、[#2](https://github.com/wuhunyu/pic-paste/pull/2)、[#3](https://github.com/wuhunyu/pic-paste/pull/3)、[#12](https://github.com/wuhunyu/pic-paste/pull/12)–[#26](https://github.com/wuhunyu/pic-paste/pull/26)。截至本次核验共 **18 个已合并 PR**。
+- 已合并：PR [#1](https://github.com/wuhunyu/pic-paste/pull/1)、[#2](https://github.com/wuhunyu/pic-paste/pull/2)、[#3](https://github.com/wuhunyu/pic-paste/pull/3)、[#12](https://github.com/wuhunyu/pic-paste/pull/12)–[#27](https://github.com/wuhunyu/pic-paste/pull/27)。截至本次核验共 **19 个已合并 PR**。
 - 最新功能合并：[#24 手动长截图固定区域排除](https://github.com/wuhunyu/pic-paste/pull/24)，合并提交 `141767c6fac8915e199231e969ae24a24875511c`，完整 [CI #40317451349](https://github.com/wuhunyu/pic-paste/actions/runs/40317451349) **success**：Linux core、macOS workspace tests/Clippy/Release、Swift OCR IPC、Lite/Full 开发包。此前 [#23](https://github.com/wuhunyu/pic-paste/pull/23) 手动失败恢复 [CI #40314126081](https://github.com/wuhunyu/pic-paste/actions/runs/40314126081) success。
 - #17 合并提交 `7e492a4bb91f6062c225dfb33f524cc51756e556`；[main CI #40297130672](https://github.com/wuhunyu/pic-paste/actions/runs/40297130672) **success**。
 - #23 合并及文档同步后 [main CI #40315393621](https://github.com/wuhunyu/pic-paste/actions/runs/40315393621) **success**；#24 及本次文档同步后的最新 main CI 仍需单独核验。
@@ -19,7 +19,7 @@
 | P1 标注与 PNG | 线、箭头、画笔、矩形、椭圆、马赛克、模糊、**中英文离线文字**（[#17](https://github.com/wuhunyu/pic-paste/pull/17)）；Undo/Redo；PNG-only 无覆盖原子保存、透明圆角、限定大小的 PNG 缩略图、⌘S 保存（[#16](https://github.com/wuhunyu/pic-paste/pull/16)） | 文字字体回退与跨版本系统覆盖、Native 剪贴板粘贴/色彩/Alpha 真机验证、工具边界压力测试 |
 | P2 多贴图 | 多窗口置顶、缩放、透明度、鼠标穿透和一键恢复；[#22](https://github.com/wuhunyu/pic-paste/pull/22) 新增贴图离线 OCR 行级点击与复制、移动/选字/穿透互斥模式 | 词/字符框未提供；GPU 纹理与 5 张贴图帧延迟实测、焦点恢复/拖动及跨 Spaces 真机验收 |
 | P3 OCR | Swift Apple Vision 本地 OCR helper（Full）、版本化 SHOC IPC、20s 超时、无 helper 的 Lite 降级、截图与贴图行级 hit test/复制（#22） | 词/字符 bbox、400 张 CER 统计、独立签名 Add-on；**QR 离线识别 R-010 尚未实现** |
-| P4 长截图 | 由用户手动纵/横滚动、自动识别可信重叠并拼接；[#23](https://github.com/wuhunyu/pic-paste/pull/23) 连续匹配不可靠时暂停提示，用户手动回滚并在菜单栏继续慢速重试，同一磁盘会话保留可信分段；行流式 PNG、60k/200MP 限制、复核删最后段/保留前 N 段（#21）、实时缩略图（#18）、#25 透明圆角和 #26 磁盘补丁标注/撤销重做、复核选区复制与贴图；[#24](https://github.com/wuhunyu/pic-paste/pull/24) 已实现手动排除上/下固定栏或左/右侧栏（裁剪内容不进入 PNG） | **自动滚动已从需求移除**；自动识别固定栏、动态页面动画/懒加载区域过滤仍缺；中间段纠错及 50 场景真机验收仍缺；长图贴图/复制仅支持经过 4MP/4096px 限制的原像素选区 |
+| P4 长截图 | 由用户手动纵/横滚动、自动识别可信重叠并拼接；[#23](https://github.com/wuhunyu/pic-paste/pull/23) 连续匹配不可靠时暂停提示，用户手动回滚并在菜单栏继续慢速重试，同一磁盘会话保留可信分段；行流式 PNG、60k/200MP 限制、复核删最后段/保留前 N 段（#21）、实时缩略图（#18）、#25 透明圆角、#26 磁盘补丁标注/撤销重做、复核选区复制与贴图，以及 #27 动态区域稳定像素匹配和从指定中间段重拍后续；[#24](https://github.com/wuhunyu/pic-paste/pull/24) 已实现手动排除上/下固定栏或左/右侧栏（裁剪内容不进入 PNG） | **自动滚动已从需求移除**；自动识别固定栏和自动擦除动画像素仍未实现；#27 可容忍部分动画干扰并安全重拍中间段之后所有片段，但不保留未经验证的后续旧片段；50 场景真机验收仍缺；长图贴图/复制仅支持经过 4MP/4096px 限制的原像素选区 |
 | P5 测试/发布 | macOS CI fmt/test/clippy/release、Swift OCR IPC，Lite/Full 开发包、SHA256；基础 `scripts/bench_report.py` 测试 | P50/P95、RSS/CPU、OLED/Retina/Spaces、TCC、CER、50 场景报告；x86_64、正式 Bundle ID/图标、Developer ID 签名/公证/Gatekeeper、发行和回滚 |
 | P6 Windows | Rust core/platform 接口可复用 | **无 Windows 原生捕获/贴图/OCR/安装包**；按计划在 macOS 验收后开始 |
 
@@ -50,3 +50,10 @@
 - [x] 可拖选或输入 X/Y/宽/高复制或创建贴图，输出无压缩、无静默降采样；上限 400 万像素/单边 4096 像素。超限显式拒绝，不声称支持整张 60000px 的原生贴图或剪贴板。
 - [x] 纵横长截图、重叠标注、撤销/重做、PNG 原子防覆盖、原像素选区与错误边界自动回归。完整 PR [CI #40435034912](https://github.com/wuhunyu/pic-paste/actions/runs/40435034912) **success**（Linux/macOS 单元测试、Clippy、Release、Swift Vision IPC、Lite/Full 开发包）。
 - [ ] 真机交互、原生应用剪贴板兼容、贴图焦点、动态内容过滤、中间分段修复、50 场景长截图验收和真实性能预算仍待完成。原计划 P4-T3 保持「部分实现」，不得把 CI 视作设备验收。
+
+## 2026-10-27 — PR #27 动态内容容错匹配与中间段重拍
+
+- [x] [PR #27](https://github.com/wuhunyu/pic-paste/pull/27) 已合并：位移提议按跨轴 8 区域采样，对通过正向位移和歧义判定的候选检查 ≥75% 稳定像素共识；小范围动画不再使整行指纹失效。大面积变化、重复花纹、无实际滚动仍拒绝；不会修改最终 PNG 的动态区域像素。
+- [x] 复核可指定从第 2 段至最后一段的任一段“重新手动采集”，只保留前面可信片段，并删除目标段及后续内容；用磁盘原始片段重建最后一个完整 ROI，沿原显示器、原物理坐标与原方向继续采集。未确认后缀绝不直接拼接。取消或采集错误会保留可复核前缀，预览按实际最新磁盘数据重建。
+- [x] 新增纵横向动态干扰、动画独自变化、重复内容拒绝、260+ 分段视口提取、重拍剪尾/续采、异常预览恢复、实时预览纹理复用自动回归。完整 PR [CI #40440066887](https://github.com/wuhunyu/pic-paste/actions/runs/40440066887) 通过 Linux/macOS 工作区测试、严格 Clippy、Release、离线 OCR Helper 与 Lite/Full 打包。
+- [ ] 自动动态像素清理、错误中间段原位替换并保留后续旧片段、真实 50 场景质量统计、macOS 14/多屏/TCC/资源验收仍未完成。P4-T3 继续记为**部分实现**。
