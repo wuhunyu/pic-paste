@@ -1139,11 +1139,7 @@ impl PicPasteApp {
     /// Restart at the first suspect segment using the last verified viewport.
     /// Later strips are discarded rather than being spliced without proof.
     fn retake_scroll_review(&mut self, ctx: &egui::Context, first_bad_segment: usize) {
-        if self.processing
-            || self.capturing
-            || self.ocr_waiting
-            || self.scroll_control.is_some()
-        {
+        if self.processing || self.capturing || self.ocr_waiting || self.scroll_control.is_some() {
             return;
         }
         let Some(review) = self.scroll_review.take() else {
@@ -2478,5 +2474,4 @@ mod tests {
         let texture = load_scroll_live_texture(&ctx, &frame);
         assert_eq!(texture.size(), [24, 12]);
     }
-
 }

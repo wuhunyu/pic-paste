@@ -100,7 +100,9 @@ impl ScrollReview {
     pub fn retake_prefix(&mut self, keep_count: usize) -> Result<RgbaFrame, String> {
         let total = self.store.strip_count();
         if keep_count == 0 || keep_count >= total {
-            return Err(String::from("重拍位置无效：必须保留至少第一段并移除一个后续片段"));
+            return Err(String::from(
+                "重拍位置无效：必须保留至少第一段并移除一个后续片段",
+            ));
         }
         if self.edits.applied_len() != 0 {
             return Err(String::from("先撤销所有标注，再进行几何拼接纠错"));
@@ -136,7 +138,10 @@ pub enum ScrollEvent {
     },
     RecoveryResumed,
     /// Unlike a fresh capture, failed retakes return the trusted prefix to UI.
-    RetakeFailed { review: ScrollReview, error: String },
+    RetakeFailed {
+        review: ScrollReview,
+        error: String,
+    },
     Finished(Result<Option<ScrollReview>, String>),
 }
 
@@ -216,9 +221,7 @@ fn capture_from_anchor(
             let _ = recovery.observe(FrameObservation::Unchanged);
             continue;
         }
-        if let Some(displacement) =
-            match_scroll_frame(&previous, &next.image, review.target.axis)
-        {
+        if let Some(displacement) = match_scroll_frame(&previous, &next.image, review.target.axis) {
             match review.store.append(&next.image, displacement) {
                 Ok(()) => {
                     previous = next.image;
