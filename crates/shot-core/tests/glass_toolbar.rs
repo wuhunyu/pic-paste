@@ -2,17 +2,35 @@ use shot_core::glass_toolbar::{FloatingBarFrame, GlassMaterial, select_glass_mat
 
 #[test]
 fn liquid_glass_is_only_selected_when_macos26_and_runtime_class_are_available() {
-    assert_eq!(select_glass_material(26, true, false), GlassMaterial::Native);
-    assert_eq!(select_glass_material(27, true, false), GlassMaterial::Native);
-    assert_eq!(select_glass_material(25, true, false), GlassMaterial::Vibrancy);
-    assert_eq!(select_glass_material(14, false, false), GlassMaterial::Vibrancy);
-    assert_eq!(select_glass_material(26, false, false), GlassMaterial::Vibrancy);
+    assert_eq!(
+        select_glass_material(26, true, false),
+        GlassMaterial::Native
+    );
+    assert_eq!(
+        select_glass_material(27, true, false),
+        GlassMaterial::Native
+    );
+    assert_eq!(
+        select_glass_material(25, true, false),
+        GlassMaterial::Vibrancy
+    );
+    assert_eq!(
+        select_glass_material(14, false, false),
+        GlassMaterial::Vibrancy
+    );
+    assert_eq!(
+        select_glass_material(26, false, false),
+        GlassMaterial::Vibrancy
+    );
 }
 
 #[test]
 fn reduced_transparency_overrides_glass_and_legacy_vibrancy() {
     assert_eq!(select_glass_material(26, true, true), GlassMaterial::Opaque);
-    assert_eq!(select_glass_material(25, false, true), GlassMaterial::Opaque);
+    assert_eq!(
+        select_glass_material(25, false, true),
+        GlassMaterial::Opaque
+    );
 }
 
 #[test]
