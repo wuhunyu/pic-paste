@@ -32,7 +32,7 @@
 
 ### Task 2 — Paint egui UI through Metal, no production changes
 
-**Files:** `apps/shot-macos/Cargo.toml`, `Cargo.lock`, `apps/shot-macos/src/bin/panel_egui.rs`, `apps/shot-macos/src/bin/ns-panel-probe.rs`
+**Files:** `apps/shot-macos/Cargo.toml`, `Cargo.lock`, `apps/shot-macos/src/bin/ns-panel-probe/panel_egui.rs`, `apps/shot-macos/src/bin/ns-panel-probe.rs`
 
 **Interfaces:** `ProbeEgui::new(device: &wgpu::Device, format: wgpu::TextureFormat) -> Self`; `ProbeEgui::paint(surface, device, queue, size, backing_scale, logical_width, logical_height, focused) -> Result<(), String>`.
 
@@ -44,7 +44,7 @@
 
 ### Task 3 — Basic AppKit input bridge; real IME stays deferred
 
-**Files:** `apps/shot-macos/src/bin/panel_egui.rs`, `apps/shot-macos/src/bin/ns-panel-probe.rs`, `docs/macos-window-strategy.md`
+**Files:** `apps/shot-macos/src/bin/ns-panel-probe/panel_egui.rs`, `apps/shot-macos/src/bin/ns-panel-probe.rs`, `docs/macos-window-strategy.md`
 
 - [ ] Deliver Cocoa mouse move, left/right click, drag, scroll and keyDown/keyUp (Escape, Return, Tab, Backspace, arrows) to egui `RawInput` with screen coordinates converted by `NSView.convertPoint_fromView`.
 - [ ] Deliver printable direct-key text only when not under Cmd/Ctrl and not interpreting marked text. Forward AppKit events normally so native titlebar close/resize keep working. Support window focus changes and avoid forwarding events originating in another window.

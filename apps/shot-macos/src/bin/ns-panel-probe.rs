@@ -5,6 +5,7 @@
 use shot_core::native_panel::PanelSurfaceSize;
 
 #[cfg(target_os = "macos")]
+#[path = "ns-panel-probe/panel_egui.rs"]
 mod panel_egui;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
