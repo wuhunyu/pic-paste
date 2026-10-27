@@ -28,9 +28,26 @@ pub struct OcrDocument {
     pub lines: Vec<OcrLine>,
 }
 
+#[derive(Clone, Debug, Deserialize, PartialEq)]
+pub struct QrCode {
+    pub payload: String,
+    pub symbology: String,
+    pub polygon_px: [[f32; 2]; 4],
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq)]
+pub struct QrDocument {
+    pub image_hash: String,
+    pub pixel_width: u32,
+    pub pixel_height: u32,
+    pub provider: String,
+    pub codes: Vec<QrCode>,
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum OcrResponse {
     Document(OcrDocument),
+    QrDocument(QrDocument),
     Error(String),
 }
 
@@ -38,6 +55,7 @@ pub enum OcrResponse {
 struct Envelope {
     protocol_version: u32,
     document: Option<OcrDocument>,
+    qr_document: Option<QrDocument>,
     error: Option<String>,
 }
 
@@ -82,6 +100,21 @@ fn valid_document(doc: &OcrDocument) -> bool {
     })
 }
 
+fn valid_qr_document(doc: &QrDocument) -> bool {
+    doc.pixel_width > 0
+        && doc.pixel_height > 0
+        && !doc.image_hash.is_empty()
+        && doc.image_hash.len() <= 128
+        && doc.provider == "apple-vision-qr"
+        && doc.codes.len() <= 100
+        && doc.codes.iter().all(|code| {
+            !code.payload.is_empty()
+                && code.payload.len() <= 16_384
+                && code.symbology == "qr"
+                && valid_polygon(&code.polygon_px, doc.pixel_width, doc.pixel_height)
+        })
+}
+
 /// Helper writes one u32 little-endian byte-length and UTF-8 JSON payload.
 /// Always bound the size *before* allocation and refuse any malformed result.
 pub fn read_response<R: Read>(mut reader: R) -> io::Result<OcrResponse> {
@@ -98,9 +131,16 @@ pub fn read_response<R: Read>(mut reader: R) -> io::Result<OcrResponse> {
     if reply.protocol_version != crate::PROTOCOL_VERSION {
         return Err(invalid("OCR protocol version mismatch"));
     }
-    match (reply.document, reply.error) {
-        (Some(document), None) if valid_document(&document) => Ok(OcrResponse::Document(document)),
-        (None, Some(message)) if !message.is_empty() => Ok(OcrResponse::Error(message)),
+    match (reply.document, reply.qr_document, reply.error) {
+        (Some(document), None, None) if valid_document(&document) => {
+            Ok(OcrResponse::Document(document))
+        }
+        (None, Some(document), None) if valid_qr_document(&document) => {
+            Ok(OcrResponse::QrDocument(document))
+        }
+        (None, None, Some(message)) if !message.is_empty() => {
+            Ok(OcrResponse::Error(message))
+        }
         _ => Err(invalid("invalid OCR response contents")),
     }
 }

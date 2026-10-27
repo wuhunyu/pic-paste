@@ -92,3 +92,59 @@ pub fn selected_text(document: &OcrDocument, chosen: &[usize]) -> String {
         .collect::<Vec<_>>()
         .join("\n")
 }
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TextPickMode {
+    /// Use Vision's complete recognized line quadrilateral.
+    Line,
+    /// Use only real provider-supplied word/character quadrilaterals.
+    Unit,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TextSelection {
+    Line(usize),
+    Unit { line: usize, unit: usize },
+}
+
+/// A missing provider unit box is never synthesized by dividing the line.
+pub fn hit_text_selection(
+    document: &OcrDocument,
+    origin: (u32, u32),
+    pixel: (f32, f32),
+    mode: TextPickMode,
+) -> Option<TextSelection> {
+    let line = hit_line_in_capture(document, origin, pixel)?;
+    match mode {
+        TextPickMode::Line => Some(TextSelection::Line(line)),
+        TextPickMode::Unit => hit_word_in_capture(document, line, origin, pixel)
+            .map(|unit| TextSelection::Unit { line, unit }),
+    }
+}
+
+pub fn selected_selection_text(
+    document: &OcrDocument,
+    selection: TextSelection,
+) -> Option<&str> {
+    match selection {
+        TextSelection::Line(index) => document.lines.get(index).map(|line| line.text.as_str()),
+        TextSelection::Unit { line, unit } => document
+            .lines
+            .get(line)?
+            .words
+            .get(unit)
+            .map(|entry| entry.text.as_str()),
+    }
+}
+
+pub fn selection_polygon(
+    document: &OcrDocument,
+    selection: TextSelection,
+) -> Option<&[[f32; 2]; 4]> {
+    match selection {
+        TextSelection::Line(index) => document.lines.get(index).map(|line| &line.polygon_px),
+        TextSelection::Unit { line, unit } => {
+            document.lines.get(line)?.words.get(unit).map(|entry| &entry.polygon_px)
+        }
+    }
+}
