@@ -142,6 +142,47 @@ impl TileStore {
         self.strips.len()
     }
 
+    /// One-based index into the trusted timeline. Return half-open source-pixel
+    /// span along the manually scrolled axis to help locate a suspect segment.
+    pub fn segment_span(&self, segment_one_based: usize) -> Option<(u32, u32)> {
+        let strip = self.strips.get(segment_one_based.checked_sub(1)?)?;
+        let (start, length) = match self.axis {
+            ScrollAxis::Vertical => (strip.start_y, strip.height),
+            ScrollAxis::Horizontal => (strip.start_x, strip.width),
+        };
+        Some((start, start.checked_add(length)?))
+    }
+
+    /// Reconstruct ONLY the last original capture-sized viewport from trusted
+    /// disk-backed strips after tail trim, without materializing the long canvas.
+    /// It is the verified physical-pixel anchor for manual middle-segment retake.
+    pub fn last_viewport(&self) -> io::Result<RgbaFrame> {
+        let left = self
+            .width
+            .checked_sub(self.source_width)
+            .ok_or_else(|| invalid("trusted scroll viewport width is missing"))?;
+        let top = self
+            .height
+            .checked_sub(self.source_height)
+            .ok_or_else(|| invalid("trusted scroll viewport height is missing"))?;
+        let capacity = u64::from(self.source_width)
+            .checked_mul(u64::from(self.source_height))
+            .and_then(|n| n.checked_mul(4))
+            .and_then(|n| usize::try_from(n).ok())
+            .ok_or_else(|| invalid("invalid native viewport allocation"))?;
+        let mut bytes = Vec::with_capacity(capacity);
+        let mut full_row = vec![0u8; self.width as usize * 4];
+        let mut readers = self.open_strip_readers()?;
+        let left_byte = left as usize * 4;
+        let right_byte = left_byte + self.source_width as usize * 4;
+        for y in top..top + self.source_height {
+            self.fill_row_with_readers(y, &mut full_row, &mut readers)?;
+            bytes.extend_from_slice(&full_row[left_byte..right_byte]);
+        }
+        RgbaFrame::new(self.source_width, self.source_height, bytes)
+            .map_err(|_| invalid("reconstructed native viewport has invalid dimensions"))
+    }
+
     pub fn working_dir(&self) -> &Path {
         &self.directory
     }
