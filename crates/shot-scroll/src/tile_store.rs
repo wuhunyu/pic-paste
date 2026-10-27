@@ -297,6 +297,15 @@ impl TileStore {
     /// Stream this canvas into a private .part file, sync it, then atomically
     /// publish an immutable PNG hard link without overwriting existing output.
     pub fn save_png_no_clobber(&self, destination: &Path) -> io::Result<()> {
+        self.save_png_rounded_no_clobber(destination, 0)
+    }
+
+    /// Atomic PNG export with physical-pixel rounded alpha; still streams one row.
+    pub fn save_png_rounded_no_clobber(
+        &self,
+        destination: &Path,
+        radius: u32,
+    ) -> io::Result<()> {
         if destination.extension().and_then(|value| value.to_str()) != Some("png") {
             return Err(invalid("PNG export only"));
         }
@@ -323,7 +332,7 @@ impl TileStore {
             }
             let file = options.open(&part)?;
             let mut writer = io::BufWriter::new(file);
-            self.encode_png(&mut writer)?;
+            self.encode_png_rounded(&mut writer, radius)?;
             writer.flush()?;
             writer.get_ref().sync_all()?;
             drop(writer);
@@ -334,6 +343,10 @@ impl TileStore {
     }
 
     pub fn encode_png<W: Write>(&self, output: W) -> io::Result<()> {
+        self.encode_png_rounded(output, 0)
+    }
+
+    pub fn encode_png_rounded<W: Write>(&self, output: W, radius: u32) -> io::Result<()> {
         // Reuse open file handles across all output rows.
         let mut readers: Vec<File> = self
             .strips
@@ -347,6 +360,7 @@ impl TileStore {
                     read_strip_row(strip, file, y, out)?;
                 }
             }
+            shot_image::rounded_alpha_row(out, self.width, self.height, y, radius);
             Ok(())
         })
     }
