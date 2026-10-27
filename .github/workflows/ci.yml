@@ -50,6 +50,10 @@ jobs:
         run: cargo fmt --all -- --check
       - name: Test opt-in native NSPanel WGPU probe (no GUI)
         run: cargo test -p shot-macos --features native-panel-probe --bin ns-panel-probe --locked
+      - name: Build and validate NSPanel WGPU probe CLI without GUI
+        run: |
+          cargo build -p shot-macos --features native-panel-probe --bin ns-panel-probe --locked
+          cargo run --quiet -p shot-macos --features native-panel-probe --bin ns-panel-probe --locked -- --check
       - name: Test workspace
         run: cargo test --workspace --locked
       - name: Lint workspace
