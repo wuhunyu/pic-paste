@@ -6,8 +6,8 @@
 | --- | --- | --- | --- | --- |
 | P0-T1 | Rust Cargo workspace 与 CI | **代码基本完成** | `Cargo.lock`、macOS/Linux fmt/test/Clippy/Release、Swift IPC、Lite/Full 构建；缺真机基准 | [#5](https://github.com/wuhunyu/pic-paste/issues/5)、[#10](https://github.com/wuhunyu/pic-paste/issues/10) |
 | P0-T2 | AppKit 菜单栏、全局快捷键 | **部分实现** | 菜单栏、四功能快捷键、Ctrl+Option+1–9 自定义及失败回滚（PR #14）；真机冲突/恢复/权限未验收 | [#5](https://github.com/wuhunyu/pic-paste/issues/5) |
-| P0-T3 | ScreenCaptureKit、多屏与选区浮层 | **部分实现** | 选显示器、窗口候选、八个手柄、放大镜；独立 eframe 原生窗（#12/#13/#15）**不是 AppKit NSPanel**，需混合 DPI/Spaces 设备验证 | [#5](https://github.com/wuhunyu/pic-paste/issues/5) |
-| P0-T4 | 原生贴图、鼠标穿透与性能 | **部分实现** | 多贴图/穿透/恢复有 UI；真实跨 Spaces、交互和性能不达验收证据标准 | [#5](https://github.com/wuhunyu/pic-paste/issues/5) |
+| P0-T3 | ScreenCaptureKit、多屏与选区浮层 | **部分实现** | 选显示器、窗口候选、八手柄、放大镜；#31 分离完整图局部像素与桌面逻辑点并防御区域越界、使截图浮层请求焦点；**eframe NSWindow 不是 NSPanel**，仍需混合 DPI/Spaces 真机/原生桥 | [#5](https://github.com/wuhunyu/pic-paste/issues/5) |
+| P0-T4 | 原生贴图、鼠标穿透与性能 | **部分实现** | 多贴图/穿透/恢复与 #30 纹理预算；#31 独立 Pin 初始不激活/无阴影、仅穿透模式透传鼠标；真实跨 Spaces、焦点/拖动与性能未验收 | [#5](https://github.com/wuhunyu/pic-paste/issues/5) |
 | P1-T1 | 选区、窗口识别、取色/放大镜 | **代码基本完成** | 窗口点击选择 #15、9×9 放大镜/HEX；真实重叠窗口和负坐标验证未完成 | [#5](https://github.com/wuhunyu/pic-paste/issues/5) |
 | P1-T2 | 标注、撤销重做 | **代码基本完成** | 线/箭头/画笔/几何/模糊/马赛克、文字 #17、Undo/Redo；CJK 系统字体实际覆盖需验证 | [#6](https://github.com/wuhunyu/pic-paste/issues/6) |
 | P1-T3 | PNG-only、透明圆角、剪贴板 | **代码基本完成** | PNG-only 原子保存、⌘S、圆角预览 #16；原生应用剪贴板/色彩/Alpha 未验收 | [#6](https://github.com/wuhunyu/pic-paste/issues/6) |
@@ -74,3 +74,9 @@
 - [x] `shot-core::pin_texture_budget`：12 贴图、64MiB 唯一 RGBA8 纹理估算、4MP/4096px 单图限制、共享引用计数、拒绝不修改账本、最后引用关闭回收，Linux 核心测试/Clippy 通过。
 - [x] macOS 逐像素相同的 `TextureHandle` 复用、关闭时根窗口唤醒/资源回收，已通过 [PR CI #40458668058](https://github.com/wuhunyu/pic-paste/actions/runs/40458668058) Linux/macOS 测试、Clippy、Release 与打包；真机性能仍单独验收。
 - [ ] 核心实测仍需 5 张 1080p 贴图帧 P95≤16.7ms、RSS/CPU、焦点/穿透、Retina/Spaces、多应用剪贴板 Alpha。
+
+## 2026-10-27 — P0-T3/P0-T4 局部像素和焦点加固（PR #31）
+
+- [x] [PR #31](https://github.com/wuhunyu/pic-paste/pull/31) 增加 `CapturedFrame` 局部像素/校验裁剪、截图请求激活和 Pin 初始不激活/无阴影/仅模式穿透。
+- [ ] 代码需全量 CI 和 macOS 设备验证；不能将 `with_active` 的初始焦点请求误作真实 AppKit/Spaces 焦点保证。
+- [ ] [窗口策略](macos-window-strategy.md)明确 NSPanel 仍需独立 AppKit 主线程窗口、Metal surface 和事件桥接，不得声称已替代。

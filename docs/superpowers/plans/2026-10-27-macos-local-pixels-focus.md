@@ -39,10 +39,10 @@ impl CapturedFrame {
 }
 ```
 
-- [ ] **Test first** in `capture_pixel_space.rs`: a 2× Retina monitor with logical desktop bounds `(-1440,-100)` still yields physical pixel origin `(0,0)` for full capture; valid `RectPx{x:2,y:1,width:2,height:1}` yields `(2,1)`; reject negative/out-of-bounds/empty region and offset integer overflow without mutation.
-- [ ] **Verify RED** on CI Ubuntu: `cargo test -p shot-core --test capture_pixel_space --locked`, expect unresolved `CapturedFrame::for_display`.
-- [ ] **Implement core constructor** and checked region offset; test image is small and generated in memory, no actual TCC permission required. Negative *desktop-point* overlay placement remains separate from local pixel geometry.
-- [ ] **Wire macOS adapter**: replace `(frame.origin.x * filter.point_pixel_scale())` global-origin calculation with `CapturedFrame::for_display`; `capture_region` uses `full.region_origin_px(region)?` before cropping.
+- [x] **Test first** in `capture_pixel_space.rs`: a 2× Retina monitor with logical desktop bounds `(-1440,-100)` still yields physical pixel origin `(0,0)` for full capture; valid `RectPx{x:2,y:1,width:2,height:1}` yields `(2,1)`; reject negative/out-of-bounds/empty region and offset integer overflow without mutation.
+- [x] **Verify RED** on CI Ubuntu: `cargo test -p shot-core --test capture_pixel_space --locked`, expect unresolved `CapturedFrame::for_display`.
+- [x] **Implement core constructor** and checked region offset; test image is small and generated in memory, no actual TCC permission required. Negative *desktop-point* overlay placement remains separate from local pixel geometry.
+- [x] **Wire macOS adapter**: replace `(frame.origin.x * filter.point_pixel_scale())` global-origin calculation with `CapturedFrame::for_display`; `capture_region` uses `full.region_origin_px(region)?` before cropping.
 - [ ] **Verify GREEN** Linux core suite and macOS full workspace/Clippy/Release. No reading screen necessary for pure tests.
 
 ### Task 2: Screenshot and pin focus policy, RED then GREEN
@@ -51,14 +51,14 @@ impl CapturedFrame {
 
 - [ ] **Test first**: capture builder expects `active=Some(true)`, `mouse_passthrough=Some(false)`, `movable_by_window_background=Some(false)`; pin builder for Move/TextSelect/Passthrough expects `active=Some(false)`, `has_shadow=Some(false)`, `movable_by_window_background=Some(false)`, and passthrough enabled only in the dedicated mode.
 - [ ] **Verify RED** with macOS CI; expect failed focus assertion and missing `pin_builder` API.
-- [ ] **Implement minimal builders** while preserving `with_always_on_top()`, `with_decorations(false)`, existing window sizes, explicit drag via `ViewportCommand::StartDrag`, and current OCR UI/close event handling.
+- [x] **Implement minimal builders** while preserving `with_always_on_top()`, `with_decorations(false)`, existing window sizes, explicit drag via `ViewportCommand::StartDrag`, and current OCR UI/close event handling.
 - [ ] **Verify GREEN** with macOS `cargo fmt --all -- --check`, `cargo test --workspace --locked`, `cargo clippy --workspace --all-targets --locked -- -D warnings`, `cargo build --release -p shot-macos --locked`.
 
 ### Task 3: Architecture decision and delivery evidence
 
-- [ ] Document that eframe/winit currently generates `NSWindow` viewports, not `NSPanel`. Switching to a dedicated NSPanel requires an AppKit main-thread host, renderer surface/window lifecycle and keyboard/mouse event bridge, not just calling `setLevel` on an existing window. Keep Issue #5 NSPanel acceptance open pending physical-device reproduction or explicit requirements waiver.
-- [ ] Link [Apple SCDisplay frame documentation](https://developer.apple.com/documentation/screencapturekit/scdisplay/frame) (points) and [eframe 0.37 window/viewport APIs](https://docs.rs/eframe/0.37.0/eframe/struct.NativeOptions.html) as design references.
-- [ ] Update README/status/remaining/tasks and Issue #5, clearly distinguishing unit/CI evidence from physical macOS 14+ heterogeneous display, negative-origin, Spaces, TCC and focus behavior.
+- [x] Document that eframe/winit currently generates `NSWindow` viewports, not `NSPanel`. Switching to a dedicated NSPanel requires an AppKit main-thread host, renderer surface/window lifecycle and keyboard/mouse event bridge, not just calling `setLevel` on an existing window. Keep Issue #5 NSPanel acceptance open pending physical-device reproduction or explicit requirements waiver.
+- [x] Link [Apple SCDisplay frame documentation](https://developer.apple.com/documentation/screencapturekit/scdisplay/frame) (points) and [eframe 0.37 window/viewport APIs](https://docs.rs/eframe/0.37.0/eframe/struct.NativeOptions.html) as design references.
+- [x] Update README/status/remaining/tasks and Issue #5, clearly distinguishing unit/CI evidence from physical macOS 14+ heterogeneous display, negative-origin, Spaces, TCC and focus behavior.
 - [ ] Run PR CI including Linux core, macOS Swift IPC, Rust workspace tests, strict Clippy, release and Lite/Full/Add-on packaging. Fix failures before squash merge.
 - [ ] Merge only when latest PR CI is green, then synchronize the main ledger/Issue with commit and run references. Keep Issue #5 open until real device tests.
 

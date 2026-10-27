@@ -33,11 +33,7 @@ fn send_event(ui: &egui::Ui, sender: &Sender<PinEvent>, event: PinEvent) {
 
 /// Configure a winit-owned macOS window without stealing focus from the
 /// target app. Actual AppKit NSPanel integration is a separate renderer change.
-pub(crate) fn pin_builder(
-    pin_id: u64,
-    size: egui::Vec2,
-    mode: PinMode,
-) -> egui::ViewportBuilder {
+pub(crate) fn pin_builder(pin_id: u64, size: egui::Vec2, mode: PinMode) -> egui::ViewportBuilder {
     egui::ViewportBuilder::default()
         .with_title(format!("PicPaste - 贴图 {pin_id}"))
         .with_inner_size([size.x + 14.0, size.y + 48.0])
