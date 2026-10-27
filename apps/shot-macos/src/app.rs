@@ -1081,13 +1081,17 @@ impl PicPasteApp {
         let wake = ctx.clone();
         thread::spawn(move || {
             let result = match review.store.undo_last() {
-                Ok(true) => review
-                    .store
-                    .preview(720, 900)
-                    .map_err(|error| format!("重新预览失败：{error}"))
-                    .map(|image| {
-                        review.preview = image;
-                    }),
+                Ok(true) => {
+                    // Even an entirely undone history may have redo patches
+                    // pointing past the new canvas; drop them before reuse.
+                    review.edits.clear();
+                    review.store
+                        .preview(720, 900)
+                        .map_err(|error| format!("重新预览失败：{error}"))
+                        .map(|image| {
+                            review.preview = image;
+                        })
+                }
                 Ok(false) => Err(String::from("已经是第一段，不能删除")),
                 Err(error) => Err(format!("撤销最后一段失败：{error}")),
             };
@@ -1331,8 +1335,9 @@ impl PicPasteApp {
                             }
                             self.scroll_preview_pending = Some(review.preview.clone());
                             self.status = format!(
-                                "已调整可信片段前缀，当前保留 {} 段",
-                                review.store.strip_count()
+                                "长截图复核已更新：{} 段可信内容、{} 项标注",
+                                review.store.strip_count(),
+                                review.edits.applied_len()
                             );
                             self.scroll_review = Some(review);
                         }
