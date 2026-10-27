@@ -377,3 +377,24 @@ mod texture_lifetime_tests {
         assert!(matches!(event, PinEvent::Closed(id) if id == 42));
     }
 }
+
+#[cfg(test)]
+mod focus_policy_tests {
+    use super::*;
+
+    #[test]
+    fn all_pin_modes_start_nonactive_and_are_never_movable_by_background() {
+        let size = egui::vec2(240.0, 180.0);
+        for mode in [PinMode::Move, PinMode::TextSelect, PinMode::Passthrough] {
+            let builder = pin_builder(7, size, mode);
+            assert_eq!(builder.active, Some(false));
+            assert_eq!(builder.has_shadow, Some(false));
+            assert_eq!(builder.movable_by_window_background, Some(false));
+            assert_eq!(builder.decorations, Some(false));
+            assert_eq!(
+                builder.mouse_passthrough,
+                Some(mode == PinMode::Passthrough)
+            );
+        }
+    }
+}
