@@ -15,6 +15,9 @@ pub fn capture_builder(placement: OverlayPlacement) -> egui::ViewportBuilder {
         .with_resizable(false)
         .with_fullscreen(false)
         .with_always_on_top()
+        .with_active(true)
+        .with_mouse_passthrough(false)
+        .with_movable_by_background(false)
         .with_has_shadow(false)
 }
 
