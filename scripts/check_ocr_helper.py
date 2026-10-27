@@ -53,6 +53,15 @@ def call(helper: str, data: bytes, *, expected_success: bool, args=()) -> dict:
 
 
 def main(helper: str) -> None:
+    # Every standalone helper advertises its signed API/SHOC compatibility
+    # without OCR, pixels, network, or any extra status text.
+    capability = subprocess.run(
+        [helper, "--addon-info"], input=b"", capture_output=True,
+        timeout=5, check=False
+    )
+    assert capability.returncode == 0, capability.stderr
+    assert capability.stdout == b"PICPASTE-OCR-ADDON/1 SHOC/1\\n", capability.stdout
+
     invalid = b"NOPE" + struct.pack("<III", 1, 2, 2) + bytes(16)
     answer = call(helper, invalid, expected_success=False)
     assert answer["error"], answer
