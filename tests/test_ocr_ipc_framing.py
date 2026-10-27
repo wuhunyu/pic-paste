@@ -34,6 +34,11 @@ class TestVisionIpcFraming(unittest.TestCase):
                 with self.assertRaises(AssertionError):
                     module.parse_framed_reply(data)
 
+    def test_qr_envelope_can_omit_nil_text_document(self):
+        payload = b'{"protocol_version":1,"qr_document":{"codes":[]}}'
+        framed = struct.pack("<I", len(payload)) + payload
+        self.assertIsNone(module.parse_framed_reply(framed).get("document"))
+
     def test_unframed_preamble_is_not_accepted(self):
         with self.assertRaises(AssertionError):
             module.parse_framed_reply(b"log:" + self.frame())

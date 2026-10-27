@@ -78,7 +78,8 @@ def main(helper: str) -> None:
         assert isinstance(line["words"], list)
 
     qr_scan = call(helper, request, expected_success=True, args=("--qr",))
-    assert qr_scan["document"] is None
+    # Swift JSONEncoder omits optional fields set to nil; absence is valid.
+    assert qr_scan.get("document") is None
     assert qr_scan["qr_document"]["provider"] == "apple-vision-qr"
     assert qr_scan["qr_document"]["image_hash"] == document["image_hash"]
     assert qr_scan["qr_document"]["codes"] == []
