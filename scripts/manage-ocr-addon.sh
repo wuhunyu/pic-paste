@@ -34,6 +34,7 @@ reject_links() {
 team_id() {
   local details line candidate
   details=$(/usr/bin/codesign --display --verbose=4 "$1" 2>&1) || return 1
+  [[ "$details" == *"Authority=Developer ID Application: "* ]] || return 1
   while IFS= read -r line; do
     case "$line" in
       TeamIdentifier=*)
