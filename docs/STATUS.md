@@ -77,3 +77,9 @@
 - [ ] 独立 macOS Feature 编译、CLI、严格 Clippy、标准 Lite/Full/Add-on CI 验证以 PR #32 的最新完整 run 为准。
 - [ ] 在真实 macOS 14+ 桌面上确认 NSPanel 的 Metal 画面、关闭、1×/2×、Spaces、焦点；**没有运行过 GUI 模式即不能标为完成**。
 - [ ] egui-wgpu UI、native 事件/IME/关闭/窗口尺寸生命周期、回退开关和生产截屏/贴图面板迁移均未实现。
+
+## 2026-10-27 — Native panel lifecycle incremental (#34)
+
+- [x] Core close/suspend/Retina size-change transition tests: RED CI [#40483025505](https://github.com/wuhunyu/pic-paste/actions/runs/40483025505) failed with expected unresolved imports; follow-up GREEN core tests and strict Clippy passed.
+- [ ] PR [#34](https://github.com/wuhunyu/pic-paste/pull/34) adds actual AppKit X-close event pump, native view-size/backing-scale reconfiguration, minimize/restore redraw, and explicit WGPU surface-before-view drop order. The Mac compile/full CI and interactive desktop acceptance must both be checked independently.
+- [ ] UI/egui mouse-keyboard/IME event forwarding, production overlay migration and true macOS 14+ Retina/Spaces/TCC tests remain open. Do not close Issue #5 for a successful probe compile.

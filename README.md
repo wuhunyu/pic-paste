@@ -126,3 +126,7 @@ cargo run --locked -p shot-macos --features native-panel-probe --bin ns-panel-pr
 ```
 
 The interactive `--show` path has **not been exercised on a real Mac** by automated CI. It is a *smoke test*, not an event-loop, IME, keyboard, close/cleanup, multiple-Spaces or real-display acceptance. In particular Ctrl+C force-terminates the process and does not prove graceful WGPU teardown. The default PicPaste application, Lite/Full archives, PNG-only Alpha export, scrolling and offline OCR/QR remain unchanged. [Architecture and acceptance checklist](docs/macos-window-strategy.md).
+
+### Experimental native close/resize follow-up (#34)
+
+The `ns-panel-probe --show` experiment now attempts AppKit event dispatch, native X-button exit, Metal redraw on content-view resizing or backing-scale changes and cleanup before releasing the native view. This does **not** yet replace the normal screenshot UI or prove anything about real macOS Spaces or input/IME behavior. After building with `native-panel-probe`, use the window's **X close button** (not only terminal Ctrl+C) and try moving/resizing across 1x and 2x monitors. Record OS, GPU, video and failures in [Issue #5](https://github.com/wuhunyu/pic-paste/issues/5).

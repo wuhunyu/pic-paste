@@ -86,3 +86,9 @@
 - [x] 独立 `ns-panel-probe` Feature 开发：真实 AppKit NSPanel/NSView 与 WGPU Metal-only surface，基于点/Retina 比例的 8192px 物理画布容量单测，命令 `--check`（纯验证）和 `--show`（真实 Mac 交互）。
 - [ ] CI 确认 opt-in Feature 的 macOS 单测/编译、严格 Clippy、`--check`、Linux 核心/默认 Release 与 Lite/Full/Add-on 打包全绿。
 - [ ] 真实 macOS 桌面上的显示/生命周期/混合 DPI 与 Spaces 验证，以及 egui 绘制、键鼠/IME/关闭事件桥接、原生截图窗口切换仍未完成。
+
+## 2026-10-27 — Native panel lifecycle incremental (#34)
+
+- [x] Core close/suspend/Retina size-change transition tests: RED CI [#40483025505](https://github.com/wuhunyu/pic-paste/actions/runs/40483025505) failed with expected unresolved imports; follow-up GREEN core tests and strict Clippy passed.
+- [ ] PR [#34](https://github.com/wuhunyu/pic-paste/pull/34) adds actual AppKit X-close event pump, native view-size/backing-scale reconfiguration, minimize/restore redraw, and explicit WGPU surface-before-view drop order. The Mac compile/full CI and interactive desktop acceptance must both be checked independently.
+- [ ] UI/egui mouse-keyboard/IME event forwarding, production overlay migration and true macOS 14+ Retina/Spaces/TCC tests remain open. Do not close Issue #5 for a successful probe compile.
