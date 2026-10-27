@@ -10,7 +10,7 @@ fn vertical_rounded_export_keeps_rgb_and_masks_alpha() {
     store.append(&initial, 2).unwrap();
     let mut bytes = Vec::new();
     store.encode_png_rounded(&mut bytes, 3).unwrap();
-    let mut decoder = png::Decoder::new(bytes.as_slice());
+    let mut decoder = png::Decoder::new(std::io::Cursor::new(bytes.as_slice()));
     decoder.set_transformations(png::Transformations::IDENTITY);
     let mut reader = decoder.read_info().unwrap();
     let mut output = vec![0; reader.output_buffer_size().unwrap()];
