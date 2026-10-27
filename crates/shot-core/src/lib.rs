@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 pub mod async_ticket;
 pub mod display;
+pub mod glass_toolbar;
 pub mod input;
 pub mod native_panel;
 pub mod overlay;

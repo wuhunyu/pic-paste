@@ -130,3 +130,14 @@ The interactive `--show` path has **not been exercised on a real Mac** by automa
 ### Experimental native close/resize follow-up (#34)
 
 The `ns-panel-probe --show` experiment now attempts AppKit event dispatch, native X-button exit, Metal redraw on content-view resizing or backing-scale changes and cleanup before releasing the native view. This does **not** yet replace the normal screenshot UI or prove anything about real macOS Spaces or input/IME behavior. After building with `native-panel-probe`, use the window's **X close button** (not only terminal Ctrl+C) and try moving/resizing across 1x and 2x monitors. Record OS, GPU, video and failures in [Issue #5](https://github.com/wuhunyu/pic-paste/issues/5).
+
+### Experimental macOS 26 Liquid Glass capsule (PR #36)
+
+The optional AppKit `ns-panel-probe` now includes one **native, bottom-centered material capsule** above the WGPU/egui Metal canvas. On macOS 26+ (if available) it uses `NSGlassEffectView.contentView`; macOS 14–25 uses `NSVisualEffectView`. macOS Accessibility **Reduce Transparency** chooses an opaque system-colored `NSBox`. The label is deliberately **noninteractive** (a material preview, not finished screenshot-tool buttons). The capsule is fixed at 236×44 logical points and hides if the panel becomes too small.
+
+```sh
+cargo run --locked -p shot-macos --features native-panel-probe --bin ns-panel-probe -- --check
+cargo run --locked -p shot-macos --features native-panel-probe --bin ns-panel-probe -- --show
+```
+
+`--check` does not create AppKit windows or access the GPU. Hosted macOS CI does not run `--show` and **cannot prove** material appearance or real click/focus/Spaces/Retina behavior. Reopen the probe after changing Reduce Transparency (live preference observation is not implemented). Original screenshot/pin windows, scrolling, OCR/QR, PNG-only Alpha output and packaging remain unaffected. See [Issue #5](https://github.com/wuhunyu/pic-paste/issues/5) and [window strategy](docs/macos-window-strategy.md).

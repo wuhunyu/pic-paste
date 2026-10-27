@@ -92,3 +92,10 @@
 - [x] Core close/suspend/Retina size-change transition tests: RED CI [#40483025505](https://github.com/wuhunyu/pic-paste/actions/runs/40483025505) failed with expected unresolved imports; follow-up GREEN core tests and strict Clippy passed.
 - [ ] PR [#34](https://github.com/wuhunyu/pic-paste/pull/34) adds actual AppKit X-close event pump, native view-size/backing-scale reconfiguration, minimize/restore redraw, and explicit WGPU surface-before-view drop order. The Mac compile/full CI and interactive desktop acceptance must both be checked independently.
 - [ ] UI/egui mouse-keyboard/IME event forwarding, production overlay migration and true macOS 14+ Retina/Spaces/TCC tests remain open. Do not close Issue #5 for a successful probe compile.
+
+## 2026-10-27 — macOS 26 Liquid Glass native toolbar prototype (#36)
+
+- [x] Keep the actual screenshot/PNG region crisp; only one noninteractive floating control uses the system material.
+- [x] macOS >=26 class-guarded native `NSGlassEffectView`, older `NSVisualEffectView`, accessibility opaque `NSBox`; pure Rust fallback/layout tests before implementation.
+- [ ] Latest full CI including macOS SDK probe, strict Clippy, workspace/Release/Lite/Full/Add-on, and device-independent confirmation, before merging.
+- [ ] Real macOS 26 and macOS 14–25 GUI visual/interaction test, Reduce Transparency and theme switches, Retina/Spaces, performance and fallback; native functional toolbar integration is **not done**.
