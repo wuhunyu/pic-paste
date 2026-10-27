@@ -57,9 +57,7 @@ mod native {
 mod native {
     use super::PanelSurfaceSize;
     use objc2::{MainThreadMarker, MainThreadOnly};
-    use objc2_app_kit::{
-        NSApplication, NSBackingStoreType, NSPanel, NSWindowStyleMask,
-    };
+    use objc2_app_kit::{NSApplication, NSBackingStoreType, NSPanel, NSWindowStyleMask};
     use objc2_foundation::{NSPoint, NSRect, NSSize, ns_string};
     use raw_window_handle::{AppKitWindowHandle, RawWindowHandle};
     use std::ptr::NonNull;
@@ -68,13 +66,10 @@ mod native {
     /// We retain the native NSPanel + NSView for the entire WGPU surface
     /// lifetime and drop the surface before releasing either owner.
     pub fn show() -> Result<(), String> {
-        let mtm = MainThreadMarker::new()
-            .ok_or("AppKit NSPanel must be created on the main thread")?;
+        let mtm =
+            MainThreadMarker::new().ok_or("AppKit NSPanel must be created on the main thread")?;
         let application = NSApplication::sharedApplication(mtm);
-        let rect = NSRect::new(
-            NSPoint::new(160.0, 160.0),
-            NSSize::new(640.0, 360.0),
-        );
+        let rect = NSRect::new(NSPoint::new(160.0, 160.0), NSSize::new(640.0, 360.0));
         // SAFETY: MainThreadMarker proves this executes on the AppKit main
         // thread. This is a newly allocated genuine NSPanel, not a winit
         // NSWindow whose Objective-C class is being changed in place.
@@ -107,9 +102,7 @@ mod native {
             backends: wgpu::Backends::METAL,
             ..Default::default()
         });
-        let handle = AppKitWindowHandle::new(
-            NonNull::from(content_view.as_ref()).cast(),
-        );
+        let handle = AppKitWindowHandle::new(NonNull::from(content_view.as_ref()).cast());
         // SAFETY: The retained NSView and NSPanel remain alive on the AppKit
         // main thread until *after* this WGPU Surface is dropped. The NSView
         // itself is the raw-window-handle AppKit target, not an NSWindow.
@@ -121,20 +114,19 @@ mod native {
         }
         .map_err(|error| format!("create Metal surface: {error}"))?;
 
-        let adapter = pollster::block_on(instance.request_adapter(
-            &wgpu::RequestAdapterOptions {
-                compatible_surface: Some(&surface),
-                ..Default::default()
-            },
-        ))
+        let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
+            compatible_surface: Some(&surface),
+            ..Default::default()
+        }))
         .map_err(|error| format!("request Metal adapter: {error}"))?;
         if adapter.get_info().backend != wgpu::Backend::Metal {
-            return Err(String::from("NSPanel probe unexpectedly chose non-Metal backend"));
+            return Err(String::from(
+                "NSPanel probe unexpectedly chose non-Metal backend",
+            ));
         }
-        let (device, queue) = pollster::block_on(
-            adapter.request_device(&wgpu::DeviceDescriptor::default()),
-        )
-        .map_err(|error| format!("request WGPU device: {error}"))?;
+        let (device, queue) =
+            pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor::default()))
+                .map_err(|error| format!("request WGPU device: {error}"))?;
         let config = surface
             .get_default_config(&adapter, size.width, size.height)
             .ok_or("Metal adapter does not support NSPanel surface")?;
@@ -151,11 +143,9 @@ mod native {
         let texture_view = frame
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
-        let mut encoder = device.create_command_encoder(
-            &wgpu::CommandEncoderDescriptor {
-                label: Some("PicPaste NSPanel probe clear"),
-            },
-        );
+        let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+            label: Some("PicPaste NSPanel probe clear"),
+        });
         {
             let _pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("NSPanel Metal render pass"),
