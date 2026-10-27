@@ -7,6 +7,27 @@ import subprocess
 import sys
 
 
+def parse_framed_reply(stdout: bytes) -> dict:
+    """Decode precisely the SHOC length-prefixed JSON frame.
+
+    Apple Vision/CoreML may emit diagnostics *after* its valid frame when
+    executing under a hosted macOS VM. Rust read_response() also reads only
+    the declared frame length, so the native smoke test must match that
+    protocol rather than assuming the complete process stdout ends at EOF.
+    Prefixes, oversized or truncated frames remain invalid.
+    """
+    if len(stdout) < 4:
+        raise AssertionError("No length-prefixed helper response")
+    declared = struct.unpack("<I", stdout[:4])[0]
+    if declared == 0 or declared > 8 * 1024 * 1024 or len(stdout) < declared + 4:
+        raise AssertionError(
+            f"Invalid or truncated Vision helper response frame: "
+            f"declared={declared}, stdout_len={len(stdout)}, "
+            f"head_hex={stdout[:64].hex()}"
+        )
+    return json.loads(stdout[4 : 4 + declared].decode("utf-8"))
+
+
 def call(helper: str, data: bytes, *, expected_success: bool, args=()) -> dict:
     proc = subprocess.run(
         [helper, *args], input=data, capture_output=True, timeout=25, check=False
@@ -16,22 +37,16 @@ def call(helper: str, data: bytes, *, expected_success: bool, args=()) -> dict:
             f"Unexpected OCR helper status {proc.returncode}: "
             f"{proc.stderr.decode('utf-8', errors='replace')}"
         )
-    if len(proc.stdout) < 4:
-        raise AssertionError(
-            f"No length-prefixed helper response for {args}: rc={proc.returncode}, "
-            f"stdout_len={len(proc.stdout)}, "
-            f"stderr={proc.stderr[:1000]!r}"
-        )
+    result = parse_framed_reply(proc.stdout)
     declared = struct.unpack("<I", proc.stdout[:4])[0]
-    if declared == 0 or declared > 8 * 1024 * 1024 or len(proc.stdout) != declared + 4:
-        raise AssertionError(
-            f"Invalid Vision helper response frame for {args}: rc={proc.returncode}, "
-            f"declared={declared}, stdout_len={len(proc.stdout)}, "
-            f"head_hex={proc.stdout[:96].hex()}, "
-            f"tail_hex={proc.stdout[-48:].hex()}, "
-            f"stderr={proc.stderr[:1000]!r}"
+    if len(proc.stdout) > declared + 4:
+        # This occurs with Apple Vision's VM/CPU diagnostics *after* the valid
+        # first frame. Never accept a prefix before the header or short data.
+        print(
+            f"Vision helper {args} emitted "
+            f"{len(proc.stdout) - declared - 4} post-frame diagnostic bytes",
+            file=sys.stderr,
         )
-    result = json.loads(proc.stdout[4:].decode("utf-8"))
     if result["protocol_version"] != 1:
         raise AssertionError("Unexpected protocol version")
     return result
