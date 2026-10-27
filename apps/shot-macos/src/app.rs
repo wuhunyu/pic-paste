@@ -986,9 +986,9 @@ impl PicPasteApp {
                 && pin.source.rgba == image.rgba
         });
         let reuse_group = shared_index.map(|index| self.pins[index].texture_group);
-        if let Err(error) =
-            self.pin_budget
-                .reserve(id, image.width, image.height, reuse_group)
+        if let Err(error) = self
+            .pin_budget
+            .reserve(id, image.width, image.height, reuse_group)
         {
             self.status = format!("贴图未创建：{error}");
             return;
@@ -1110,8 +1110,7 @@ impl PicPasteApp {
             PinEvent::DetectQr(id) => self.request_pin_qr(ctx, id),
             PinEvent::Closed(id) => {
                 if let Some(pin) = self.pins.iter().find(|pin| pin.id == id) {
-                    pin.closed
-                        .store(true, std::sync::atomic::Ordering::Relaxed);
+                    pin.closed.store(true, std::sync::atomic::Ordering::Relaxed);
                 }
             }
             PinEvent::Move(id) => {

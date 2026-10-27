@@ -49,10 +49,10 @@ impl PinTextureBudget {
 }
 ```
 
-- [ ] Add failing `crates/shot-core/tests/pin_texture_budget.rs` tests using the desired API, covering 5×1080p success, aggregate limit, individual 4MP/4096px, 12-pin count, duplicate group references, releasing an owner before its shared copy, final release, repeated release, invalid size and unknown group.
-- [ ] Open draft PR #6; run Linux `cargo test -p shot-core --test pin_texture_budget --locked` in GitHub Actions and verify the expected missing module/API RED (not a non-feature infrastructure failure).
-- [ ] Implement `pin_texture_budget.rs` with checked u64 arithmetic, BTreeMaps from pin ID to group and group to `(bytes, refs)`, unique byte tracking. No silent eviction; `reserve` must not mutate state on any rejection.
-- [ ] Export module in `lib.rs`; run the tests GREEN, `cargo fmt --all -- --check`, `cargo clippy -p shot-core --all-targets --locked -- -D warnings`.
+- [x] Add failing `crates/shot-core/tests/pin_texture_budget.rs` tests using the desired API, covering 5×1080p success, aggregate limit, individual 4MP/4096px, 12-pin count, duplicate group references, releasing an owner before its shared copy, final release, repeated release, invalid size and unknown group.
+- [x] Open draft PR #6; run Linux `cargo test -p shot-core --test pin_texture_budget --locked` in GitHub Actions and verify the expected missing module/API RED (not a non-feature infrastructure failure).
+- [x] Implement `pin_texture_budget.rs` with checked u64 arithmetic, BTreeMaps from pin ID to group and group to `(bytes, refs)`, unique byte tracking. No silent eviction; `reserve` must not mutate state on any rejection.
+- [x] Export module in `lib.rs`; run the tests GREEN, `cargo fmt --all -- --check`, `cargo clippy -p shot-core --all-targets --locked -- -D warnings`.
 
 **Example user-facing behavior:** A ninth distinct 1080p pin is refused because 8 × 8,294,400 = 66,355,200 bytes; 9 × 8,294,400 = 74,649,600 bytes > 67,108,864 bytes. A second pin of the *same* 1080p image is admitted without extra GPU texture bytes.
 
@@ -67,16 +67,16 @@ pub fn new(ctx: &egui::Context, id: u64, frame: Arc<RgbaFrame>) -> PinnedImage;
 pub enum PinEvent { /* preexisting variants */, Closed(u64) }
 ```
 
-- [ ] Write a macOS unit test in `pin.rs` constructing two pins from one `egui::Context` and checking equal TextureId and shared Arc, while both have independent closed state/mode.
-- [ ] Refactor the constructor through a private `with_texture` initializer. A new pin uploads once; `from_shared` clones the existing `TextureHandle` without calling `load_texture`; it does not copy the source pixels.
-- [ ] On pin viewport close or explicit ×, set `closed`, send `PinEvent::Closed(id)`, and wake ROOT. Add `Closed` handling in the root event dispatch.
-- [ ] Add `pin_budget: PinTextureBudget` in the root app. In `create_pin`, prune closed pins, reject unsafe dimensions/id/capacity, compare existing pins by exact frame dimensions and RGBA bytes, reserve group, then create/reuse pin. In `remove_closed_pins`, release matching ledger entries once and retain live pins; call from event loop and before admission.
-- [ ] Display `resident_bytes` as an **estimated** texture usage and live pin count in settings; never label it actual VRAM/RSS.
+- [x] Write a macOS unit test in `pin.rs` constructing two pins from one `egui::Context` and checking equal TextureId and shared Arc, while both have independent closed state/mode.
+- [x] Refactor the constructor through a private `with_texture` initializer. A new pin uploads once; `from_shared` clones the existing `TextureHandle` without calling `load_texture`; it does not copy the source pixels.
+- [x] On pin viewport close or explicit ×, set `closed`, send `PinEvent::Closed(id)`, and wake ROOT. Add `Closed` handling in the root event dispatch.
+- [x] Add `pin_budget: PinTextureBudget` in the root app. In `create_pin`, prune closed pins, reject unsafe dimensions/id/capacity, compare existing pins by exact frame dimensions and RGBA bytes, reserve group, then create/reuse pin. In `remove_closed_pins`, release matching ledger entries once and retain live pins; call from event loop and before admission.
+- [x] Display `resident_bytes` as an **estimated** texture usage and live pin count in settings; never label it actual VRAM/RSS.
 - [ ] Run workspace tests, fmt and strict Clippy on macOS CI and verify Lite/Full package builds; preserve PNG/OCR behavior.
 
 ### Task 3: Evidence and merge
 
-- [ ] Update README/status/remaining/tasks and Issue #6: resource cap is implemented, pin lifecycle unit evidence exists; keep real 5-pin P95, CPU/RSS, Spaces/Retina/clipboard validation **open**.
+- [x] Update README/status/remaining/tasks and Issue #6: resource cap is implemented, pin lifecycle unit evidence exists; keep real 5-pin P95, CPU/RSS, Spaces/Retina/clipboard validation **open**.
 - [ ] Verify the latest PR branch’s full CI (Linux core, macOS workspace tests/Clippy/Release, OCR IPC, Lite/Full and Add-on packaging).
 - [ ] Merge only after CI success and review, then sync the main branch ledger with PR link and leave Issue #6 open for physical-device acceptance.
 

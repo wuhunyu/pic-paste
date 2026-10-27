@@ -11,7 +11,7 @@
 | P1-T1 | 选区、窗口识别、取色/放大镜 | **代码基本完成** | 窗口点击选择 #15、9×9 放大镜/HEX；真实重叠窗口和负坐标验证未完成 | [#5](https://github.com/wuhunyu/pic-paste/issues/5) |
 | P1-T2 | 标注、撤销重做 | **代码基本完成** | 线/箭头/画笔/几何/模糊/马赛克、文字 #17、Undo/Redo；CJK 系统字体实际覆盖需验证 | [#6](https://github.com/wuhunyu/pic-paste/issues/6) |
 | P1-T3 | PNG-only、透明圆角、剪贴板 | **代码基本完成** | PNG-only 原子保存、⌘S、圆角预览 #16；原生应用剪贴板/色彩/Alpha 未验收 | [#6](https://github.com/wuhunyu/pic-paste/issues/6) |
-| P2-T1 | 多贴图缩放、透明度与资源 | **部分实现** | Pin 视口/缩放/透明度；纹理预算、五图基准缺失 | [#6](https://github.com/wuhunyu/pic-paste/issues/6) |
+| P2-T1 | 多贴图缩放、透明度与资源 | **部分实现** | Pin 视口/缩放/透明度；[#30](https://github.com/wuhunyu/pic-paste/pull/30) 新增硬性纹理容量、像素/Pin 数限制、精确同图复用、关闭回收及单测；五张 HD 真实 P95/CPU/RSS 未验收 | [#6](https://github.com/wuhunyu/pic-paste/issues/6) |
 | P2-T2 | 贴图模式状态机/异常恢复 | **部分实现** | 穿透恢复和 #22 贴图行级选字/复制及移动/选字/穿透互斥代码已实现；仍需真机拖动/焦点/重启恢复验收 | [#6](https://github.com/wuhunyu/pic-paste/issues/6) |
 | P3-T1 | OCR helper、SHOC、生命周期 | **代码基本完成** | 本机 Swift Vision helper、IPC、超时/退出/签名校验；独立 Add-on 安全加载/安装/打包代码 #29 已合并并通过 CI，需真签名实测 | [#8](https://github.com/wuhunyu/pic-paste/issues/8) |
 | P3-T2 | OCR 行/词选择与 400 图测试 | **部分实现** | 截图与贴图行级选择 (#22) 及词/字符 bbox、离线二维码 (#28)；仍无 400 图 CER 和真实设备证据 | [#8](https://github.com/wuhunyu/pic-paste/issues/8) |
@@ -68,3 +68,9 @@
 - [x] [PR #28](https://github.com/wuhunyu/pic-paste/pull/28) 已合并 Vision 原生词/字符定位选择、显式离线二维码，主线 [CI #40453830133](https://github.com/wuhunyu/pic-paste/actions/runs/40453830133) 成功。
 - [ ] PR #29 已合并固定路径与双端非空 Team ID 检查、严格代码签名、`--addon-info` API 1/SHOC 1 握手、阶段化安装/回滚/卸载和独立 ZIP；已通过全量 PR CI #40456135637；仍须 Developer ID 真证书及 macOS 14+ 设备验证，才可从“部分实现”转为验收通过。
 - [ ] 保留 P3-T2 的 400 张 CER 与实际文字/QR 选取交互数据、P5 和 P6 设备/Windows 依赖项。ad-hoc 开发包**不是**可独立安装的可信 Add-on。
+
+## 2026-10-27 — P2-T1 纹理缓存与资源上限（PR #30）
+
+- [x] `shot-core::pin_texture_budget`：12 贴图、64MiB 唯一 RGBA8 纹理估算、4MP/4096px 单图限制、共享引用计数、拒绝不修改账本、最后引用关闭回收，Linux 核心测试/Clippy 通过。
+- [ ] macOS 集成的 Exact RGBA/TextureHandle 复用、全量 CI 与真机验证分别核查，不能以 eframe 测试当作设备 GPU P95。
+- [ ] 核心实测仍需 5 张 1080p 贴图帧 P95≤16.7ms、RSS/CPU、焦点/穿透、Retina/Spaces、多应用剪贴板 Alpha。
