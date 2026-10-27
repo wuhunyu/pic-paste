@@ -16,7 +16,7 @@
 
 | 工作流 | 已实现 / 已通过 CI 的代码 | 尚缺失或未验收 |
 | --- | --- | --- |
-| P0 macOS 截图 | 原生 ScreenCaptureKit 选显示器；负坐标/缩放映射测试；独立无边框 eframe/winit 选区视口；窗口候选单击选区；9×9 像素放大镜/HEX；菜单、可配置 Ctrl+Option+1…9 热键与失败回滚 | 不是专用 AppKit NSPanel；真实多屏/Spaces/不同 TCC 权限、热键冲突、启动/延迟没有验收；[#20](https://github.com/wuhunyu/pic-paste/pull/20) 已在代码层按当前 PID 排除本应用浮窗；真实系统完整排除情况待验收 |
+| P0 macOS 截图 | ScreenCaptureKit 选显示器；#31 完整图 (0,0) 显示器局部物理像素/校验裁剪、逻辑点独立摆放，截图浮层主动焦点、贴图初始不激活；窗口候选、放大镜、热键与 PID 排除 | 仍是 eframe/winit NSWindow 而非 AppKit NSPanel；需要多屏混合 DPI/Spaces/TCC/焦点/快捷键及 P95 真机验证（见 [窗口策略](macos-window-strategy.md)） |
 | P1 标注与 PNG | 线、箭头、画笔、矩形、椭圆、马赛克、模糊、**中英文离线文字**（[#17](https://github.com/wuhunyu/pic-paste/pull/17)）；Undo/Redo；PNG-only 无覆盖原子保存、透明圆角、限定大小的 PNG 缩略图、⌘S 保存（[#16](https://github.com/wuhunyu/pic-paste/pull/16)） | 文字字体回退与跨版本系统覆盖、Native 剪贴板粘贴/色彩/Alpha 真机验证、工具边界压力测试 |
 | P2 多贴图 | 多窗口置顶、缩放、透明度、鼠标穿透和恢复；#22 行级、#28 词/字符/QR；[#30](https://github.com/wuhunyu/pic-paste/pull/30) 增加独立 RGBA 预算、逐像素相同的 TextureHandle 复用和关闭释放 | 5 张 1080p 帧 P95 ≤16.7ms、RSS/CPU、焦点/拖动/鼠标穿透、跨 Spaces 真机验收 |
 | P3 OCR | 本地 Vision、SHOC IPC、20s 超时、Lite 降级；#28 原生词/字符 bbox、显式离线 QR；Add-on 固定路径、Developer ID/Team ID/API 验证与安装/卸载代码已通过 #29 CI 并合并 | ≥400 张 CER 实测、旋转多码/权限/焦点、Developer ID 真签名安装、公证与真机验收 |
@@ -64,3 +64,9 @@
 - [x] 纯 Rust 资源账本已通过 Linux 核心测试：12 Pin、64 MiB 唯一 RGBA8 估算、4MP/4096px 单图、8 张 HD 上限、同图引用计数/关闭回收、非法/重复 ID 与失败不改账。
 - [x] macOS 共享 `egui::TextureHandle`、隐藏根窗口关闭通知及完整 [PR CI #40458668058](https://github.com/wuhunyu/pic-paste/actions/runs/40458668058) success；仍不能当作真机性能验收。
 - [ ] 五张 1080p 悬浮贴图帧 P95≤16.7ms、空闲 CPU/RSS、系统缩放/Retina/Spaces/剪贴板一致性需真实 macOS 采样，不能由核心单测替代。
+
+## 2026-10-27 — #5 显示器像素坐标与窗口焦点（PR #31）
+
+- [x] 测试先行：Linux RED 缺少 `CapturedFrame::for_display` / `region_origin_px`；macOS RED 缺少 `pin_builder`，均为预期接口缺失而非误报。
+- [ ] 生产路径：完整屏幕 (0,0) 的局部物理像素 + 校验区域源矩形；截图浮层请求焦点、Pin 初始不激活、纯透明阴影关闭、穿透按模式配置。需最新完整 CI 验证。
+- [ ] 真机：双显示器负原点/不同 Retina DPI、插拔、全屏 Spaces、TCC 授予/撤销、系统热键/焦点/拖动和 10 帧自窗残影；30 次冷启动及 100 次热键 P95。专用 NSPanel 尚未提供，详见 [决策](macos-window-strategy.md)。

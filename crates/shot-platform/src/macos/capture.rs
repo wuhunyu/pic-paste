@@ -135,27 +135,13 @@ impl MacCapture {
             PlatformError::Internal(format!("invalid capture pixels: {error:?}"))
         })?;
 
-        // SCDisplay.frame uses desktop coordinates in logical points. For now
-        // convert using the filter's scale; mixed-DPI global mapping remains a
-        // mandatory on-device integration gate, not covered by headless CI.
-        let scale = f64::from(filter.point_pixel_scale());
-        let frame = display.frame();
-        let x = (frame.origin.x * scale).round();
-        let y = (frame.origin.y * scale).round();
-        if !x.is_finite()
-            || !y.is_finite()
-            || x < f64::from(i32::MIN)
-            || x > f64::from(i32::MAX)
-            || y < f64::from(i32::MIN)
-            || y > f64::from(i32::MAX)
-        {
-            return Err(PlatformError::InvalidInput);
-        }
-        Ok(CapturedFrame {
-            display_id: DisplayId(u64::from(display.display_id())),
-            origin_px: (x as i32, y as i32),
+        // SCDisplay.frame is in desktop logical *points*, while this RGBA
+        // image and all RectPx operations are target-display-local pixels.
+        // Never multiply the desktop origin by one display's Retina scale.
+        Ok(CapturedFrame::for_display(
+            DisplayId(u64::from(display.display_id())),
             image,
-        })
+        ))
     }
 }
 
@@ -177,19 +163,11 @@ impl ScreenCapture for MacCapture {
         region: RectPx,
     ) -> Result<CapturedFrame, PlatformError> {
         let mut full = self.capture_display(display)?;
-        // Region is relative to this display's physical pixel image.
+        // Validate display-local pixels and checked offsets before copying.
+        let origin = full.region_origin_px(region)?;
         let image =
             shot_image::crop_rgba(&full.image, region).map_err(|_| PlatformError::InvalidInput)?;
-        full.origin_px = (
-            full.origin_px
-                .0
-                .checked_add(region.x)
-                .ok_or(PlatformError::InvalidInput)?,
-            full.origin_px
-                .1
-                .checked_add(region.y)
-                .ok_or(PlatformError::InvalidInput)?,
-        );
+        full.origin_px = origin;
         full.image = image;
         Ok(full)
     }

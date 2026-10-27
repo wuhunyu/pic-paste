@@ -15,6 +15,9 @@ pub fn capture_builder(placement: OverlayPlacement) -> egui::ViewportBuilder {
         .with_resizable(false)
         .with_fullscreen(false)
         .with_always_on_top()
+        .with_active(true)
+        .with_mouse_passthrough(false)
+        .with_movable_by_background(false)
         .with_has_shadow(false)
 }
 
@@ -34,5 +37,14 @@ mod tests {
         assert_eq!(builder.decorations, Some(false));
         assert_eq!(builder.resizable, Some(false));
         assert_eq!(builder.has_shadow, Some(false));
+    }
+    #[test]
+    fn screenshot_viewport_requests_keyboard_focus_but_never_steals_background_drags() {
+        let placement =
+            OverlayPlacement::new(DisplayId(8), (-1280.0, -120.0), (1280.0, 800.0)).unwrap();
+        let builder = capture_builder(placement);
+        assert_eq!(builder.active, Some(true));
+        assert_eq!(builder.mouse_passthrough, Some(false));
+        assert_eq!(builder.movable_by_window_background, Some(false));
     }
 }

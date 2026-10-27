@@ -31,6 +31,22 @@ fn send_event(ui: &egui::Ui, sender: &Sender<PinEvent>, event: PinEvent) {
     }
 }
 
+/// Configure a winit-owned macOS window without stealing focus from the
+/// target app. Actual AppKit NSPanel integration is a separate renderer change.
+pub(crate) fn pin_builder(pin_id: u64, size: egui::Vec2, mode: PinMode) -> egui::ViewportBuilder {
+    egui::ViewportBuilder::default()
+        .with_title(format!("PicPaste - 贴图 {pin_id}"))
+        .with_inner_size([size.x + 14.0, size.y + 48.0])
+        .with_always_on_top()
+        .with_active(false)
+        .with_transparent(true)
+        .with_has_shadow(false)
+        .with_decorations(false)
+        .with_resizable(true)
+        .with_movable_by_background(false)
+        .with_mouse_passthrough(mode == PinMode::Passthrough)
+}
+
 pub struct PinnedImage {
     pub id: u64,
     /// First pin ID that allocated this texture; shared pins keep it alive.
@@ -130,14 +146,7 @@ impl PinnedImage {
         let sender = events.clone();
         let pin_id = self.id;
         let id = egui::ViewportId::from_hash_of(("picpaste-pin", pin_id));
-        let builder = egui::ViewportBuilder::default()
-            .with_title(format!("PicPaste - 贴图 {}", pin_id))
-            .with_inner_size([size.x + 14.0, size.y + 48.0])
-            .with_always_on_top()
-            .with_transparent(true)
-            .with_decorations(false)
-            .with_resizable(true)
-            .with_mouse_passthrough(mode == PinMode::Passthrough);
+        let builder = pin_builder(pin_id, size, mode);
         ctx.show_viewport_deferred(id, builder, move |ui, _| {
             if ui.ctx().input(|input| input.viewport().close_requested())
                 && !closed.swap(true, Ordering::Relaxed)
@@ -375,5 +384,26 @@ mod texture_lifetime_tests {
     fn a_closed_pin_can_wake_the_hidden_root_for_resource_cleanup() {
         let event = PinEvent::Closed(42);
         assert!(matches!(event, PinEvent::Closed(id) if id == 42));
+    }
+}
+
+#[cfg(test)]
+mod focus_policy_tests {
+    use super::*;
+
+    #[test]
+    fn all_pin_modes_start_nonactive_and_are_never_movable_by_background() {
+        let size = egui::vec2(240.0, 180.0);
+        for mode in [PinMode::Move, PinMode::TextSelect, PinMode::Passthrough] {
+            let builder = pin_builder(7, size, mode);
+            assert_eq!(builder.active, Some(false));
+            assert_eq!(builder.has_shadow, Some(false));
+            assert_eq!(builder.movable_by_window_background, Some(false));
+            assert_eq!(builder.decorations, Some(false));
+            assert_eq!(
+                builder.mouse_passthrough,
+                Some(mode == PinMode::Passthrough)
+            );
+        }
     }
 }
