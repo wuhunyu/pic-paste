@@ -301,11 +301,7 @@ impl TileStore {
     }
 
     /// Atomic PNG export with physical-pixel rounded alpha; still streams one row.
-    pub fn save_png_rounded_no_clobber(
-        &self,
-        destination: &Path,
-        radius: u32,
-    ) -> io::Result<()> {
+    pub fn save_png_rounded_no_clobber(&self, destination: &Path, radius: u32) -> io::Result<()> {
         if destination.extension().and_then(|value| value.to_str()) != Some("png") {
             return Err(invalid("PNG export only"));
         }

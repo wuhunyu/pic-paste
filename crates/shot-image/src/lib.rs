@@ -79,15 +79,15 @@ mod tests {
     use super::*;
     #[test]
     fn rounded_rows_match_full_image_exactly() {
-        let mut expected=RgbaFrame::new(8,6,vec![200;8*6*4]).unwrap();
-        rounded_alpha(&mut expected,3);
-        let mut rows=vec![200;8*6*4];
-        for (y,row) in rows.chunks_exact_mut(8*4).enumerate() {
-            rounded_alpha_row(row,8,6,y as u32,3);
+        let mut expected = RgbaFrame::new(8, 6, vec![200; 8 * 6 * 4]).unwrap();
+        rounded_alpha(&mut expected, 3);
+        let mut rows = vec![200; 8 * 6 * 4];
+        for (y, row) in rows.chunks_exact_mut(8 * 4).enumerate() {
+            rounded_alpha_row(row, 8, 6, y as u32, 3);
         }
-        assert_eq!(rows,expected.rgba);
-        assert!(rows[3]<200);
-        assert_eq!(rows[0],200);
+        assert_eq!(rows, expected.rgba);
+        assert!(rows[3] < 200);
+        assert_eq!(rows[0], 200);
     }
 
     #[test]
