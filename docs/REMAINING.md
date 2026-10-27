@@ -65,5 +65,13 @@
 
 ## 2026-10-27 — NSPanel egui input proof (#35)
 
-- [ ] [PR #35](https://github.com/wuhunyu/pic-paste/pull/35) independently renders egui inside NSPanel's WGPU surface, adds native pointer/button/scroll/basic keyboard conversion, and stays behind `native-panel-probe`. Real macOS 14+ GUI acceptance and full CI must be separately verified.
+- [x] [PR #35](https://github.com/wuhunyu/pic-paste/pull/35) merged after [CI #40491725274](https://github.com/wuhunyu/pic-paste/actions/runs/40491725274): opt-in egui and mouse/keyboard probe; no macOS 14+ GUI acceptance.
 - [ ] Native NSTextInputClient CJK IME/marked-text bridge, full keyboard/accessibility behavior and replacing production eframe viewports are still outstanding; Issue #5 stays open.
+
+## 2026-10-27 — macOS 26 Liquid Glass material proof (#36)
+
+- [x] Design decision and isolated [PR #36](https://github.com/wuhunyu/pic-paste/pull/36): one native `NSGlassEffectView.contentView` label floating above the existing Metal probe; macOS 14–25 vibrancy, Reduce Transparency solid-color fallback, no screenshot pixel changes.
+- [x] TDD policy/geometry RED [CI #40494581713](https://github.com/wuhunyu/pic-paste/actions/runs/40494581713) (missing module) and GREEN Linux core/strict Clippy.
+- [ ] Record the latest **complete** Linux/macOS CI run (including native probe, default workspace, Release and Lite/Full/Add-on) before marking PR code as verified or merging.
+- [ ] Real macOS **26** visual/interaction tests: glass material and label content; light/dark; Reduce Transparency; Retina 1x/2x; resize/minimize/restore/close; keyboard/mouse/Spaces/focus; check CPU and memory. macOS 14–25 fallback also needs a real host. Live accessibility preference change is not watched (reopen probe).
+- [ ] Create actual functional screenshot and pin toolbars, with native actions and accessibility and an explicit rollback switch; do not confuse this material status badge with completed production UI.

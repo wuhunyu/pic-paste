@@ -36,9 +36,9 @@
 - `FloatingBarFrame::for_content_size(width_pt: f64, height_pt: f64) -> Option<Self>` returns None for nonfinite, too small or zero dimensions
 - `FloatingBarFrame::contains(x: f64, y: f64) -> bool` for native pointer filtering
 
-- [ ] RED: write tests for macOS 26 native, macOS 14/25 fallback, unavailable class, Reduce Transparency opaque priority, centered 640×360 rectangle x=202/y=20/w=236/h=44, small/nonfinite hidden, edge containment.
-- [ ] Verify expected failing `cargo test -p shot-core --test glass_toolbar --locked` (missing module/API), after formatting.
-- [ ] GREEN: implement and expose helpers without AppKit dependencies; use finite numbers and careful clamping; run Linux tests, format and strict Clippy; commit.
+- [x] RED: write tests for macOS 26 native, macOS 14/25 fallback, unavailable class, Reduce Transparency opaque priority, centered 640×360 rectangle x=202/y=20/w=236/h=44, small/nonfinite hidden, edge containment.
+- [x] Verify expected failing `cargo test -p shot-core --test glass_toolbar --locked` (missing module/API), after formatting.
+- [x] GREEN: implement and expose helpers without AppKit dependencies; use finite numbers and careful clamping; run Linux tests, format and strict Clippy; commit.
 
 ### Task 2: Native AppKit glass view and fallbacks
 
@@ -50,17 +50,17 @@
 - `ProbeGlassToolbar::relayout(&self, bounds: NSRect)`; `detach(&self)`
 - `ProbeGlassToolbar::intercepts_event(&self, event: &NSEvent, host: &NSView) -> bool` for pointer-down and hover avoidance (but preserve outside-to-inside drag release).
 
-- [ ] Add AppKit feature flags `NSGlassEffectView`, `NSVisualEffectView`, `NSTextField`, `NSControl`, `NSBox`, `NSWorkspace`, `NSAccessibility`; Foundation `NSProcessInfo`. Do not add crates or mutate Cargo.lock versions.
-- [ ] Runtime check `NSProcessInfo::processInfo().operatingSystemVersion().majorVersion`, `AnyClass::get("NSGlassEffectView")`, `NSWorkspace::sharedWorkspace().accessibilityDisplayShouldReduceTransparency()` and choose mode.
-- [ ] Native path: create `NSGlassEffectView`, 22 pt radius, assign **native `NSView` content container** with `NSTextField` label using `setContentView`. Keep the view above the original Metal NSView and do not replace NSPanel.contentView.
-- [ ] Legacy: `NSVisualEffectView` material Popover, WithinWindow; accessible: `NSBox` custom fill using `NSColor::windowBackgroundColor()`, 22 pt radius, zero border. Native label is non-editable/selectable and uses system text color.
-- [ ] On content changes, relayout/hide when too small; before owner shutdown, remove toolbar from host, drop toolbar, then follow existing WGPU surface-before-NSView release order.
+- [x] Add AppKit feature flags `NSGlassEffectView`, `NSVisualEffectView`, `NSTextField`, `NSControl`, `NSBox`, `NSWorkspace`, `NSAccessibility`; Foundation `NSProcessInfo`. Do not add crates or mutate Cargo.lock versions.
+- [x] Runtime check `NSProcessInfo::processInfo().operatingSystemVersion().majorVersion`, `AnyClass::get("NSGlassEffectView")`, `NSWorkspace::sharedWorkspace().accessibilityDisplayShouldReduceTransparency()` and choose mode.
+- [x] Native path: create `NSGlassEffectView`, 22 pt radius, assign **native `NSView` content container** with `NSTextField` label using `setContentView`. Keep the view above the original Metal NSView and do not replace NSPanel.contentView.
+- [x] Legacy: `NSVisualEffectView` material Popover, WithinWindow; accessible: `NSBox` custom fill using `NSColor::windowBackgroundColor()`, 22 pt radius, zero border. Native label is non-editable/selectable and uses system text color.
+- [x] On content changes, relayout/hide when too small; before owner shutdown, remove toolbar from host, drop toolbar, then follow existing WGPU surface-before-NSView release order.
 - [ ] Run macOS CI feature tests, native --check, strict Clippy. Fix actual compiler signatures, never weaken Clippy.
 
 ### Task 3: Verification and documentation
 
 **Files:** Update `docs/macos-window-strategy.md`, `docs/STATUS.md`, `docs/REMAINING.md`, `README.md`; maintain Issue #5 and PR discussion.
 
-- [ ] Document native Liquid Glass on 26+, visual effect on 14–25, high-contrast solid on Reduce Transparency, exact opt-in CLI, noninteractive glass label, no production integration.
-- [ ] Explicit manual macOS 26 and macOS 14+ acceptance: light/dark, accessibility setting, 1x/2x monitors, resize/mini/restore/close, interaction hit testing and GPU frame correctness, Spaces, TCC and idle CPU.
+- [x] Document native Liquid Glass on 26+, visual effect on 14–25, high-contrast solid on Reduce Transparency, exact opt-in CLI, noninteractive glass label, no production integration.
+- [x] Explicit manual macOS 26 and macOS 14+ acceptance: light/dark, accessibility setting, 1x/2x monitors, resize/mini/restore/close, interaction hit testing and GPU frame correctness, Spaces, TCC and idle CPU.
 - [ ] Full PR CI must pass Linux/macOS feature tests, --check, workspace test/lint, Release, Lite/Full/Add-on archives; only then merge PR. Keep Issue #5 open.

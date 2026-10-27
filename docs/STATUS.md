@@ -87,5 +87,12 @@
 ## 2026-10-27 — PR #35: experimental egui in NSPanel
 
 - [x] TDD RED: Linux #40486798074 expected missing `PanelPointerPoint`; macOS #40487437579 expected missing egui/ProbeControls. These are **intentional failures before implementation**.
-- [ ] Feature-gated egui-wgpu rendering and native mouse/keyboard event forwarding: **CI under validation**, not production UI and not interactive Mac acceptance.
+- [x] Feature-gated egui-wgpu rendering and native mouse/keyboard event forwarding: [PR #35](https://github.com/wuhunyu/pic-paste/pull/35) merged after complete [CI #40491725274](https://github.com/wuhunyu/pic-paste/actions/runs/40491725274) success; no interactive Mac acceptance or production migration.
 - [ ] Native NSTextInputClient marked-text, CJK candidate window and full input/IME/focus/Spaces/device performance still outstanding.
+
+## 2026-10-27 — macOS 26 original Liquid Glass design / PR #36
+
+- [x] Native glass preference documented and tracked in [Issue #5](https://github.com/wuhunyu/pic-paste/issues/5); see the decision in [macos-window-strategy.md](macos-window-strategy.md).
+- [x] [PR #35](https://github.com/wuhunyu/pic-paste/pull/35) was merged after complete [CI #40491725274](https://github.com/wuhunyu/pic-paste/actions/runs/40491725274) success. Its new egui-wgpu/mouse/ASCII input code is **only** in the opt-in native panel probe; no physical GUI validation.
+- [x] [PR #36](https://github.com/wuhunyu/pic-paste/pull/36) adds portable material/geometry tests, a single native `NSGlassEffectView` capsule, legacy `NSVisualEffectView`, and accessibility solid `NSBox`, without changing screenshot pixels or default app/packaging code.
+- [ ] **Do not equate code commit with acceptance**: the final PR full CI and interactive macOS 26/14+, accessibility, Retina/Spaces/focus/performance evidence must be recorded separately. This badge is a noninteractive proof, not the finished toolbar or CJK IME.
