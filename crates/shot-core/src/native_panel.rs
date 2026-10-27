@@ -116,3 +116,52 @@ impl PanelSurfaceLifecycle {
         PanelSurfaceUpdate::Closed
     }
 }
+
+/// Logical coordinates relative to the top-left corner of an AppKit content
+/// view, suitable for egui input. Never uses desktop-global screen pixels.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct PanelPointerPoint {
+    pub x: f32,
+    pub y: f32,
+}
+
+impl PanelPointerPoint {
+    /// Map a Cocoa NSView-local point (including its `bounds.origin`) into
+    /// egui's top-left logical-point space. Points outside the view remain
+    /// valid because a mouse release can occur during an out-of-bounds drag.
+    pub fn from_view(
+        x: f64,
+        y: f64,
+        origin_x: f64,
+        origin_y: f64,
+        width_pt: f64,
+        height_pt: f64,
+        flipped: bool,
+    ) -> Result<Self, PlatformError> {
+        if ![x, y, origin_x, origin_y, width_pt, height_pt]
+            .iter()
+            .all(|v| v.is_finite())
+            || width_pt <= 0.0
+            || height_pt <= 0.0
+        {
+            return Err(PlatformError::InvalidInput);
+        }
+
+        let local_x = x - origin_x;
+        let local_y = if flipped {
+            y - origin_y
+        } else {
+            height_pt - (y - origin_y)
+        };
+        if ![local_x, local_y]
+            .iter()
+            .all(|v| v.is_finite() && v.abs() <= f64::from(f32::MAX))
+        {
+            return Err(PlatformError::InvalidInput);
+        }
+        Ok(Self {
+            x: local_x as f32,
+            y: local_y as f32,
+        })
+    }
+}

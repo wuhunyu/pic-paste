@@ -1,4 +1,6 @@
-use shot_core::native_panel::{PanelSurfaceLifecycle, PanelSurfaceSize, PanelSurfaceUpdate};
+use shot_core::native_panel::{
+    PanelPointerPoint, PanelSurfaceLifecycle, PanelSurfaceSize, PanelSurfaceUpdate,
+};
 use shot_core::platform::PlatformError;
 
 #[test]
@@ -160,4 +162,47 @@ fn closed_panel_never_reconfigures_and_close_is_idempotent() {
         Ok(PanelSurfaceUpdate::Closed)
     );
     assert_eq!(state.configured_size(), None);
+}
+
+#[test]
+fn cocoa_bottom_left_pointer_becomes_egui_top_left_points() {
+    assert_eq!(
+        PanelPointerPoint::from_view(40.0, 70.0, 0.0, 0.0, 200.0, 120.0, false),
+        Ok(PanelPointerPoint { x: 40.0, y: 50.0 })
+    );
+    assert_eq!(
+        PanelPointerPoint::from_view(40.0, 70.0, 0.0, 0.0, 200.0, 120.0, true),
+        Ok(PanelPointerPoint { x: 40.0, y: 70.0 })
+    );
+}
+
+#[test]
+fn pointer_respects_view_bounds_origin_and_outside_release() {
+    assert_eq!(
+        PanelPointerPoint::from_view(25.0, 125.0, 5.0, 25.0, 200.0, 120.0, false),
+        Ok(PanelPointerPoint { x: 20.0, y: 20.0 })
+    );
+    // Drag release may legitimately occur beyond a view's logical bounds.
+    assert_eq!(
+        PanelPointerPoint::from_view(250.0, -10.0, 0.0, 0.0, 200.0, 120.0, false),
+        Ok(PanelPointerPoint { x: 250.0, y: 130.0 })
+    );
+}
+
+#[test]
+fn pointer_rejects_invalid_or_nonfinite_geometry() {
+    for (x, y, ox, oy, w, h) in [
+        (f64::NAN, 10.0, 0.0, 0.0, 100.0, 100.0),
+        (2.0, f64::INFINITY, 0.0, 0.0, 100.0, 100.0),
+        (1.0, 2.0, f64::NAN, 0.0, 100.0, 100.0),
+        (1.0, 2.0, 0.0, f64::INFINITY, 100.0, 100.0),
+        (1.0, 2.0, 0.0, 0.0, 0.0, 100.0),
+        (1.0, 2.0, 0.0, 0.0, 100.0, -1.0),
+        (f64::MAX, 2.0, 0.0, 0.0, 100.0, 100.0),
+    ] {
+        assert_eq!(
+            PanelPointerPoint::from_view(x, y, ox, oy, w, h, false),
+            Err(PlatformError::InvalidInput)
+        );
+    }
 }
