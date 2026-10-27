@@ -1,6 +1,6 @@
 # 原始 v1.2 执行计划：20 项任务同步台账
 
-更新于 **2026-10-27**，对应 [STATUS.md](STATUS.md) 与 [GitHub Issues](https://github.com/wuhunyu/pic-paste/issues)。`代码基本完成` 指核心实现与自动化测试存在，**不表示功能已通过真实 macOS/Windows 验收**；`部分实现` 指原任务至少有一项实质性缺口；`未开始` 指该目标尚无功能代码。
+更新于 **2026-10-27**，对应 [STATUS.md](STATUS.md)、[REMAINING.md](REMAINING.md) 与 [GitHub Issues](https://github.com/wuhunyu/pic-paste/issues)。**20 项按任务数：8 项代码基本完成、9 项部分实现、3 项未开始**。`代码基本完成` 指核心实现与自动化测试存在，**不表示功能已通过真实 macOS/Windows 验收**；`部分实现` 指原任务至少有一项实质性缺口；`未开始` 指该目标尚无功能代码。
 
 | 序号 | 原计划任务 | 当前状态 | 可核验代码 / 剩余缺口 | 跟踪 |
 | --- | --- | --- | --- | --- |
@@ -18,7 +18,7 @@
 | P3-T3 | Lite / Full / Add-on 交付 | **部分实现** | Lite/Full 开发包自动打包；独立签名 Add-on 安装/版本兼容未实现 | [#8](https://github.com/wuhunyu/pic-paste/issues/8) |
 | P4-T1 | 手动纵向/横向滚动及 ROI | **代码基本完成** | 手动区域采样与纵横方向；[#24](https://github.com/wuhunyu/pic-paste/pull/24) 增加可配置固定边距后再取帧（完整 CI 通过，已合并）；真实网页/文档和鼠标穿透未验收 | [#7](https://github.com/wuhunyu/pic-paste/issues/7) |
 | P4-T2 | 重叠拼接、磁盘块与实时预览 | **代码基本完成** | 匹配拒绝/TileStore/实时小窗 #18；[#20](https://github.com/wuhunyu/pic-paste/pull/20) 已按 PID 排除自身窗口；复杂页面与真实无残影效果仍待实测 | [#7](https://github.com/wuhunyu/pic-paste/issues/7) |
-| P4-T3 | 手动滚动失败恢复、拼接纠错、编辑 | **部分实现** | [#23](https://github.com/wuhunyu/pic-paste/pull/23) 失败暂停、人工回滚慢速重试、复用可信锚点；[#21](https://github.com/wuhunyu/pic-paste/pull/21) 可裁剪尾部；**[#24](https://github.com/wuhunyu/pic-paste/pull/24) 提供手动固定页眉/页脚/侧栏裁剪（完整 CI 通过，已合并），[#25](https://github.com/wuhunyu/pic-paste/pull/25) 支持 PNG 圆角；[#26](https://github.com/wuhunyu/pic-paste/pull/26) 已实现完整长图的磁盘补丁标注/撤销重做/流式导出及有界原像素复制/贴图；[#27](https://github.com/wuhunyu/pic-paste/pull/27) 新增小范围动态像素容错匹配、从指定中间错误段裁尾并重新手动采集，仍缺自动擦除动态像素、保留旧后段的中间原位替换与 50 场景实测**。自动滚动为用户明确取消的需求，不计为缺项 | [#7](https://github.com/wuhunyu/pic-paste/issues/7) |
+| P4-T3 | 手动滚动失败恢复、拼接纠错、编辑 | **部分实现** | [#23](https://github.com/wuhunyu/pic-paste/pull/23) 失败暂停、人工回滚慢速重试、复用可信锚点；[#21](https://github.com/wuhunyu/pic-paste/pull/21) 可裁剪尾部；**[#24](https://github.com/wuhunyu/pic-paste/pull/24) 提供手动固定页眉/页脚/侧栏裁剪（完整 CI 通过，已合并），[#25](https://github.com/wuhunyu/pic-paste/pull/25) 支持 PNG 圆角；[#26](https://github.com/wuhunyu/pic-paste/pull/26) 已实现完整长图的磁盘补丁标注/撤销重做/流式导出及有界原像素复制/贴图；[#27](https://github.com/wuhunyu/pic-paste/pull/27) 新增小范围动态像素容错匹配、从指定中间错误段裁尾并重新手动采集，尚无 50 场景真机验证；自动擦除动画像素、保留后续旧段的安全中间原位替换属于未实现的可选增强（不影响当前安全重拍路径）**。自动滚动为用户明确取消的需求，不计为缺项 | [#7](https://github.com/wuhunyu/pic-paste/issues/7) |
 | P4-T4 | 行流式 PNG/30k–60k 限制 | **代码基本完成** | 行流式 PNG 和 60k/200MP 上限；极端尺寸/内存压力报告缺失 | [#7](https://github.com/wuhunyu/pic-paste/issues/7)、[#10](https://github.com/wuhunyu/pic-paste/issues/10) |
 | P5-T1 | 稳定性、质量、性能验收 | **部分实现** | CI 和统计脚本存在；真实设备 P95/CPU/RSS、400 OCR/50 长截图报告尚无 | [#10](https://github.com/wuhunyu/pic-paste/issues/10) |
 | P5-T2 | Developer ID、公证、正式发布/回滚 | **未开始正式发布** | ad-hoc 开发 ZIP 有；正式 ID、双架构、Developer ID/notarization/Gatekeeper、回滚未完成；Release 0 | [#9](https://github.com/wuhunyu/pic-paste/issues/9) |
@@ -29,31 +29,35 @@
 
 - **R-010：本地手动触发二维码识别**。原任务 20 项的拆分没有列出来，已纳入 [Issue #8](https://github.com/wuhunyu/pic-paste/issues/8)；**未实现**。
 
-## 优先级 / 执行顺序
+## 优先级 / 执行顺序（2026-10-27 对账后）
 
-1. 验证 PR #18 合并后的 `main` CI；修复原生截图视口与长截图小窗潜在互相捕获/遮挡问题；把多屏与系统交互尽可能自动化（[#5](https://github.com/wuhunyu/pic-paste/issues/5)、[#7](https://github.com/wuhunyu/pic-paste/issues/7)）。
-2. 补充贴图手势/选择/穿透模式、缓存预算与原生剪贴板验收（[#6](https://github.com/wuhunyu/pic-paste/issues/6)）。
-3. 完善**手动**长截图的失败暂停/慢速重试、固定区域过滤、分段纠错和长图闭环（[#7](https://github.com/wuhunyu/pic-paste/issues/7)）；**不实现自动滚动**。
-4. 贴图 OCR 词/字符、QR、本地 Add-on 和统计测试（[#8](https://github.com/wuhunyu/pic-paste/issues/8)）。
-5. 真实 macOS 14+ 测试矩阵和质量/性能指标（[#10](https://github.com/wuhunyu/pic-paste/issues/10)）；通过后构建正式签名公证包（[#9](https://github.com/wuhunyu/pic-paste/issues/9)）。
-6. 最后接入 Windows 截图贴图/OCR（[#11](https://github.com/wuhunyu/pic-paste/issues/11)）。
+详细可执行剩余清单见 [REMAINING.md](REMAINING.md)，并以各 Issue 最新验收清单为准。
+
+1. **先补不依赖真机的真实功能缺口**：[#8](https://github.com/wuhunyu/pic-paste/issues/8) 词/字符级 OCR、R-010 本地二维码、独立 Add-on 的接口/版本兼容；维持纯离线与 Lite/Full 降级。
+2. **macOS 原生窗口与交互收口**：[#5](https://github.com/wuhunyu/pic-paste/issues/5) 专用 AppKit NSPanel 方案决策、混合 DPI/Spaces/TCC/热键；[#6](https://github.com/wuhunyu/pic-paste/issues/6) 多贴图 GPU 资源预算、拖动/穿透、PNG Alpha/剪贴板验证。
+3. **完成设备级自动采样和验收证据**：[#10](https://github.com/wuhunyu/pic-paste/issues/10) 30 次冷启动、100 次热键、5 图贴图、400 OCR、[#7](https://github.com/wuhunyu/pic-paste/issues/7) 的至少 50 个真实长截图场景 ≥95%、30k/60k 压力及失败恢复。此前 #18–#27 已实现主要长图代码，但 **CI 不能替代真机验收**。
+4. **完成 macOS 正式发行**：[#9](https://github.com/wuhunyu/pic-paste/issues/9) 正式 Bundle ID、双架构、Developer ID、公证、Gatekeeper、发行和回滚，需苹果证书及 #10 的核心验收。
+5. **最后推进 Windows**：[#11](https://github.com/wuhunyu/pic-paste/issues/11) 原生截图贴图/OCR/打包、性能/系统兼容；Rust core 复用不等于已有 Windows 功能。
+
+**确定不做：** 自动滚动。**PNG-only**、Alpha 透明圆角、离线能力为固定需求；#27 动态像素只在位移匹配中忽略，最终 PNG 保留原始像素。可选的“保留旧后缀中间原位替换”必须具备两侧可信重叠证据，不能作为无证据拼接的默认行为。
 
 更新规则：**代码/PR 是否已合并，以 GitHub 当前状态为准；完成代码 ≠ 满足验收。** 所有阶段关闭时必须附 CI run、设备矩阵、可复测指标和最后的发行证据。
 
 ## 2026-10-27 — P4-T3 incremental delivery
 
 - [x] [PR #25](https://github.com/wuhunyu/pic-paste/pull/25) 长截图复核可按现有圆角半径预览并导出带透明圆角的 PNG，逐行处理避免整图 RGBA 内存分配。Linux 和 macOS 完整 CI [#40432104187](https://github.com/wuhunyu/pic-paste/actions/runs/40432104187) success。
-- [ ] 完整长图的标注 PNG 与有界选区复制/贴图已由 PR #26 完成；中间段纠错、动态页面过滤、真机交互及性能验收仍未完成，P4-T3 继续保持「部分实现」。
+- [x] #26 已完成完整长图标注 PNG 与有界选区复制/贴图；#27 已完成小比例动态像素容错匹配与从指定中间段安全重拍。
+- [ ] 真机交互、50 场景、资源与质量性能验收仍未完成；P4-T3 继续保持「部分实现」。
 
 ## 2026-10-27 — P4-T3 复核编辑闭环（PR #26）
 
 - [x] [PR #26](https://github.com/wuhunyu/pic-paste/pull/26)：磁盘补丁保存各项源像素标注，支持撤销/重做；逐行合成完整 PNG；原像素选区复制/贴图（最多 4MP/4096 px 单边）；保留 PNG-only 与圆角 Alpha。
 - [x] 代码层回归：横纵拼接、叠加标注、马赛克/模糊、撤销/重做、原子无覆盖 PNG 和有界原生像素裁剪；Linux + macOS 完整 [CI #40435034912](https://github.com/wuhunyu/pic-paste/actions/runs/40435034912) success。
-- [ ] 尚无 50 场景真实滚动准确率、macOS 14 多屏/权限与剪贴板真机验收；动态区域过滤及中间段修复另行推进。注意 PR #26 不允许完整 60k 边长长图作为一张贴图常驻 GPU。
+- [ ] 尚无 50 场景真实滚动准确率、macOS 14 多屏/权限与剪贴板真机验收；#27 已补充部分动态容错及安全中间重拍。注意 #26 不允许完整 60k 边长长图作为一张贴图常驻 GPU。
 
 ## 2026-10-27 — P4-T3 动态匹配与可信前缀重拍（PR #27）
 
 - [x] [PR #27](https://github.com/wuhunyu/pic-paste/pull/27)：8 区域位移提议、≥75% 稳定像素匹配共识、重复纹理歧义拒绝；动态内容只影响匹配采样，不清理、不伪造 PNG 原始像素。
 - [x] 中间纠错由用户选择首次出错段，从磁盘保留前缀并放弃全部后缀，以最后完整物理 ROI 为重拍锚点；错误或取消保留可信数据。对大数量片段锚点单次只打开一个相关文件句柄。
 - [x] 完整 PR [CI #40440066887](https://github.com/wuhunyu/pic-paste/actions/runs/40440066887) success：Linux/macOS 工作区测试、Clippy、Release、OCR Helper 与 Lite/Full 包装；包含纵横动画案例、重复场景拒绝、续采和复核状态测试。
-- [ ] 仍需真实 macOS 上 ≥50 场景滚动验收、真正原位替换并可安全保留后缀的两侧证据协议，以及 macOS 14 多屏、动态网页准确率和资源压力统计。用户明确不需要自动滚动。
+- [ ] 仍需真实 macOS 上 ≥50 场景滚动验收，以及 macOS 14 多屏、动态网页准确率和资源压力统计。可选增强：支持两侧证据的中间原位替换并保留后缀。用户明确不需要自动滚动。

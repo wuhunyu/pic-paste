@@ -1,14 +1,15 @@
 # PicPaste 开发与验收状态
 
-> **记录时点：2026-10-27。** 此文件以 [`main`](https://github.com/wuhunyu/pic-paste/tree/main) 中已合并的代码为依据；原始 v1.2 执行计划的 20 个任务逐项记录在 [TASKS.md](TASKS.md)。**代码完成、自动化测试成功、真机验收通过是三个不同的状态。**
+> **记录时点：2026-10-27。** 此文件以 [`main`](https://github.com/wuhunyu/pic-paste/tree/main) 中已合并的代码为依据；[REMAINING.md](REMAINING.md) 汇总当前七个未关闭 Issue，原始 v1.2 执行计划的 20 个任务逐项记录在 [TASKS.md](TASKS.md)。**代码完成、自动化测试成功、真机验收通过是三个不同的状态。**
 
 ## 当前基线
 
 - 已合并：PR [#1](https://github.com/wuhunyu/pic-paste/pull/1)、[#2](https://github.com/wuhunyu/pic-paste/pull/2)、[#3](https://github.com/wuhunyu/pic-paste/pull/3)、[#12](https://github.com/wuhunyu/pic-paste/pull/12)–[#27](https://github.com/wuhunyu/pic-paste/pull/27)。截至本次核验共 **19 个已合并 PR**。
-- 最新功能合并：[#24 手动长截图固定区域排除](https://github.com/wuhunyu/pic-paste/pull/24)，合并提交 `141767c6fac8915e199231e969ae24a24875511c`，完整 [CI #40317451349](https://github.com/wuhunyu/pic-paste/actions/runs/40317451349) **success**：Linux core、macOS workspace tests/Clippy/Release、Swift OCR IPC、Lite/Full 开发包。此前 [#23](https://github.com/wuhunyu/pic-paste/pull/23) 手动失败恢复 [CI #40314126081](https://github.com/wuhunyu/pic-paste/actions/runs/40314126081) success。
+- 最新功能合并：[#27 动态区域容错匹配与安全中间段重拍](https://github.com/wuhunyu/pic-paste/pull/27)，合并提交 `b343f6f68c774dfde14e4ad0bea88636baa274f5`；完整 [PR CI #40440066887](https://github.com/wuhunyu/pic-paste/actions/runs/40440066887) **success**。其后 README/STATUS/TASKS 同步提交 `36e7aa28571da2502e168f1dd50549c84ed2cad4` 的 [main CI #40440845772](https://github.com/wuhunyu/pic-paste/actions/runs/40440845772) **success**（Linux core、macOS workspace tests/Clippy/Release、Swift Vision IPC、Lite/Full 开发包）。
 - #17 合并提交 `7e492a4bb91f6062c225dfb33f524cc51756e556`；[main CI #40297130672](https://github.com/wuhunyu/pic-paste/actions/runs/40297130672) **success**。
-- #23 合并及文档同步后 [main CI #40315393621](https://github.com/wuhunyu/pic-paste/actions/runs/40315393621) **success**；#24 及本次文档同步后的最新 main CI 仍需单独核验。
+- 历史增量：[#23 手动失败恢复](https://github.com/wuhunyu/pic-paste/pull/23)、[#24 手动固定栏排除](https://github.com/wuhunyu/pic-paste/pull/24)、[#25 长图圆角](https://github.com/wuhunyu/pic-paste/pull/25)、[#26 长图标注/贴图](https://github.com/wuhunyu/pic-paste/pull/26) 均已合并；对应测试记录详见各 PR。合并后的主分支 CI 已在 #40440845772 覆盖这些功能。
 - 跟踪 Issues：[#5 原生窗口和多屏](https://github.com/wuhunyu/pic-paste/issues/5)、[#6 标注与贴图](https://github.com/wuhunyu/pic-paste/issues/6)、[#7 长截图](https://github.com/wuhunyu/pic-paste/issues/7)、[#8 OCR/二维码/Add-on](https://github.com/wuhunyu/pic-paste/issues/8)、[#10 真机与性能](https://github.com/wuhunyu/pic-paste/issues/10)、[#9 macOS 正式发布](https://github.com/wuhunyu/pic-paste/issues/9)、[#11 Windows](https://github.com/wuhunyu/pic-paste/issues/11)。[#4](https://github.com/wuhunyu/pic-paste/issues/4) 已关闭。
+- **GitHub Issues：7 个未关闭（#5–#11）。原计划 20 项：8 项代码基本完成、9 项部分实现、3 项未开始（按任务项计数，不是工时或验收完成率）。** 详细剩余任务见 [REMAINING.md](REMAINING.md)。
 - **GitHub Releases：0。** 目前只有 ARM64 Lite/Full ad-hoc 签名开发 ZIP，非正式发行件。
 
 ## 功能现状（截至本次基线）
@@ -42,14 +43,14 @@
 
 - [x] [PR #25](https://github.com/wuhunyu/pic-paste/pull/25) 已合并：长截图复核与 PNG 导出使用已有 0–64 物理像素透明圆角设置；仅逐行更改 Alpha，仍为磁盘分段、流式 PNG、原子防覆盖导出。无圆角时保留原有行为。
 - [x] 新增 PNG 解码像素比较回归、完整 Linux core + macOS CI [#40432104187](https://github.com/wuhunyu/pic-paste/actions/runs/40432104187) **success**。
-- [ ] 真实 macOS 上验证长图透明角、不同缩放与其他应用显示效果；动态内容过滤、中间段纠错、长图全套标注、贴图、50 场景验收仍未完成。
+- [ ] 真实 macOS 上验证长图透明角、不同缩放与其他应用显示效果；长图标注、贴图与安全中间段重拍已分别由 #26/#27 实现，但 50 场景和真机验收仍未完成。
 
 ## 2026-10-27 — PR #26 长图编辑、复制与贴图
 
 - [x] [PR #26](https://github.com/wuhunyu/pic-paste/pull/26) 已合并：长图复核增加线、箭头、画笔、矩形、椭圆、马赛克、模糊、文字标注与撤销/重做；每项标注以 ≤400 万像素磁盘补丁持久化，原始可信块不修改。完整 PNG 以源分辨率逐行合成和导出（带透明圆角）。
 - [x] 可拖选或输入 X/Y/宽/高复制或创建贴图，输出无压缩、无静默降采样；上限 400 万像素/单边 4096 像素。超限显式拒绝，不声称支持整张 60000px 的原生贴图或剪贴板。
 - [x] 纵横长截图、重叠标注、撤销/重做、PNG 原子防覆盖、原像素选区与错误边界自动回归。完整 PR [CI #40435034912](https://github.com/wuhunyu/pic-paste/actions/runs/40435034912) **success**（Linux/macOS 单元测试、Clippy、Release、Swift Vision IPC、Lite/Full 开发包）。
-- [ ] 真机交互、原生应用剪贴板兼容、贴图焦点、动态内容过滤、中间分段修复、50 场景长截图验收和真实性能预算仍待完成。原计划 P4-T3 保持「部分实现」，不得把 CI 视作设备验收。
+- [ ] 真机交互、原生应用剪贴板兼容、贴图焦点、50 场景长截图和真实性能预算仍待完成。动态内容容错匹配及从中间段重拍已由 #27 实现；原位保留后续旧段的拼接属于可选增强，未实现。P4-T3 保持「部分实现」，不得把 CI 视作设备验收。
 
 ## 2026-10-27 — PR #27 动态内容容错匹配与中间段重拍
 
