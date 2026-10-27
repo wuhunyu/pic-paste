@@ -64,8 +64,8 @@ mod native {
 #[cfg(target_os = "macos")]
 mod native {
     use super::PanelSurfaceSize;
-    use super::panel_egui::{ProbeEgui, ProbeViewport};
     use super::glass_toolbar::ProbeGlassToolbar;
+    use super::panel_egui::{ProbeEgui, ProbeViewport};
     use objc2::{MainThreadMarker, MainThreadOnly};
     use objc2_app_kit::{
         NSApplication, NSBackingStoreType, NSEventMask, NSEventType, NSPanel, NSWindowStyleMask,
@@ -194,9 +194,7 @@ mod native {
                             | NSEventType::RightMouseDown
                             | NSEventType::OtherMouseDown
                     );
-                    if !pointer_down
-                        || !glass_toolbar.contains_pointer(&event, &content_view)
-                    {
+                    if !pointer_down || !glass_toolbar.contains_pointer(&event, &content_view) {
                         egui_ui.on_event(&event, &panel, &content_view);
                     }
                     application.sendEvent(&event);

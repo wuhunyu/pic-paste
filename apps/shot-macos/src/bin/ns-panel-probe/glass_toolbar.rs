@@ -7,8 +7,8 @@ use objc2::runtime::AnyClass;
 use objc2::{MainThreadMarker, MainThreadOnly};
 use objc2_app_kit::{
     NSBox, NSBoxType, NSColor, NSEvent, NSGlassEffectView, NSTextField, NSView,
-    NSVisualEffectBlendingMode, NSVisualEffectMaterial, NSVisualEffectState,
-    NSVisualEffectView, NSWorkspace,
+    NSVisualEffectBlendingMode, NSVisualEffectMaterial, NSVisualEffectState, NSVisualEffectView,
+    NSWorkspace,
 };
 use objc2_foundation::{NSPoint, NSProcessInfo, NSRect, NSSize, ns_string};
 use shot_core::glass_toolbar::{FloatingBarFrame, GlassMaterial, select_glass_material};
@@ -35,10 +35,7 @@ pub(crate) struct ProbeGlassToolbar {
 impl ProbeGlassToolbar {
     pub(crate) fn new(mtm: MainThreadMarker, host: &NSView) -> Self {
         let material = current_material();
-        let local_rect = NSRect::new(
-            NSPoint::new(0.0, 0.0),
-            NSSize::new(BAR_WIDTH, BAR_HEIGHT),
-        );
+        let local_rect = NSRect::new(NSPoint::new(0.0, 0.0), NSSize::new(BAR_WIDTH, BAR_HEIGHT));
         let content = NSView::initWithFrame(NSView::alloc(mtm), local_rect);
         let text = match material {
             GlassMaterial::Native => ns_string!("PicPaste · Liquid Glass"),
@@ -57,19 +54,15 @@ impl ProbeGlassToolbar {
         // would need an NSGlassEffectContainerView to combine sampling.
         let view: Retained<NSView> = match material {
             GlassMaterial::Native => {
-                let glass = NSGlassEffectView::initWithFrame(
-                    NSGlassEffectView::alloc(mtm),
-                    local_rect,
-                );
+                let glass =
+                    NSGlassEffectView::initWithFrame(NSGlassEffectView::alloc(mtm), local_rect);
                 glass.setCornerRadius(22.0);
                 glass.setContentView(Some(&content));
                 glass.into_super()
             }
             GlassMaterial::Vibrancy => {
-                let visual = NSVisualEffectView::initWithFrame(
-                    NSVisualEffectView::alloc(mtm),
-                    local_rect,
-                );
+                let visual =
+                    NSVisualEffectView::initWithFrame(NSVisualEffectView::alloc(mtm), local_rect);
                 visual.setMaterial(NSVisualEffectMaterial::Popover);
                 visual.setBlendingMode(NSVisualEffectBlendingMode::WithinWindow);
                 visual.setState(NSVisualEffectState::FollowsWindowActiveState);
@@ -114,8 +107,7 @@ impl ProbeGlassToolbar {
             return false;
         }
         let bounds = host.bounds();
-        let Some(frame) =
-            FloatingBarFrame::for_content_size(bounds.size.width, bounds.size.height)
+        let Some(frame) = FloatingBarFrame::for_content_size(bounds.size.width, bounds.size.height)
         else {
             return false;
         };
