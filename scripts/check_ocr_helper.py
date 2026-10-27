@@ -60,7 +60,7 @@ def main(helper: str) -> None:
         timeout=5, check=False
     )
     assert capability.returncode == 0, capability.stderr
-    assert capability.stdout == b"PICPASTE-OCR-ADDON/1 SHOC/1\\n", capability.stdout
+    assert capability.stdout == b"PICPASTE-OCR-ADDON/1 SHOC/1\n", capability.stdout
 
     invalid = b"NOPE" + struct.pack("<III", 1, 2, 2) + bytes(16)
     answer = call(helper, invalid, expected_success=False)
