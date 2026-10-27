@@ -25,11 +25,19 @@ fn team_identifier(report: &str) -> Option<&str> {
     .then_some(team)
 }
 
+fn developer_id_application(report: &str) -> bool {
+    report
+        .lines()
+        .any(|line| line.starts_with("Authority=Developer ID Application: "))
+}
+
 fn matching_team_ids(app_info: &str, helper_info: &str) -> bool {
-    matches!(
-        (team_identifier(app_info), team_identifier(helper_info)),
-        (Some(app), Some(helper)) if app == helper
-    )
+    developer_id_application(app_info)
+        && developer_id_application(helper_info)
+        && matches!(
+            (team_identifier(app_info), team_identifier(helper_info)),
+            (Some(app), Some(helper)) if app == helper
+        )
 }
 
 fn compatible(reply: &[u8]) -> bool {
@@ -191,13 +199,19 @@ mod tests {
 
     #[test]
     fn only_the_same_nonempty_developer_team_is_accepted() {
-        let app = "Identifier=com.picpaste.app\nTeamIdentifier=A1B2C3D4E5\n";
-        let valid = "TeamIdentifier=A1B2C3D4E5\n";
-        let foreign = "TeamIdentifier=F6G7H8J9K0\n";
+        let app = "Authority=Developer ID Application: Host (A1B2C3D4E5)\nTeamIdentifier=A1B2C3D4E5\n";
+        let valid = "Authority=Developer ID Application: AddOn (A1B2C3D4E5)\nTeamIdentifier=A1B2C3D4E5\n";
+        let foreign = "Authority=Developer ID Application: Other (F6G7H8J9K0)\nTeamIdentifier=F6G7H8J9K0\n";
         assert!(matching_team_ids(app, valid));
         assert!(!matching_team_ids(app, foreign));
-        assert_eq!(team_identifier("TeamIdentifier=A1B2C3D4E5\n"), Some("A1B2C3D4E5"));
+        assert_eq!(
+            team_identifier("TeamIdentifier=A1B2C3D4E5\n"),
+            Some("A1B2C3D4E5")
+        );
         assert_eq!(team_identifier("TeamIdentifier=A1B2-C3D4\n"), None);
+        let apple_development =
+            "Authority=Apple Development: Host (A1B2C3D4E5)\nTeamIdentifier=A1B2C3D4E5\n";
+        assert!(!matching_team_ids(app, apple_development));
     }
 
     #[test]
