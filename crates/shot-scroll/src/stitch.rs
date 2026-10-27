@@ -37,13 +37,7 @@ fn pixel_index(frame: &RgbaFrame, axis: ScrollAxis, movement: usize, cross: usiz
     (y * frame.width as usize + x) * 4
 }
 
-fn lane_hash(
-    frame: &RgbaFrame,
-    axis: ScrollAxis,
-    movement: usize,
-    from: usize,
-    to: usize,
-) -> u64 {
+fn lane_hash(frame: &RgbaFrame, axis: ScrollAxis, movement: usize, from: usize, to: usize) -> u64 {
     let mut hash = 0xcbf2_9ce4_8422_2325_u64;
     let stride = (to - from).div_ceil(10).max(1);
     for cross in (from..to).step_by(stride) {
@@ -194,8 +188,7 @@ pub fn match_scroll_frame(previous: &RgbaFrame, next: &RgbaFrame, axis: ScrollAx
 
     let best = ranked.first()?;
     if let Some(runner_up) = ranked.get(1)
-        && best.quality.stable_fraction - runner_up.quality.stable_fraction
-            < MIN_AMBIGUITY_FRACTION
+        && best.quality.stable_fraction - runner_up.quality.stable_fraction < MIN_AMBIGUITY_FRACTION
         && runner_up.quality.stable_error - best.quality.stable_error < 2.0
     {
         return None;

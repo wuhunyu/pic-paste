@@ -75,13 +75,52 @@ impl Drop for ScrollCaptureControl {
     }
 }
 
+/// Physical display-local target selected before the first capture.
+/// Keep it immutable across a middle retake so exclusions are not applied twice.
+#[derive(Clone, Copy, Debug)]
+pub struct ScrollTarget {
+    pub display: DisplayId,
+    pub roi: RectPx,
+    pub axis: ScrollAxis,
+}
+
 /// A trusted, still-editable draft. Temporary strips survive until
 /// the user explicitly saves or discards this review.
 pub struct ScrollReview {
+    pub target: ScrollTarget,
     pub store: TileStore,
     pub edits: EditStack,
     pub preview: RgbaFrame,
     pub partial: bool,
+}
+
+impl ScrollReview {
+    /// Safely repair a suspect middle segment by removing that segment and
+    /// its entire suffix. Never splice later strips without fresh evidence.
+    pub fn retake_prefix(&mut self, keep_count: usize) -> Result<RgbaFrame, String> {
+        let total = self.store.strip_count();
+        if keep_count == 0 || keep_count >= total {
+            return Err(String::from("重拍位置无效：必须保留至少第一段并移除一个后续片段"));
+        }
+        if self.edits.applied_len() != 0 {
+            return Err(String::from("先撤销所有标注，再进行几何拼接纠错"));
+        }
+        // A failed truncation still returns the partially trusted source review.
+        self.partial = true;
+        self.edits.clear();
+        self.store
+            .keep_first(keep_count)
+            .map_err(|error| format!("无法裁剪不可信后缀：{error}"))?;
+        let anchor = self
+            .store
+            .last_viewport()
+            .map_err(|error| format!("无法从已确认的片段恢复原始视口：{error}"))?;
+        self.preview = self
+            .store
+            .preview(720, 900)
+            .map_err(|error| format!("无法重建可信前缀预览：{error}"))?;
+        Ok(anchor)
+    }
 }
 
 pub enum ScrollEvent {
@@ -96,6 +135,8 @@ pub enum ScrollEvent {
         height: u32,
     },
     RecoveryResumed,
+    /// Unlike a fresh capture, failed retakes return the trusted prefix to UI.
+    RetakeFailed { review: ScrollReview, error: String },
     Finished(Result<Option<ScrollReview>, String>),
 }
 
@@ -123,49 +164,24 @@ pub fn export_review(review: &ScrollReview, radius: u32) -> Result<PathBuf, Stri
     Ok(path)
 }
 
-fn capture_loop(
-    display: DisplayId,
-    roi: RectPx,
-    axis: ScrollAxis,
+/// Shared manual worker for a fresh screenshot and for a trusted middle
+/// retake. On retake failures, never drop the user's disk-backed prefix.
+fn capture_from_anchor(
+    mut review: ScrollReview,
+    mut previous: RgbaFrame,
     sender: &Sender<ScrollEvent>,
     command: &AtomicU8,
     live_preview: &LatestPreview,
     wake: &egui::Context,
-) -> Result<Option<ScrollReview>, String> {
-    // The main viewport is hidden before this delay. A new frame is taken
-    // rather than trusting the earlier selection screenshot as the first tile.
-    thread::sleep(Duration::from_millis(270));
-    if command.load(Ordering::SeqCst) == CANCEL {
-        return Ok(None);
-    }
-
+    resumed_from_prefix: bool,
+) -> Result<Option<ScrollReview>, (String, ScrollReview)> {
     let mut capturer = MacCapture::new();
-    let first = capturer
-        .capture_region(display, roi)
-        .map_err(|error| format!("initial capture failed: {error:?}"))?;
-    let mut store = TileStore::new(&first.image, axis, &std::env::temp_dir())
-        .map_err(|error| format!("cannot start scroll tile store: {error}"))?;
-    let mut previous = first.image;
-    // Publish the first trusted region so the user can see a preview before
-    // the first wheel event. Its size stays bounded regardless of canvas size.
-    if let Ok(image) = store.preview(420, 600) {
-        live_preview.publish(image);
-        let (width, height) = store.canvas();
-        let _ = sender.send(ScrollEvent::Progress {
-            segments: store.strip_count(),
-            width,
-            height,
-        });
-        wake.request_repaint();
-    }
     let mut recovery = RecoveryTracker::default();
-    let mut partial = false;
+    let mut partial = review.partial;
     loop {
         match command.load(Ordering::SeqCst) {
             FINISH | CANCEL => break,
             PAUSED => {
-                // Keep trusted frames on disk without taking any screenshots.
-                // The user can scroll backward while the preview stays passive.
                 thread::sleep(Duration::from_millis(100));
                 continue;
             }
@@ -181,75 +197,140 @@ fn capture_loop(
                 continue;
             }
             RUNNING => {}
-            _ => return Err(String::from("invalid manual scroll command")),
+            _ => return Err((String::from("invalid manual scroll command"), review)),
         }
         thread::sleep(Duration::from_millis(260));
         if command.load(Ordering::SeqCst) != RUNNING {
             continue;
         }
-        let next = capturer
-            .capture_region(display, roi)
-            .map_err(|error| format!("continuous capture failed: {error:?}"))?;
+        let next = match capturer.capture_region(review.target.display, review.target.roi) {
+            Ok(frame) => frame,
+            Err(error) => {
+                return Err((format!("连续长图采集失败：{error:?}"), review));
+            }
+        };
         if command.load(Ordering::SeqCst) != RUNNING {
             continue;
         }
         if next.image.rgba == previous.rgba {
-            // No motion: neither create duplicate strips nor increase failures.
             let _ = recovery.observe(FrameObservation::Unchanged);
             continue;
         }
-        if let Some(displacement) = match_scroll_frame(&previous, &next.image, axis) {
-            match store.append(&next.image, displacement) {
+        if let Some(displacement) =
+            match_scroll_frame(&previous, &next.image, review.target.axis)
+        {
+            match review.store.append(&next.image, displacement) {
                 Ok(()) => {
                     previous = next.image;
                     let _ = recovery.observe(FrameObservation::Matched);
-                    if let Ok(image) = store.preview(420, 600) {
+                    // Once a trusted positive displacement is re-established,
+                    // the old discarded suffix no longer marks this as partial.
+                    if resumed_from_prefix {
+                        partial = false;
+                    }
+                    if let Ok(image) = review.store.preview(420, 600) {
                         live_preview.publish(image);
                     }
-                    let (width, height) = store.canvas();
+                    let (width, height) = review.store.canvas();
                     let _ = sender.send(ScrollEvent::Progress {
-                        segments: store.strip_count(),
+                        segments: review.store.strip_count(),
                         width,
                         height,
                     });
                     wake.request_repaint();
                 }
                 Err(error) if error.kind() == std::io::ErrorKind::InvalidInput => {
-                    // Size limit or invalid append: preserve a partial trusted result.
                     partial = true;
                     break;
                 }
-                Err(error) => return Err(format!("scroll tile write failed: {error}")),
+                Err(error) => {
+                    return Err((format!("写入长图可信片段失败：{error}"), review));
+                }
             }
         } else if recovery.observe(FrameObservation::Untrusted) == RecoveryDecision::Pause
             && command
                 .compare_exchange(RUNNING, PAUSED, Ordering::SeqCst, Ordering::SeqCst)
                 .is_ok()
         {
-            // Keep the last trusted frame and all previous strips. The user
-            // must backtrack and explicitly request slow manual retry.
-            let (width, height) = store.canvas();
+            let (width, height) = review.store.canvas();
             let _ = sender.send(ScrollEvent::RecoveryNeeded {
-                segments: store.strip_count(),
+                segments: review.store.strip_count(),
                 width,
                 height,
             });
             wake.request_repaint();
         }
     }
-    if command.load(Ordering::SeqCst) == CANCEL {
-        // Dropping TileStore removes its private raw strips. No PNG is emitted.
+
+    if command.load(Ordering::SeqCst) == CANCEL && !resumed_from_prefix {
+        // Fresh cancellation discards the new draft as before.
         return Ok(None);
     }
+    if command.load(Ordering::SeqCst) == CANCEL {
+        // A cancelled retake must retain the already-verified prefix.
+        partial = true;
+    }
+    review.partial = partial || recovery.needs_partial_review();
+    review.preview = match review.store.preview(720, 900) {
+        Ok(image) => image,
+        Err(error) => {
+            return Err((format!("无法构建长图复核预览：{error}"), review));
+        }
+    };
+    Ok(Some(review))
+}
+
+fn capture_loop(
+    display: DisplayId,
+    roi: RectPx,
+    axis: ScrollAxis,
+    sender: &Sender<ScrollEvent>,
+    command: &AtomicU8,
+    live_preview: &LatestPreview,
+    wake: &egui::Context,
+) -> Result<Option<ScrollReview>, String> {
+    thread::sleep(Duration::from_millis(270));
+    if command.load(Ordering::SeqCst) == CANCEL {
+        return Ok(None);
+    }
+    let mut capturer = MacCapture::new();
+    let first = capturer
+        .capture_region(display, roi)
+        .map_err(|error| format!("initial capture failed: {error:?}"))?;
+    let store = TileStore::new(&first.image, axis, &std::env::temp_dir())
+        .map_err(|error| format!("cannot start scroll tile store: {error}"))?;
     let preview = store
         .preview(720, 900)
-        .map_err(|error| format!("cannot build scroll review thumbnail: {error}"))?;
-    Ok(Some(ScrollReview {
+        .map_err(|error| format!("cannot build initial scroll thumbnail: {error}"))?;
+    let review = ScrollReview {
+        target: ScrollTarget { display, roi, axis },
         store,
         edits: EditStack::default(),
         preview,
-        partial: partial || recovery.needs_partial_review(),
-    }))
+        partial: false,
+    };
+    if let Ok(image) = review.store.preview(420, 600) {
+        live_preview.publish(image);
+        let (width, height) = review.store.canvas();
+        let _ = sender.send(ScrollEvent::Progress {
+            segments: review.store.strip_count(),
+            width,
+            height,
+        });
+        wake.request_repaint();
+    }
+    match capture_from_anchor(
+        review,
+        first.image,
+        sender,
+        command,
+        live_preview,
+        wake,
+        false,
+    ) {
+        Ok(result) => Ok(result),
+        Err((error, _draft)) => Err(error),
+    }
 }
 
 pub fn launch(
@@ -274,6 +355,63 @@ pub fn launch(
             &ctx,
         );
         let _ = sender.send(ScrollEvent::Finished(outcome));
+        ctx.request_repaint();
+    });
+    ScrollCaptureControl {
+        command,
+        live_preview,
+    }
+}
+
+/// Continue after correcting a suspect middle segment. The suffix is
+/// discarded before sampling, but the prior trusted prefix is never lost
+/// to an asynchronous capture error or cancellation.
+pub fn launch_retake(
+    mut review: ScrollReview,
+    keep_count: usize,
+    sender: Sender<ScrollEvent>,
+    ctx: egui::Context,
+) -> ScrollCaptureControl {
+    let command = Arc::new(AtomicU8::new(RUNNING));
+    let worker_command = Arc::clone(&command);
+    let live_preview = LatestPreview::default();
+    let worker_preview = live_preview.clone();
+    thread::spawn(move || {
+        let outcome = if worker_command.load(Ordering::SeqCst) == CANCEL {
+            ScrollEvent::Finished(Ok(Some(review)))
+        } else {
+            match review.retake_prefix(keep_count) {
+                Ok(anchor) => {
+                    if let Ok(image) = review.store.preview(420, 600) {
+                        worker_preview.publish(image);
+                        let (width, height) = review.store.canvas();
+                        let _ = sender.send(ScrollEvent::Progress {
+                            segments: review.store.strip_count(),
+                            width,
+                            height,
+                        });
+                        ctx.request_repaint();
+                    }
+                    // Let the root settings viewport disappear before any
+                    // subsequent capture. Never inject a scrolling gesture.
+                    thread::sleep(Duration::from_millis(270));
+                    match capture_from_anchor(
+                        review,
+                        anchor,
+                        &sender,
+                        &worker_command,
+                        &worker_preview,
+                        &ctx,
+                        true,
+                    ) {
+                        Ok(result) => ScrollEvent::Finished(Ok(result)),
+                        Err((error, review)) => ScrollEvent::RetakeFailed { review, error },
+                    }
+                }
+                Err(error) => ScrollEvent::RetakeFailed { review, error },
+            }
+        };
+        let _ = sender.send(outcome);
         ctx.request_repaint();
     });
     ScrollCaptureControl {
