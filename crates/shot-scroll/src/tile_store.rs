@@ -142,6 +142,60 @@ impl TileStore {
         self.strips.len()
     }
 
+    /// One-based index into the trusted timeline. Return half-open source-pixel
+    /// span along the manually scrolled axis to help locate a suspect segment.
+    pub fn segment_span(&self, segment_one_based: usize) -> Option<(u32, u32)> {
+        let strip = self.strips.get(segment_one_based.checked_sub(1)?)?;
+        let (start, length) = match self.axis {
+            ScrollAxis::Vertical => (strip.start_y, strip.height),
+            ScrollAxis::Horizontal => (strip.start_x, strip.width),
+        };
+        Some((start, start.checked_add(length)?))
+    }
+
+    /// Reconstruct ONLY the last original capture-sized viewport from trusted
+    /// strips. Open one intersecting strip at a time: a 4096-strip session
+    /// must not require 4096 simultaneously open file descriptors.
+    pub fn last_viewport(&self) -> io::Result<RgbaFrame> {
+        let left = self
+            .width
+            .checked_sub(self.source_width)
+            .ok_or_else(|| invalid("trusted scroll viewport width is missing"))?;
+        let top = self
+            .height
+            .checked_sub(self.source_height)
+            .ok_or_else(|| invalid("trusted scroll viewport height is missing"))?;
+        let capacity = u64::from(self.source_width)
+            .checked_mul(u64::from(self.source_height))
+            .and_then(|n| n.checked_mul(4))
+            .and_then(|n| usize::try_from(n).ok())
+            .ok_or_else(|| invalid("invalid native viewport allocation"))?;
+        let mut bytes = vec![0u8; capacity];
+        for strip in &self.strips {
+            let from_x = left.max(strip.start_x);
+            let to_x = self.width.min(strip.start_x + strip.width);
+            let from_y = top.max(strip.start_y);
+            let to_y = self.height.min(strip.start_y + strip.height);
+            if from_x >= to_x || from_y >= to_y {
+                continue;
+            }
+            let mut file = File::open(&strip.path)?;
+            let slice_len = (to_x - from_x) as usize * 4;
+            for y in from_y..to_y {
+                let file_offset = (u64::from(y - strip.start_y) * u64::from(strip.width)
+                    + u64::from(from_x - strip.start_x))
+                    * 4;
+                let output_offset = ((y - top) as usize * self.source_width as usize
+                    + (from_x - left) as usize)
+                    * 4;
+                file.seek(SeekFrom::Start(file_offset))?;
+                file.read_exact(&mut bytes[output_offset..output_offset + slice_len])?;
+            }
+        }
+        RgbaFrame::new(self.source_width, self.source_height, bytes)
+            .map_err(|_| invalid("reconstructed native viewport has invalid dimensions"))
+    }
+
     pub fn working_dir(&self) -> &Path {
         &self.directory
     }

@@ -529,6 +529,28 @@ fn copy_to_clipboard(image: RgbaFrame) -> Result<(), String> {
         .map_err(|e| e.to_string())
 }
 
+/// Live capture thumbnails are always bounded at the TileStore producer.
+/// This does not attempt to upload a full long-image canvas to the GPU.
+fn update_scroll_live_texture(
+    ctx: &egui::Context,
+    frame: &RgbaFrame,
+    texture: &mut Option<egui::TextureHandle>,
+) {
+    let image = egui::ColorImage::from_rgba_unmultiplied(
+        [frame.width as usize, frame.height as usize],
+        &frame.rgba,
+    );
+    if let Some(existing) = texture.as_mut() {
+        existing.set(image, egui::TextureOptions::LINEAR);
+    } else {
+        *texture = Some(ctx.load_texture(
+            "scroll-capture-live-preview",
+            image,
+            egui::TextureOptions::LINEAR,
+        ));
+    }
+}
+
 pub struct PicPasteApp {
     status: String,
     radius: u32,
@@ -562,6 +584,7 @@ pub struct PicPasteApp {
     scroll_control: Option<ScrollCaptureControl>,
     scroll_review: Option<scroll::ScrollReview>,
     scroll_keep_segments: usize,
+    scroll_retake_segment: usize,
     scroll_fixed_bands: FixedBands,
     scroll_preview_pending: Option<RgbaFrame>,
     scroll_preview_texture: Option<egui::TextureHandle>,
@@ -636,6 +659,7 @@ impl PicPasteApp {
             scroll_control: None,
             scroll_review: None,
             scroll_keep_segments: 1,
+            scroll_retake_segment: 2,
             scroll_fixed_bands: FixedBands::default(),
             scroll_preview_pending: None,
             scroll_preview_texture: None,
@@ -1121,6 +1145,48 @@ impl PicPasteApp {
         });
     }
 
+    /// Restart at the first suspect segment using the last verified viewport.
+    /// Later strips are discarded rather than being spliced without proof.
+    fn retake_scroll_review(&mut self, ctx: &egui::Context, first_bad_segment: usize) {
+        if self.processing || self.capturing || self.ocr_waiting || self.scroll_control.is_some() {
+            return;
+        }
+        let Some(review) = self.scroll_review.take() else {
+            return;
+        };
+        let total = review.store.strip_count();
+        if first_bad_segment < 2 || first_bad_segment > total {
+            self.status = String::from("重拍起始段应在第 2 段与最后一段之间");
+            self.scroll_review = Some(review);
+            return;
+        }
+        if review.edits.applied_len() > 0 {
+            self.status = String::from("请先撤销全部标注，再从指定位置重拍后续片段");
+            self.scroll_review = Some(review);
+            return;
+        }
+        self.status = format!(
+            "准备从第 {first_bad_segment} 段重新采集：保留前 {} 段并丢弃之后所有片段；请手动滚回该可信视口附近",
+            first_bad_segment - 1,
+        );
+        self.scroll_control = Some(scroll::launch_retake(
+            review,
+            first_bad_segment - 1,
+            self.scroll_tx.clone(),
+            ctx.clone(),
+        ));
+        self.scroll_share_region = None;
+        self.scroll_preview_pending = None;
+        self.scroll_preview_texture = None;
+        self.scroll_preview_radius = None;
+        self.scroll_drag_anchor = None;
+        self.scroll_brush_points.clear();
+        ctx.send_viewport_cmd_to(
+            egui::ViewportId::ROOT,
+            egui::ViewportCommand::Visible(false),
+        );
+    }
+
     fn trim_scroll_review(&mut self, ctx: &egui::Context, keep_count: usize) {
         if self.processing {
             return;
@@ -1409,6 +1475,17 @@ impl PicPasteApp {
                     self.status =
                         String::from("长截图继续尝试：请慢慢滚动；只有确认重叠才会继续拼接");
                 }
+                ScrollEvent::RetakeFailed { review, error } => {
+                    self.scroll_control.take();
+                    ctx.send_viewport_cmd(egui::ViewportCommand::Visible(true));
+                    ctx.send_viewport_cmd(egui::ViewportCommand::Focus);
+                    let canvas = review.store.canvas();
+                    self.scroll_share_region = Some(default_transfer_rect(canvas));
+                    self.scroll_retake_segment = review.store.strip_count().max(2);
+                    self.scroll_preview_pending = Some(review.preview.clone());
+                    self.scroll_review = Some(review);
+                    self.status = format!("中间段重拍未成功，已保留可信前缀：{error}");
+                }
                 ScrollEvent::Finished(outcome) => {
                     self.scroll_control.take();
                     ctx.send_viewport_cmd(egui::ViewportCommand::Visible(true));
@@ -1423,6 +1500,7 @@ impl PicPasteApp {
                                 "采集结束"
                             };
                             self.scroll_keep_segments = segments.saturating_sub(1).max(1);
+                            self.scroll_retake_segment = segments.max(2);
                             self.scroll_preview_pending = Some(review.preview.clone());
                             self.scroll_share_region = Some(default_transfer_rect((width, height)));
                             self.scroll_tool = Tool::Select;
@@ -1457,7 +1535,15 @@ impl PicPasteApp {
                 std::mem::take(&mut self.pending_window_candidates),
             ));
         }
-        let has_new_review = self.scroll_preview_pending.take().is_some();
+        let incoming_preview = self.scroll_preview_pending.take();
+        let has_new_review = incoming_preview.is_some();
+        if self.scroll_control.is_some()
+            && let Some(frame) = incoming_preview.as_ref()
+        {
+            // A live capture has no ScrollReview yet: upload the bounded
+            // latest-frame mailbox directly instead of silently dropping it.
+            update_scroll_live_texture(ctx, frame, &mut self.scroll_preview_texture);
+        }
         if let Some(review) = self.scroll_review.as_ref()
             && (has_new_review || self.scroll_preview_radius != Some(self.radius))
         {
@@ -2188,6 +2274,36 @@ impl PicPasteApp {
                         }
                     });
                     ui.label("先撤销标注，再裁剪可信片段；仅裁剪尾部，不强行拼接中间不可信段");
+                    ui.horizontal_wrapped(|ui| {
+                        ui.label("发现中间接缝错误？从第");
+                        self.scroll_retake_segment = self
+                            .scroll_retake_segment
+                            .clamp(2, review.store.strip_count());
+                        ui.add(
+                            egui::DragValue::new(&mut self.scroll_retake_segment)
+                                .range(2..=review.store.strip_count()),
+                        );
+                        ui.label("段开始重拍后续");
+                        if let Some((start, end)) =
+                            review.store.segment_span(self.scroll_retake_segment)
+                        {
+                            let axis_label = match review.target.axis {
+                                ScrollAxis::Vertical => "Y",
+                                ScrollAxis::Horizontal => "X",
+                            };
+                            ui.label(format!("{axis_label} {start}..{end} px"));
+                        }
+                        if ui
+                            .add_enabled(
+                                review.edits.applied_len() == 0,
+                                egui::Button::new("保留可信前缀并重新手动采集"),
+                            )
+                            .clicked()
+                        {
+                            review_action = Some(8);
+                        }
+                    });
+                    ui.label("纠错会丢弃所选段及全部后续段；先手动滚回上一个可信视口，再从原方向慢慢滚动，后段不直接拼接");
                 }
             }
             if let Some(annotation) = new_annotation {
@@ -2202,6 +2318,7 @@ impl PicPasteApp {
                     Some(5) => self.edit_scroll_review(ui.ctx(), ScrollReviewEdit::Redo),
                     Some(6) => self.prepare_scroll_transfer(ui.ctx(), PrepareAction::Copy),
                     Some(7) => self.prepare_scroll_transfer(ui.ctx(), PrepareAction::Pin),
+                    Some(8) => self.retake_scroll_review(ui.ctx(), self.scroll_retake_segment),
                     _ => {}
                 }
             }
@@ -2358,5 +2475,18 @@ mod tests {
             point_to_pixel(&rect, &frame, egui::pos2(170.0, 140.0)),
             (199, 99)
         );
+    }
+    #[test]
+    fn bounded_live_thumbnail_upload_keeps_original_pixel_dimensions() {
+        let ctx = egui::Context::default();
+        let frame = RgbaFrame::new(24, 12, vec![255; 24 * 12 * 4]).unwrap();
+        let mut texture = None;
+        update_scroll_live_texture(&ctx, &frame, &mut texture);
+        let original_id = texture.as_ref().unwrap().id();
+        assert_eq!(texture.as_ref().unwrap().size(), [24, 12]);
+        let changed = RgbaFrame::new(20, 15, vec![42; 20 * 15 * 4]).unwrap();
+        update_scroll_live_texture(&ctx, &changed, &mut texture);
+        assert_eq!(texture.as_ref().unwrap().id(), original_id);
+        assert_eq!(texture.as_ref().unwrap().size(), [20, 15]);
     }
 }
