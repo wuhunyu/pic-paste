@@ -38,7 +38,9 @@ fn bounds(op: &Annotation, canvas: (u32, u32)) -> io::Result<RectPx> {
         )
     };
     let (left, top, right, bottom) = match op {
-        Annotation::Line { from, to, width, .. }
+        Annotation::Line {
+            from, to, width, ..
+        }
         | Annotation::Rectangle {
             top_left: from,
             bottom_right: to,
@@ -65,7 +67,10 @@ fn bounds(op: &Annotation, canvas: (u32, u32)) -> io::Result<RectPx> {
             pair((x0, y0), (x1, y1), f64::from(*width) + 3.0)
         }
         Annotation::Ellipse {
-            center, radius, width, ..
+            center,
+            radius,
+            width,
+            ..
         } => pair(
             (center.0 - radius.0, center.1 - radius.1),
             (center.0 + radius.0, center.1 + radius.1),
@@ -92,10 +97,18 @@ fn bounds(op: &Annotation, canvas: (u32, u32)) -> io::Result<RectPx> {
             )
         }
         Annotation::Pixelate {
-            left, top, width, height, ..
+            left,
+            top,
+            width,
+            height,
+            ..
         }
         | Annotation::Blur {
-            left, top, width, height, ..
+            left,
+            top,
+            width,
+            height,
+            ..
         } => (
             f64::from(*left),
             f64::from(*top),
@@ -116,7 +129,9 @@ fn bounds(op: &Annotation, canvas: (u32, u32)) -> io::Result<RectPx> {
         return Err(invalid("annotation is outside the stitched image"));
     }
     if u64::from(width) * u64::from(height) > MAX_EDIT_PIXELS {
-        return Err(invalid("annotation exceeds 4MP edit patch limit; draw smaller marks"));
+        return Err(invalid(
+            "annotation exceeds 4MP edit patch limit; draw smaller marks",
+        ));
     }
     Ok(RectPx {
         x: x0 as i32,
@@ -131,35 +146,95 @@ fn shift_annotation(op: &Annotation, rect: RectPx) -> Annotation {
     let dy = rect.y as f32;
     let point = |(x, y): (f32, f32)| (x - dx, y - dy);
     match op {
-        Annotation::Line { from, to, rgba, width } => Annotation::Line {
-            from: point(*from), to: point(*to), rgba: *rgba, width: *width,
+        Annotation::Line {
+            from,
+            to,
+            rgba,
+            width,
+        } => Annotation::Line {
+            from: point(*from),
+            to: point(*to),
+            rgba: *rgba,
+            width: *width,
         },
-        Annotation::Arrow { from, to, rgba, width } => Annotation::Arrow {
-            from: point(*from), to: point(*to), rgba: *rgba, width: *width,
+        Annotation::Arrow {
+            from,
+            to,
+            rgba,
+            width,
+        } => Annotation::Arrow {
+            from: point(*from),
+            to: point(*to),
+            rgba: *rgba,
+            width: *width,
         },
-        Annotation::Brush { points, rgba, width } => Annotation::Brush {
+        Annotation::Brush {
+            points,
+            rgba,
+            width,
+        } => Annotation::Brush {
             points: points.iter().copied().map(point).collect(),
-            rgba: *rgba, width: *width,
+            rgba: *rgba,
+            width: *width,
         },
-        Annotation::Rectangle { top_left, bottom_right, rgba, width } => Annotation::Rectangle {
-            top_left: point(*top_left), bottom_right: point(*bottom_right),
-            rgba: *rgba, width: *width,
+        Annotation::Rectangle {
+            top_left,
+            bottom_right,
+            rgba,
+            width,
+        } => Annotation::Rectangle {
+            top_left: point(*top_left),
+            bottom_right: point(*bottom_right),
+            rgba: *rgba,
+            width: *width,
         },
-        Annotation::Ellipse { center, radius, rgba, width } => Annotation::Ellipse {
-            center: point(*center), radius: *radius, rgba: *rgba, width: *width,
+        Annotation::Ellipse {
+            center,
+            radius,
+            rgba,
+            width,
+        } => Annotation::Ellipse {
+            center: point(*center),
+            radius: *radius,
+            rgba: *rgba,
+            width: *width,
         },
-        Annotation::Text { at, content, size, rgba } => Annotation::Text {
-            at: point(*at), content: content.clone(), size: *size, rgba: *rgba,
+        Annotation::Text {
+            at,
+            content,
+            size,
+            rgba,
+        } => Annotation::Text {
+            at: point(*at),
+            content: content.clone(),
+            size: *size,
+            rgba: *rgba,
         },
-        Annotation::Pixelate { left, top, width, height, block_size } => Annotation::Pixelate {
+        Annotation::Pixelate {
+            left,
+            top,
+            width,
+            height,
+            block_size,
+        } => Annotation::Pixelate {
             left: left.saturating_sub(rect.x as u32),
             top: top.saturating_sub(rect.y as u32),
-            width: *width, height: *height, block_size: *block_size,
+            width: *width,
+            height: *height,
+            block_size: *block_size,
         },
-        Annotation::Blur { left, top, width, height, radius } => Annotation::Blur {
+        Annotation::Blur {
+            left,
+            top,
+            width,
+            height,
+            radius,
+        } => Annotation::Blur {
             left: left.saturating_sub(rect.x as u32),
             top: top.saturating_sub(rect.y as u32),
-            width: *width, height: *height, radius: *radius,
+            width: *width,
+            height: *height,
+            radius: *radius,
         },
     }
 }
@@ -170,13 +245,17 @@ impl EditStack {
     }
 
     pub fn undo(&mut self) -> bool {
-        if self.cursor == 0 { return false; }
+        if self.cursor == 0 {
+            return false;
+        }
         self.cursor -= 1;
         true
     }
 
     pub fn redo(&mut self) -> bool {
-        if self.cursor == self.patches.len() { return false; }
+        if self.cursor == self.patches.len() {
+            return false;
+        }
         self.cursor += 1;
         true
     }
@@ -192,8 +271,7 @@ impl EditStack {
         let rect = bounds(&command, store.canvas())?;
         let source = store.render_edit_region(self, rect)?;
         let translated = shift_annotation(&command, rect);
-        let after = shot_image::composite::composite(&source, &[translated])
-            .map_err(invalid)?;
+        let after = shot_image::composite::composite(&source, &[translated]).map_err(invalid)?;
         let path = store.working_dir().join(format!(
             ".edit-{}-{}.rgba",
             std::process::id(),

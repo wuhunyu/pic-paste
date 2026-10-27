@@ -1,6 +1,6 @@
 use crate::edits::{EditStack, MAX_EDIT_PIXELS};
-use crate::review_transfer::validate_transfer_rect;
 use crate::limits::validate_canvas;
+use crate::review_transfer::validate_transfer_rect;
 use shot_core::{RgbaFrame, platform::ScrollAxis};
 use std::fs::{self, File, OpenOptions};
 use std::io::{self, Read, Seek, SeekFrom, Write};
@@ -301,7 +301,10 @@ impl TileStore {
     }
 
     fn open_strip_readers(&self) -> io::Result<Vec<File>> {
-        self.strips.iter().map(|strip| File::open(&strip.path)).collect()
+        self.strips
+            .iter()
+            .map(|strip| File::open(&strip.path))
+            .collect()
     }
 
     fn fill_row_with_readers(

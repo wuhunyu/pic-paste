@@ -25,7 +25,12 @@ pub fn default_transfer_rect(canvas: (u32, u32)) -> RectPx {
 }
 
 pub fn validate_transfer_rect(rect: RectPx, canvas: (u32, u32)) -> io::Result<()> {
-    let invalid = || io::Error::new(io::ErrorKind::InvalidInput, "invalid native pixel transfer region (4MP / 4096 px per edge)");
+    let invalid = || {
+        io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "invalid native pixel transfer region (4MP / 4096 px per edge)",
+        )
+    };
     if rect.x < 0
         || rect.y < 0
         || rect.width == 0
