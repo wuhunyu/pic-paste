@@ -199,9 +199,12 @@ mod tests {
 
     #[test]
     fn only_the_same_nonempty_developer_team_is_accepted() {
-        let app = "Authority=Developer ID Application: Host (A1B2C3D4E5)\nTeamIdentifier=A1B2C3D4E5\n";
-        let valid = "Authority=Developer ID Application: AddOn (A1B2C3D4E5)\nTeamIdentifier=A1B2C3D4E5\n";
-        let foreign = "Authority=Developer ID Application: Other (F6G7H8J9K0)\nTeamIdentifier=F6G7H8J9K0\n";
+        let app =
+            "Authority=Developer ID Application: Host (A1B2C3D4E5)\nTeamIdentifier=A1B2C3D4E5\n";
+        let valid =
+            "Authority=Developer ID Application: AddOn (A1B2C3D4E5)\nTeamIdentifier=A1B2C3D4E5\n";
+        let foreign =
+            "Authority=Developer ID Application: Other (F6G7H8J9K0)\nTeamIdentifier=F6G7H8J9K0\n";
         assert!(matching_team_ids(app, valid));
         assert!(!matching_team_ids(app, foreign));
         assert_eq!(
