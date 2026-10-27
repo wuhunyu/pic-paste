@@ -112,11 +112,11 @@ fn output_path(partial: bool) -> Result<PathBuf, String> {
 
 /// Publish an explicitly approved long screenshot. Failed exports retain
 /// the source TileStore in the caller, so the user can retry.
-pub fn export_review(review: &ScrollReview) -> Result<PathBuf, String> {
+pub fn export_review(review: &ScrollReview, radius: u32) -> Result<PathBuf, String> {
     let path = output_path(review.partial)?;
     review
         .store
-        .save_png_no_clobber(&path)
+        .save_png_rounded_no_clobber(&path, radius)
         .map_err(|error| format!("scroll PNG export failed: {error}"))?;
     Ok(path)
 }
