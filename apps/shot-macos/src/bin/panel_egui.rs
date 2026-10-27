@@ -3,9 +3,7 @@
 //! Never used by production screenshot, scrolling or pin windows. In
 //! particular, handling direct-key text here is NOT an NSTextInputClient
 //! implementation: marked-text IME composition requires a separate bridge.
-use objc2_app_kit::{
-    NSEvent, NSEventModifierFlags, NSEventType, NSPanel, NSView,
-};
+use objc2_app_kit::{NSEvent, NSEventModifierFlags, NSEventType, NSPanel, NSView};
 use shot_core::native_panel::{PanelPointerPoint, PanelSurfaceSize};
 
 #[derive(Default)]
@@ -20,7 +18,10 @@ impl ProbeControls {
             ui.heading("PicPaste Native Panel");
             ui.label("egui + WGPU Metal / AppKit test");
             ui.separator();
-            if ui.button(format!("Click counter: {}", self.clicks)).clicked() {
+            if ui
+                .button(format!("Click counter: {}", self.clicks))
+                .clicked()
+            {
                 self.clicks = self.clicks.saturating_add(1);
             }
             ui.label("Click the field and type ASCII text:");
@@ -213,6 +214,7 @@ impl ProbeEgui {
                         event.scrollingDeltaY() as f32,
                     ),
                     phase: egui::TouchPhase::Move,
+                    source: egui::MouseWheelSource::Unknown,
                     modifiers: self.modifiers,
                 });
             }
@@ -240,9 +242,7 @@ impl ProbeEgui {
                     && let Some(chars) = event.characters()
                 {
                     let text = chars.to_string();
-                    if !text.is_empty()
-                        && text.is_ascii()
-                        && text.chars().all(|c| !c.is_control())
+                    if !text.is_empty() && text.is_ascii() && text.chars().all(|c| !c.is_control())
                     {
                         self.events.push(egui::Event::Text(text));
                     }
@@ -329,7 +329,11 @@ impl ProbeEgui {
                 .forget_lifetime();
             self.renderer.render(&mut pass, &paint_jobs, &screen);
         }
-        queue.submit(user_commands.into_iter().chain(std::iter::once(encoder.finish())));
+        queue.submit(
+            user_commands
+                .into_iter()
+                .chain(std::iter::once(encoder.finish())),
+        );
         queue.present(frame);
         for id in &output.textures_delta.free {
             self.renderer.free_texture(id);
