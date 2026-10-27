@@ -36,11 +36,11 @@
 
 **Interfaces:** `ocr_addon::external_helper(app_executable: &Path) -> Result<PathBuf, String>`; `team_identifier(text: &str) -> Option<&str>`; `compatible(reply: &[u8]) -> bool`.
 
-- [ ] Write Rust unit tests for missing/adhoc/mismatched Team ID and incompatible handshake; expected positive only with identical non-empty Team ID and exact `PICPASTE-OCR-ADDON/1 SHOC/1\n`.
+- [x] Write Rust unit tests for missing/adhoc/mismatched Team ID and incompatible handshake; expected positive only with identical non-empty Team ID and exact `PICPASTE-OCR-ADDON/1 SHOC/1\n`.
 - [ ] Confirm test is RED from undefined functions, then add module.
-- [ ] Implement fixed location `~/Library/Application Support/PicPaste/AddOns/OCR/PicPasteOCR`, reject symlinked helper/dir, require `codesign --verify --strict` and `codesign --display --verbose=4` for both host app and Add-on.
-- [ ] Implement a bounded 2-second `--addon-info` check before accepting external candidate; reject unknown API or SHOC version.
-- [ ] Connect `ocr.rs` to verified Add-on fallback only if bundled helper is absent; test; commit.
+- [x] Implement fixed location `~/Library/Application Support/PicPaste/AddOns/OCR/PicPasteOCR`, reject symlinked helper/dir, require `codesign --verify --strict` and `codesign --display --verbose=4` for both host app and Add-on.
+- [x] Implement a bounded 2-second `--addon-info` check before accepting external candidate; reject unknown API or SHOC version.
+- [x] Connect `ocr.rs` to verified Add-on fallback only if bundled helper is absent; test; commit.
 
 Verification: `cargo test --workspace --locked`, `cargo clippy --workspace --all-targets --locked -- -D warnings`, macOS CI.
 
@@ -48,9 +48,9 @@ Verification: `cargo test --workspace --locked`, `cargo clippy --workspace --all
 
 **Interfaces:** `PicPasteOCR --addon-info` prints exactly `PICPASTE-OCR-ADDON/1 SHOC/1\n` and exits 0, independent of any SHOC image request.
 
-- [ ] Extend `scripts/check_ocr_helper.py` with a real-process test asserting byte-for-byte capability output; observe RED on current helper before modification.
-- [ ] Add `addonInfo` to the whitelisted Swift helper argument mode; respond without image processing and preserve prior SHOC v1 for OCR/QR.
-- [ ] Run real Swift compilation and IPC tests on the macOS runner; commit.
+- [x] Extend `scripts/check_ocr_helper.py` with a real-process test asserting byte-for-byte capability output; observe RED on current helper before modification.
+- [x] Add `addonInfo` to the whitelisted Swift helper argument mode; respond without image processing and preserve prior SHOC v1 for OCR/QR.
+- [x] Run real Swift compilation and IPC tests on the macOS runner; commit.
 
 Verification: `swiftc -O -target arm64-apple-macos14.0 -framework Vision -framework CoreGraphics -framework Foundation -framework CryptoKit packaging/macos/PicPasteOCR.swift -o target/release/PicPasteOCR`; `python3 scripts/check_ocr_helper.py target/release/PicPasteOCR`.
 
@@ -58,19 +58,19 @@ Verification: `swiftc -O -target arm64-apple-macos14.0 -framework Vision -framew
 
 **Interfaces:** `bash scripts/package-ocr-addon.sh`; `bash scripts/manage-ocr-addon.sh install <PicPaste.app> <PicPasteOCR signed binary>`; `... uninstall`; `... status <PicPaste.app>`.
 
-- [ ] Test missing args, symlink or ad-hoc signed binary refusal, Team ID mismatch, stale/incompatible handshake, and fail-safe reinstall/uninstall.
-- [ ] Package a separately signed helper (Developer ID identity from `PICPASTE_SIGN_IDENTITY`, else ad-hoc dev only) as `PicPaste-OCR-AddOn-macos-<arch>-<type>.zip` and SHA256.
-- [ ] Installer verifies source and its staged copy, requires same nonempty Team ID as the app, validates handshake, writes only the fixed private home path under umask 077, atomically swaps using rollback on errors; never changes app bundle.
-- [ ] Uninstall removes only the owned Add-on helper; status reports installed/missing/invalid. No sudo, no network, no app mutation.
-- [ ] Add macOS CI packaging and test; commit.
+- [x] Test missing args, symlink or ad-hoc signed binary refusal, Team ID mismatch, stale/incompatible handshake, and fail-safe reinstall/uninstall.
+- [x] Package a separately signed helper (Developer ID identity from `PICPASTE_SIGN_IDENTITY`, else ad-hoc dev only) as `PicPaste-OCR-AddOn-macos-<arch>-<type>.zip` and SHA256.
+- [x] Installer verifies source and its staged copy, requires same nonempty Team ID as the app, validates handshake, writes only the fixed private home path under umask 077, atomically swaps using rollback on errors; never changes app bundle.
+- [x] Uninstall removes only the owned Add-on helper; status reports installed/missing/invalid. No sudo, no network, no app mutation.
+- [x] Add macOS CI packaging and test; commit.
 
 Verification: `python3 -m unittest discover -s tests -p 'test_*.py'`, macOS `codesign --verify --strict` packaging smoke; ad-hoc install should fail closed.
 
 ### Task 4: Documentation, CI and delivery
 
-- [ ] Update README/OCR-QR/Issue #8 with version/API and installation usage, distinguishing feature code from real Developer ID and physical-device acceptance.
-- [ ] Run GitHub Actions full Rust + Swift + Python + Lite/Full + independent Add-on packaging. Resolve any CI failures before merge.
-- [ ] Open PR referencing #8; merge only after full CI succeeds, synchronize remaining-task ledger, and keep #8 open for 400-image CER, cancellation and real-device tests.
+- [x] Update README/OCR-QR/Issue #8 with version/API and installation usage, distinguishing feature code from real Developer ID and physical-device acceptance.
+- [x] Run GitHub Actions full Rust + Swift + Python + Lite/Full + independent Add-on packaging. Resolve any CI failures before merge.
+- [x] Open PR referencing #8; merge only after full CI succeeds, synchronize remaining-task ledger, and keep #8 open for 400-image CER, cancellation and real-device tests.
 
 ## Acceptance checks
 
@@ -80,3 +80,9 @@ Verification: `python3 -m unittest discover -s tests -p 'test_*.py'`, macOS `cod
 4. Missing, corrupted, symlinked, foreign-Team, ad-hoc and incompatible Add-ons are never executed.
 5. Installation leaves no partial trusted helper and can be repeated; uninstall does not touch Full or screenshots.
 6. CI passes; no claim of successful Developer ID distribution, notarization, or real macOS 14 acceptance without external certificate/device evidence.
+
+## Completed automation evidence
+
+- PR [#29](https://github.com/wuhunyu/pic-paste/pull/29) squash-merged at `3ec7a56` after full [CI #40456135637](https://github.com/wuhunyu/pic-paste/actions/runs/40456135637) success.
+- Independent development artifact has an ad-hoc signature and intentionally fails standalone trust validation. This does not establish the signed, notarized Developer ID happy path.
+- Real macOS 14+, Apple credentials and end-user installation are still required before the matching-Team positive install acceptance can be checked.

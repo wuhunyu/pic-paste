@@ -28,7 +28,7 @@ Every pinned viewport offers `识别词`, `识别字`, and `识别二维码` wit
 
 ## Current verification and remaining gates
 
-Automated: Rust response bounds, UTF-8 unit selection and polygon hit-testing; macOS workspace tests, Clippy, Swift Helper compile/IPC, empty response and local generated QR sample decoding. These become checked only after a successful complete PR CI.
+Automated: Rust response bounds, UTF-8 unit selection and polygon hit-testing; macOS workspace tests, Clippy, Swift Helper compile/IPC, empty response and local generated QR sample decoding. PR #29 full CI [#40456135637](https://github.com/wuhunyu/pic-paste/actions/runs/40456135637) passed these automated gates, including standalone development packaging and ad-hoc trust refusal.
 
 Still outstanding in Issue #8: real Developer ID–signed standalone Add-on installation and user interaction on macOS 14+, successful notarization/clean-machine Gatekeeper distribution (also #9), at least 400 mixed Chinese/English samples with CER thresholds, cancellation/Helper crashes and real clipboard testing. CI-green is not a physical-device acceptance report.
 

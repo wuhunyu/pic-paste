@@ -13,9 +13,9 @@
 | P1-T3 | PNG-only、透明圆角、剪贴板 | **代码基本完成** | PNG-only 原子保存、⌘S、圆角预览 #16；原生应用剪贴板/色彩/Alpha 未验收 | [#6](https://github.com/wuhunyu/pic-paste/issues/6) |
 | P2-T1 | 多贴图缩放、透明度与资源 | **部分实现** | Pin 视口/缩放/透明度；纹理预算、五图基准缺失 | [#6](https://github.com/wuhunyu/pic-paste/issues/6) |
 | P2-T2 | 贴图模式状态机/异常恢复 | **部分实现** | 穿透恢复和 #22 贴图行级选字/复制及移动/选字/穿透互斥代码已实现；仍需真机拖动/焦点/重启恢复验收 | [#6](https://github.com/wuhunyu/pic-paste/issues/6) |
-| P3-T1 | OCR helper、SHOC、生命周期 | **代码基本完成** | 本机 Swift Vision helper、IPC、超时/退出/签名校验；独立 Add-on 安全加载/安装/打包已在开发分支，需真签名实测 | [#8](https://github.com/wuhunyu/pic-paste/issues/8) |
+| P3-T1 | OCR helper、SHOC、生命周期 | **代码基本完成** | 本机 Swift Vision helper、IPC、超时/退出/签名校验；独立 Add-on 安全加载/安装/打包代码 #29 已合并并通过 CI，需真签名实测 | [#8](https://github.com/wuhunyu/pic-paste/issues/8) |
 | P3-T2 | OCR 行/词选择与 400 图测试 | **部分实现** | 截图与贴图行级选择 (#22) 及词/字符 bbox、离线二维码 (#28)；仍无 400 图 CER 和真实设备证据 | [#8](https://github.com/wuhunyu/pic-paste/issues/8) |
-| P3-T3 | Lite / Full / Add-on 交付 | **部分实现** | Lite/Full 开发包已存在；分支增加单独签名 Add-on ZIP、安装/卸载、Team ID/API 校验；正式证书、签名公证/真实安装未完成 | [#8](https://github.com/wuhunyu/pic-paste/issues/8) |
+| P3-T3 | Lite / Full / Add-on 交付 | **部分实现** | Lite/Full 开发包已存在；PR #29 已增加单独签名 Add-on ZIP、安装/卸载、Team ID/API 校验；正式证书、签名公证/真实安装未完成 | [#8](https://github.com/wuhunyu/pic-paste/issues/8) |
 | P4-T1 | 手动纵向/横向滚动及 ROI | **代码基本完成** | 手动区域采样与纵横方向；[#24](https://github.com/wuhunyu/pic-paste/pull/24) 增加可配置固定边距后再取帧（完整 CI 通过，已合并）；真实网页/文档和鼠标穿透未验收 | [#7](https://github.com/wuhunyu/pic-paste/issues/7) |
 | P4-T2 | 重叠拼接、磁盘块与实时预览 | **代码基本完成** | 匹配拒绝/TileStore/实时小窗 #18；[#20](https://github.com/wuhunyu/pic-paste/pull/20) 已按 PID 排除自身窗口；复杂页面与真实无残影效果仍待实测 | [#7](https://github.com/wuhunyu/pic-paste/issues/7) |
 | P4-T3 | 手动滚动失败恢复、拼接纠错、编辑 | **部分实现** | [#23](https://github.com/wuhunyu/pic-paste/pull/23) 失败暂停、人工回滚慢速重试、复用可信锚点；[#21](https://github.com/wuhunyu/pic-paste/pull/21) 可裁剪尾部；**[#24](https://github.com/wuhunyu/pic-paste/pull/24) 提供手动固定页眉/页脚/侧栏裁剪（完整 CI 通过，已合并），[#25](https://github.com/wuhunyu/pic-paste/pull/25) 支持 PNG 圆角；[#26](https://github.com/wuhunyu/pic-paste/pull/26) 已实现完整长图的磁盘补丁标注/撤销重做/流式导出及有界原像素复制/贴图；[#27](https://github.com/wuhunyu/pic-paste/pull/27) 新增小范围动态像素容错匹配、从指定中间错误段裁尾并重新手动采集，尚无 50 场景真机验证；自动擦除动画像素、保留后续旧段的安全中间原位替换属于未实现的可选增强（不影响当前安全重拍路径）**。自动滚动为用户明确取消的需求，不计为缺项 | [#7](https://github.com/wuhunyu/pic-paste/issues/7) |
@@ -66,5 +66,5 @@
 ## 2026-10-27 — OCR Add-on 信任边界增量
 
 - [x] [PR #28](https://github.com/wuhunyu/pic-paste/pull/28) 已合并 Vision 原生词/字符定位选择、显式离线二维码，主线 [CI #40453830133](https://github.com/wuhunyu/pic-paste/actions/runs/40453830133) 成功。
-- [ ] 独立 Add-on 研发分支增加固定路径与双端非空 Team ID 检查、严格代码签名、`--addon-info` API 1/SHOC 1 握手、阶段化安装/回滚/卸载和独立 ZIP；必须通过全量 CI、Developer ID 真证书及 macOS 14+ 设备验证，才可从“部分实现”转为验收通过。
+- [ ] PR #29 已合并固定路径与双端非空 Team ID 检查、严格代码签名、`--addon-info` API 1/SHOC 1 握手、阶段化安装/回滚/卸载和独立 ZIP；已通过全量 PR CI #40456135637；仍须 Developer ID 真证书及 macOS 14+ 设备验证，才可从“部分实现”转为验收通过。
 - [ ] 保留 P3-T2 的 400 张 CER 与实际文字/QR 选取交互数据、P5 和 P6 设备/Windows 依赖项。ad-hoc 开发包**不是**可独立安装的可信 Add-on。

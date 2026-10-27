@@ -2,7 +2,7 @@
 
 An offline, macOS-first screenshot and pinned-image utility written in Rust 2024, egui/eframe + wgpu and native ScreenCaptureKit. No Electron or WebView. **Development preview, not a signed/notarized public release.** Windows integration is planned after the macOS acceptance gates.
 
-> **Progress truth:** [Current status](docs/STATUS.md) · [Remaining work / active Issue ledger](docs/REMAINING.md) · [Original 20-task tracker](docs/TASKS.md) · [Open Issues](https://github.com/wuhunyu/pic-paste/issues). This README describes the code on `main`, not work in an unmerged PR. As of 2026-10-27, manual screenshot preview (#18), self-window exclusion (#20), trusted-prefix trimming (#21), pin OCR line picking (#22), slow-scroll recovery (#23), fixed-band exclusion (#24), rounded long PNG (#25), bounded review annotation/copy/pin (#26), animation-tolerant overlap / trusted middle retake (#27), and Vision word/character OCR plus offline QR (#28) are merged with green PR CI. Physical mixed-DPI, Spaces, Screen Recording TCC, native clipboard/pins and performance acceptance remain **unverified**.
+> **Progress truth:** [Current status](docs/STATUS.md) · [Remaining work / active Issue ledger](docs/REMAINING.md) · [Original 20-task tracker](docs/TASKS.md) · [Open Issues](https://github.com/wuhunyu/pic-paste/issues). This README describes the code on `main`, not work in an unmerged PR. As of 2026-10-27, manual screenshot preview (#18), self-window exclusion (#20), trusted-prefix trimming (#21), pin OCR line picking (#22), slow-scroll recovery (#23), fixed-band exclusion (#24), rounded long PNG (#25), bounded review annotation/copy/pin (#26), animation-tolerant overlap / trusted middle retake (#27), Vision word/character OCR plus offline QR (#28), and trusted standalone Add-on code (#29) are merged with green PR CI. Physical mixed-DPI, Spaces, Screen Recording TCC, native clipboard/pins and performance acceptance remain **unverified**.
 
 ## Implemented macOS development workflow
 
@@ -74,7 +74,7 @@ PR [#26](https://github.com/wuhunyu/pic-paste/pull/26) is merged on `main`. The 
 Merged [PR #27](https://github.com/wuhunyu/pic-paste/pull/27) adds eight-lane displacement proposals and an independent stable-pixel consensus (up to 25% changed sample tolerance, with unique-shift ambiguity rejection). Repeated wallpaper, animation-only and oversized dynamic regions remain untrusted. Pixels are excluded **only from matching**, never from saved PNG. The review can select an erroneous segment (2..N), retain exactly the previous trusted prefix, delete the selected segment and its entire suffix, and return to manual capture on the same original physical display/ROI/axis with a reconstructed native viewport anchor. Cancellation or worker errors preserve a reviewable prefix; preview is rebuilt after partial progress. The last-viewport reconstruction opens only intersecting strips, not every strip at once, and the live preview reuses its GPU texture. Full Linux/macOS PR [CI #40440066887](https://github.com/wuhunyu/pic-paste/actions/runs/40440066887) verified automated build/tests. Physical-scene acceptance and in-place safe suffix splicing remain open.
 
 
-## 2026-10-27 — standalone offline OCR Add-on (development preview)
+## 2026-10-27 — standalone offline OCR Add-on (PR #29 merged; dev preview)
 
 Lite can discover only `~/Library/Application Support/PicPaste/AddOns/OCR/PicPasteOCR` when no embedded Helper exists. Before execution, PicPaste checks the signed app and the external executable with Apple's `codesign`, rejects symlinks and **any missing/mismatched Team ID**, and requires the exact `--addon-info` reply `PICPASTE-OCR-ADDON/1 SHOC/1`. Full continues to prefer its own built-in Helper. The user-run installer replaces an Add-on atomically with rollback and supports uninstall/status without sudo or network.
 
@@ -90,3 +90,5 @@ bash scripts/manage-ocr-addon.sh uninstall
 ```
 
 When `PICPASTE_SIGN_IDENTITY` is absent, packaging produces `*-UNSIGNED-DEV.zip` with an ad-hoc signature. This artifact deliberately **fails external install/trust checks**. A proper Developer ID–signed PicPaste app plus a helper signed by the *same Apple Team* is required. The remaining notarization, macOS 14+ Gatekeeper and 400-image OCR/real-device gates are in [Issue #9](https://github.com/wuhunyu/pic-paste/issues/9) / [Issue #10](https://github.com/wuhunyu/pic-paste/issues/10). See [full OCR Add-on instructions](docs/OCR-QR.md).
+
+PR [#29](https://github.com/wuhunyu/pic-paste/pull/29) was merged with full [PR CI #40456135637](https://github.com/wuhunyu/pic-paste/actions/runs/40456135637) success. Signing with a real Apple Developer ID and testing the installed external Add-on on physical macOS remain separate work.

@@ -4,13 +4,13 @@
 
 ## 当前基线
 
-- 已合并：PR [#1](https://github.com/wuhunyu/pic-paste/pull/1)、[#2](https://github.com/wuhunyu/pic-paste/pull/2)、[#3](https://github.com/wuhunyu/pic-paste/pull/3)、[#12](https://github.com/wuhunyu/pic-paste/pull/12)–[#28](https://github.com/wuhunyu/pic-paste/pull/28)。截至本次核验共 **20 个已合并 PR**。
-- 最新主线功能合并：[#28 词/字符原生 Vision OCR 与离线 QR](https://github.com/wuhunyu/pic-paste/pull/28)，合并提交 [`53dee96`](https://github.com/wuhunyu/pic-paste/commit/53dee963abc1d7d67f76171ec54ae98e2937665a)；完整 [main CI #40453830133](https://github.com/wuhunyu/pic-paste/actions/runs/40453830133) **success**。#27 长图动态重拍亦已合并且独立验证。新的 OCR Add-on 安全安装/签名逻辑在分支开发，须以 CI/正式签名证据分别验收。
+- 已合并：PR [#1](https://github.com/wuhunyu/pic-paste/pull/1)、[#2](https://github.com/wuhunyu/pic-paste/pull/2)、[#3](https://github.com/wuhunyu/pic-paste/pull/3)、[#12](https://github.com/wuhunyu/pic-paste/pull/12)–[#29](https://github.com/wuhunyu/pic-paste/pull/29)。截至本次核验共 **21 个已合并 PR**。
+- 最新功能合并：[#29 可信独立 OCR Add-on](https://github.com/wuhunyu/pic-paste/pull/29)，提交 [`3ec7a56`](https://github.com/wuhunyu/pic-paste/commit/3ec7a56092b7ffb43461b5747b16935c3c833ec0)，完整 [PR CI #40456135637](https://github.com/wuhunyu/pic-paste/actions/runs/40456135637) **success**（Linux/macOS、Swift IPC、Lite/Full、独立开发 ZIP 及 ad-hoc 拒绝测试）。#28 OCR/QR 与 #27 长图功能也已合并。**Developer ID 实际安装、公证和真机验收仍未完成。**
 - #17 合并提交 `7e492a4bb91f6062c225dfb33f524cc51756e556`；[main CI #40297130672](https://github.com/wuhunyu/pic-paste/actions/runs/40297130672) **success**。
 - 历史增量：[#23 手动失败恢复](https://github.com/wuhunyu/pic-paste/pull/23)、[#24 手动固定栏排除](https://github.com/wuhunyu/pic-paste/pull/24)、[#25 长图圆角](https://github.com/wuhunyu/pic-paste/pull/25)、[#26 长图标注/贴图](https://github.com/wuhunyu/pic-paste/pull/26) 均已合并；对应测试记录详见各 PR。合并后的主分支 CI 已在 #40440845772 覆盖这些功能。
 - 跟踪 Issues：[#5 原生窗口和多屏](https://github.com/wuhunyu/pic-paste/issues/5)、[#6 标注与贴图](https://github.com/wuhunyu/pic-paste/issues/6)、[#7 长截图](https://github.com/wuhunyu/pic-paste/issues/7)、[#8 OCR/二维码/Add-on](https://github.com/wuhunyu/pic-paste/issues/8)、[#10 真机与性能](https://github.com/wuhunyu/pic-paste/issues/10)、[#9 macOS 正式发布](https://github.com/wuhunyu/pic-paste/issues/9)、[#11 Windows](https://github.com/wuhunyu/pic-paste/issues/11)。[#4](https://github.com/wuhunyu/pic-paste/issues/4) 已关闭。
 - **GitHub Issues：7 个未关闭（#5–#11）。原计划 20 项：8 项代码基本完成、9 项部分实现、3 项未开始（按任务项计数，不是工时或验收完成率）。** 详细剩余任务见 [REMAINING.md](REMAINING.md)。
-- **GitHub Releases：0。** 目前只有 ARM64 Lite/Full ad-hoc 签名开发 ZIP（独立 Add-on 分支也提供 ad-hoc 开发 ZIP），非正式发行件；ad-hoc Add-on 被运行时主动拒绝。
+- **GitHub Releases：0。** 目前只有 ARM64 Lite/Full ad-hoc 签名开发 ZIP（#29 另提供独立 Add-on ad-hoc 开发 ZIP），非正式发行件；ad-hoc Add-on 被运行时主动拒绝。
 
 ## 功能现状（截至本次基线）
 
@@ -19,7 +19,7 @@
 | P0 macOS 截图 | 原生 ScreenCaptureKit 选显示器；负坐标/缩放映射测试；独立无边框 eframe/winit 选区视口；窗口候选单击选区；9×9 像素放大镜/HEX；菜单、可配置 Ctrl+Option+1…9 热键与失败回滚 | 不是专用 AppKit NSPanel；真实多屏/Spaces/不同 TCC 权限、热键冲突、启动/延迟没有验收；[#20](https://github.com/wuhunyu/pic-paste/pull/20) 已在代码层按当前 PID 排除本应用浮窗；真实系统完整排除情况待验收 |
 | P1 标注与 PNG | 线、箭头、画笔、矩形、椭圆、马赛克、模糊、**中英文离线文字**（[#17](https://github.com/wuhunyu/pic-paste/pull/17)）；Undo/Redo；PNG-only 无覆盖原子保存、透明圆角、限定大小的 PNG 缩略图、⌘S 保存（[#16](https://github.com/wuhunyu/pic-paste/pull/16)） | 文字字体回退与跨版本系统覆盖、Native 剪贴板粘贴/色彩/Alpha 真机验证、工具边界压力测试 |
 | P2 多贴图 | 多窗口置顶、缩放、透明度、鼠标穿透和恢复；[#22](https://github.com/wuhunyu/pic-paste/pull/22) 行级、[#28](https://github.com/wuhunyu/pic-paste/pull/28) 词/字符/二维码识别和复制 | GPU 纹理与 5 张贴图帧延迟实测、焦点恢复/拖动及跨 Spaces 真机验收 |
-| P3 OCR | 本地 Vision、SHOC IPC、20s 超时、Lite 降级；#28 原生词/字符 bbox、显式离线 QR；Add-on 固定路径、Team ID/API 验证与安装/卸载代码处于开发分支 | ≥400 张 CER 实测、旋转多码/权限/焦点、Developer ID 真签名安装、公证与真机验收 |
+| P3 OCR | 本地 Vision、SHOC IPC、20s 超时、Lite 降级；#28 原生词/字符 bbox、显式离线 QR；Add-on 固定路径、Developer ID/Team ID/API 验证与安装/卸载代码已通过 #29 CI 并合并 | ≥400 张 CER 实测、旋转多码/权限/焦点、Developer ID 真签名安装、公证与真机验收 |
 | P4 长截图 | 由用户手动纵/横滚动、自动识别可信重叠并拼接；[#23](https://github.com/wuhunyu/pic-paste/pull/23) 连续匹配不可靠时暂停提示，用户手动回滚并在菜单栏继续慢速重试，同一磁盘会话保留可信分段；行流式 PNG、60k/200MP 限制、复核删最后段/保留前 N 段（#21）、实时缩略图（#18）、#25 透明圆角、#26 磁盘补丁标注/撤销重做、复核选区复制与贴图，以及 #27 动态区域稳定像素匹配和从指定中间段重拍后续；[#24](https://github.com/wuhunyu/pic-paste/pull/24) 已实现手动排除上/下固定栏或左/右侧栏（裁剪内容不进入 PNG） | **自动滚动已从需求移除**；自动识别固定栏和自动擦除动画像素仍未实现；#27 可容忍部分动画干扰并安全重拍中间段之后所有片段，但不保留未经验证的后续旧片段；50 场景真机验收仍缺；长图贴图/复制仅支持经过 4MP/4096px 限制的原像素选区 |
 | P5 测试/发布 | macOS CI fmt/test/clippy/release、Swift OCR IPC，Lite/Full 开发包、SHA256；基础 `scripts/bench_report.py` 测试 | P50/P95、RSS/CPU、OLED/Retina/Spaces、TCC、CER、50 场景报告；x86_64、正式 Bundle ID/图标、Developer ID 签名/公证/Gatekeeper、发行和回滚 |
 | P6 Windows | Rust core/platform 接口可复用 | **无 Windows 原生捕获/贴图/OCR/安装包**；按计划在 macOS 验收后开始 |
