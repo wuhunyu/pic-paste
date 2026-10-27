@@ -82,7 +82,7 @@ mod tests {
         let mut expected = RgbaFrame::new(8, 6, vec![200; 8 * 6 * 4]).unwrap();
         rounded_alpha(&mut expected, 3);
         let mut rows = vec![200; 8 * 6 * 4];
-        for (y, row) in rows.chunks_exact_mut(8 * 4).enumerate() {
+        for (y, row) in rows.as_chunks_mut::<32>().0.iter_mut().enumerate() {
             rounded_alpha_row(row, 8, 6, y as u32, 3);
         }
         assert_eq!(rows, expected.rgba);
