@@ -214,7 +214,12 @@ fn capture_from_anchor(
                 continue;
             }
             RUNNING => {}
-            _ => return Err(Box::new((String::from("invalid manual scroll command"), review))),
+            _ => {
+                return Err(Box::new((
+                    String::from("invalid manual scroll command"),
+                    review,
+                )));
+            }
         }
         thread::sleep(Duration::from_millis(260));
         if command.load(Ordering::SeqCst) != RUNNING {
@@ -347,7 +352,7 @@ fn capture_loop(
         Err(boxed) => {
             let (error, _draft) = *boxed;
             Err(error)
-        },
+        }
     }
 }
 
@@ -429,7 +434,7 @@ pub fn launch_retake(
                                 error.push_str(&format!("；{preview_error}"));
                             }
                             ScrollEvent::RetakeFailed { review, error }
-                        },
+                        }
                     }
                 }
                 Err(error) => {
@@ -437,7 +442,7 @@ pub fn launch_retake(
                         let _ = review.refresh_after_retake_failure();
                     }
                     ScrollEvent::RetakeFailed { review, error }
-                },
+                }
             }
         };
         let _ = sender.send(outcome);
@@ -548,10 +553,8 @@ mod tests {
     }
     #[test]
     fn retake_failure_refreshes_preview_after_accepted_new_trusted_strip() {
-        let dir = std::env::temp_dir().join(format!(
-            "picpaste-retake-failure-{}",
-            std::process::id()
-        ));
+        let dir =
+            std::env::temp_dir().join(format!("picpaste-retake-failure-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let frame = |offset: u32| {
             let mut pixels = Vec::new();
@@ -587,12 +590,14 @@ mod tests {
         review.refresh_after_retake_failure().unwrap();
         assert!(review.partial);
         assert_eq!(review.preview.height, 44);
-        assert_eq!(review.preview.rgba, review.store.preview(720, 900).unwrap().rgba);
+        assert_eq!(
+            review.preview.rgba,
+            review.store.preview(720, 900).unwrap().rgba
+        );
         drop(review);
         assert_eq!(std::fs::read_dir(&dir).unwrap().count(), 0);
         std::fs::remove_dir_all(dir).unwrap();
     }
-
 }
 
 /// Scale physical corner radius to a bounded preview using its width.

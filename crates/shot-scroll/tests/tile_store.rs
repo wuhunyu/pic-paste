@@ -268,7 +268,10 @@ fn native_retake_anchor_remains_available_after_hundreds_of_trusted_segments() {
         store.append(&frame(24, 32, 0, index * 2), 2).unwrap();
     }
     assert_eq!(store.strip_count(), 261);
-    assert_eq!(store.last_viewport().unwrap().rgba, frame(24, 32, 0, 520).rgba);
+    assert_eq!(
+        store.last_viewport().unwrap().rgba,
+        frame(24, 32, 0, 520).rgba
+    );
     drop(store);
     assert_eq!(fs::read_dir(&dir).unwrap().count(), 0);
     fs::remove_dir_all(dir).unwrap();
