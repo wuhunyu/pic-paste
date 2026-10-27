@@ -283,5 +283,4 @@ mod tests {
             "egui controls should generate drawable shapes without Metal"
         );
     }
-
 }
