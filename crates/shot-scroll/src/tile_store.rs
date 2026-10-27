@@ -1,3 +1,5 @@
+use crate::edits::{EditStack, MAX_EDIT_PIXELS};
+use crate::review_transfer::validate_transfer_rect;
 use crate::limits::validate_canvas;
 use shot_core::{RgbaFrame, platform::ScrollAxis};
 use std::fs::{self, File, OpenOptions};
@@ -253,6 +255,16 @@ impl TileStore {
     /// The full scroll image remains on disk; scratch memory is one source
     /// scanline plus at most a 1024x1024 RGBA preview. No upscaling is done.
     pub fn preview(&self, max_width: u32, max_height: u32) -> io::Result<RgbaFrame> {
+        self.preview_with_edits(&EditStack::default(), max_width, max_height)
+    }
+
+    /// Sample visible edits while keeping the review preview at <= 1024 px.
+    pub fn preview_with_edits(
+        &self,
+        edits: &EditStack,
+        max_width: u32,
+        max_height: u32,
+    ) -> io::Result<RgbaFrame> {
         if max_width == 0 || max_height == 0 {
             return Err(invalid("empty preview bounds"));
         }
@@ -264,11 +276,14 @@ impl TileStore {
         let out_width = (f64::from(self.width) * scale).floor().max(1.0) as u32;
         let out_height = (f64::from(self.height) * scale).floor().max(1.0) as u32;
         let mut source_row = vec![0u8; self.width as usize * 4];
+        let mut strip_readers = self.open_strip_readers()?;
+        let mut edit_readers = edits.open_readers()?;
         let capacity = out_width as usize * out_height as usize * 4;
         let mut rgba = Vec::with_capacity(capacity);
         for y in 0..out_height {
             let source_y = (u64::from(y) * u64::from(self.height) / u64::from(out_height)) as u32;
-            self.fill_row(source_y, &mut source_row)?;
+            self.fill_row_with_readers(source_y, &mut source_row, &mut strip_readers)?;
+            edits.apply_to_row(source_y, &mut source_row, &mut edit_readers)?;
             for x in 0..out_width {
                 let source_x =
                     (u64::from(x) * u64::from(self.width) / u64::from(out_width)) as usize;
@@ -281,17 +296,78 @@ impl TileStore {
     }
 
     pub fn fill_row(&self, y: u32, out: &mut [u8]) -> io::Result<()> {
-        if y >= self.height || out.len() != self.width as usize * 4 {
+        let mut readers = self.open_strip_readers()?;
+        self.fill_row_with_readers(y, out, &mut readers)
+    }
+
+    fn open_strip_readers(&self) -> io::Result<Vec<File>> {
+        self.strips.iter().map(|strip| File::open(&strip.path)).collect()
+    }
+
+    fn fill_row_with_readers(
+        &self,
+        y: u32,
+        out: &mut [u8],
+        readers: &mut [File],
+    ) -> io::Result<()> {
+        if y >= self.height
+            || out.len() != self.width as usize * 4
+            || readers.len() != self.strips.len()
+        {
             return Err(invalid("invalid tile output row"));
         }
         out.fill(0);
-        for strip in &self.strips {
+        for (strip, file) in self.strips.iter().zip(readers.iter_mut()) {
             if y >= strip.start_y && y < strip.start_y + strip.height {
-                let mut file = File::open(&strip.path)?;
-                read_strip_row(strip, &mut file, y, out)?;
+                read_strip_row(strip, file, y, out)?;
             }
         }
         Ok(())
+    }
+
+    /// Only a bounded native RGBA crop may leave disk storage for clipboard/pins.
+    pub fn render_region_edited(
+        &self,
+        edits: &EditStack,
+        region: shot_core::RectPx,
+        radius: u32,
+    ) -> io::Result<RgbaFrame> {
+        validate_transfer_rect(region, self.canvas())?;
+        let mut frame = self.render_edit_region(edits, region)?;
+        shot_image::rounded_alpha(&mut frame, radius);
+        Ok(frame)
+    }
+
+    /// Read a patch-sized region of the stitched canvas with active edits.
+    /// Unlike the clipboard limit, a thin annotation may span over 4096 px.
+    pub(crate) fn render_edit_region(
+        &self,
+        edits: &EditStack,
+        region: shot_core::RectPx,
+    ) -> io::Result<RgbaFrame> {
+        if region.x < 0
+            || region.y < 0
+            || region.width == 0
+            || region.height == 0
+            || u64::from(region.x as u32) + u64::from(region.width) > u64::from(self.width)
+            || u64::from(region.y as u32) + u64::from(region.height) > u64::from(self.height)
+            || u64::from(region.width) * u64::from(region.height) > MAX_EDIT_PIXELS
+        {
+            return Err(invalid("invalid bounded annotation region"));
+        }
+        let mut rgba = Vec::with_capacity(region.width as usize * region.height as usize * 4);
+        let mut row = vec![0; self.width as usize * 4];
+        let mut strip_readers = self.open_strip_readers()?;
+        let mut edit_readers = edits.open_readers()?;
+        let left = region.x as usize * 4;
+        let right = left + region.width as usize * 4;
+        for y in region.y as u32..(region.y as u32 + region.height) {
+            self.fill_row_with_readers(y, &mut row, &mut strip_readers)?;
+            edits.apply_to_row(y, &mut row, &mut edit_readers)?;
+            rgba.extend_from_slice(&row[left..right]);
+        }
+        RgbaFrame::new(region.width, region.height, rgba)
+            .map_err(|_| invalid("invalid rendered annotation crop"))
     }
 
     /// Stream this canvas into a private .part file, sync it, then atomically
@@ -302,6 +378,15 @@ impl TileStore {
 
     /// Atomic PNG export with physical-pixel rounded alpha; still streams one row.
     pub fn save_png_rounded_no_clobber(&self, destination: &Path, radius: u32) -> io::Result<()> {
+        self.save_png_edited_no_clobber(destination, radius, &EditStack::default())
+    }
+
+    pub fn save_png_edited_no_clobber(
+        &self,
+        destination: &Path,
+        radius: u32,
+        edits: &EditStack,
+    ) -> io::Result<()> {
         if destination.extension().and_then(|value| value.to_str()) != Some("png") {
             return Err(invalid("PNG export only"));
         }
@@ -328,7 +413,7 @@ impl TileStore {
             }
             let file = options.open(&part)?;
             let mut writer = io::BufWriter::new(file);
-            self.encode_png_rounded(&mut writer, radius)?;
+            self.encode_png_with_edits(&mut writer, radius, edits)?;
             writer.flush()?;
             writer.get_ref().sync_all()?;
             drop(writer);
@@ -343,19 +428,21 @@ impl TileStore {
     }
 
     pub fn encode_png_rounded<W: Write>(&self, output: W, radius: u32) -> io::Result<()> {
-        // Reuse open file handles across all output rows.
-        let mut readers: Vec<File> = self
-            .strips
-            .iter()
-            .map(|strip| File::open(&strip.path))
-            .collect::<io::Result<_>>()?;
+        self.encode_png_with_edits(output, radius, &EditStack::default())
+    }
+
+    /// Reuse strip and patch file handles through the entire streaming PNG.
+    pub fn encode_png_with_edits<W: Write>(
+        &self,
+        output: W,
+        radius: u32,
+        edits: &EditStack,
+    ) -> io::Result<()> {
+        let mut readers = self.open_strip_readers()?;
+        let mut edit_readers = edits.open_readers()?;
         shot_image::stream_png::encode_png_rows(output, self.width, self.height, |y, out| {
-            out.fill(0);
-            for (strip, file) in self.strips.iter().zip(readers.iter_mut()) {
-                if y >= strip.start_y && y < strip.start_y + strip.height {
-                    read_strip_row(strip, file, y, out)?;
-                }
-            }
+            self.fill_row_with_readers(y, out, &mut readers)?;
+            edits.apply_to_row(y, out, &mut edit_readers)?;
             shot_image::rounded_alpha_row(out, self.width, self.height, y, radius);
             Ok(())
         })
