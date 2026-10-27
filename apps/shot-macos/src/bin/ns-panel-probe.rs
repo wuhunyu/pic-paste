@@ -94,13 +94,23 @@ mod native {
             .contentView()
             .ok_or("AppKit NSPanel has no content NSView")?;
 
+        // The panel must be on its target screen before reading the actual
+        // Retina backing scale. A hidden panel may report the wrong screen.
+        panel.center();
+        application.finishLaunching();
+        panel.makeKeyAndOrderFront(None);
+        application.activate();
+
         let scale = panel.backingScaleFactor();
         let size = PanelSurfaceSize::from_points(640.0, 360.0, scale)
             .map_err(|error| format!("invalid Metal size: {error:?}"))?;
 
-        let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
+        let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
             backends: wgpu::Backends::METAL,
-            ..Default::default()
+            flags: Default::default(),
+            memory_budget_thresholds: Default::default(),
+            backend_options: Default::default(),
+            display: None,
         });
         let handle = AppKitWindowHandle::new(NonNull::from(content_view.as_ref()).cast());
         // SAFETY: The retained NSView and NSPanel remain alive on the AppKit
@@ -132,14 +142,11 @@ mod native {
             .ok_or("Metal adapter does not support NSPanel surface")?;
         surface.configure(&device, &config);
 
-        panel.center();
-        application.finishLaunching();
-        panel.makeKeyAndOrderFront(None);
-        application.activate();
-
-        let frame = surface
-            .get_current_texture()
-            .map_err(|error| format!("acquire NSPanel Metal frame: {error}"))?;
+        // WGPU 30 returns a detailed enum rather than Result<SurfaceTexture>.
+        let frame = match surface.get_current_texture() {
+            wgpu::CurrentSurfaceTexture::Success(frame) => frame,
+            status => return Err(format!("acquire NSPanel Metal frame: {status:?}")),
+        };
         let texture_view = frame
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
@@ -170,7 +177,7 @@ mod native {
             });
         }
         queue.submit([encoder.finish()]);
-        frame.present();
+        queue.present(frame);
         println!("NSPanel + WGPU Metal frame submitted. Close with Ctrl+C in the terminal.");
         // Manual interactive lifecycle only. We do not claim close/IME/focus
         // correctness until the full NSPanel event bridge is implemented.
