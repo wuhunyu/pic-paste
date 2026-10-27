@@ -9,12 +9,8 @@ fn test_frame() -> CapturedFrame {
 
 #[test]
 fn negative_origin_retina_display_keeps_capture_pixels_local() {
-    let placement = OverlayPlacement::new(
-        DisplayId(42),
-        (-1440.0, -100.0),
-        (1440.0, 900.0),
-    )
-    .unwrap();
+    let placement =
+        OverlayPlacement::new(DisplayId(42), (-1440.0, -100.0), (1440.0, 900.0)).unwrap();
     let frame = test_frame();
     assert_eq!(placement.origin_pt(), (-1440.0, -100.0));
     assert_eq!(frame.display_id, placement.display_id());
@@ -34,17 +30,22 @@ fn negative_origin_retina_display_keeps_capture_pixels_local() {
 fn region_origin_rejects_negative_empty_and_out_of_bounds_rectangles() {
     let frame = test_frame();
     let invalid = [
-        RectPx { x: -1, y: 0, width: 1, height: 1 },
-        RectPx { x: 0, y: -1, width: 1, height: 1 },
-        RectPx { x: 0, y: 0, width: 0, height: 1 },
-        RectPx { x: 0, y: 0, width: 1, height: 0 },
-        RectPx { x: 3, y: 0, width: 2, height: 1 },
-        RectPx { x: 0, y: 2, width: 1, height: 2 },
-        RectPx { x: i32::MAX, y: 0, width: u32::MAX, height: 1 },
+        (-1, 0, 1, 1),
+        (0, -1, 1, 1),
+        (0, 0, 0, 1),
+        (0, 0, 1, 0),
+        (3, 0, 2, 1),
+        (0, 2, 1, 2),
+        (i32::MAX, 0, u32::MAX, 1),
     ];
-    for region in invalid {
+    for (x, y, width, height) in invalid {
         assert_eq!(
-            frame.region_origin_px(region),
+            frame.region_origin_px(RectPx {
+                x,
+                y,
+                width,
+                height,
+            }),
             Err(PlatformError::InvalidInput)
         );
     }
