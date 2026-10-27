@@ -14,14 +14,24 @@ fn bundled_helper() -> Result<std::path::PathBuf, String> {
         .and_then(|macos| macos.parent())
         .ok_or_else(|| String::from("PicPaste must run inside a macOS .app bundle"))?;
     let helper = contents.join("Helpers").join("PicPasteOCR");
-    if !helper.is_file() {
-        return Err(String::from(
-            "OCR 未安装：当前是 Lite 版本。请使用包含离线 OCR 的 Full 版本",
-        ));
+    match std::fs::symlink_metadata(&helper) {
+        Ok(metadata) => {
+            // An invalid Full helper is never replaced with untrusted external
+            // code: fail closed until the app installation is repaired.
+            if metadata.file_type().is_symlink() || !metadata.is_file() {
+                return Err(String::from(
+                    "Full OCR helper 路径无效或为符号链接，拒绝执行",
+                ));
+            }
+        }
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            // Only Lite (no embedded helper) can use the independent Add-on.
+            return crate::ocr_addon::external_helper(&executable);
+        }
+        Err(error) => {
+            return Err(format!("无法读取 Full OCR helper：{error}"));
+        }
     }
-    // Restrict execution to the helper packaged within our signed application.
-    // The future external Add-on flow MUST validate Developer Team ID and
-    // version explicitly; this preview does not execute third-party helpers.
     let status = Command::new("/usr/bin/codesign")
         .arg("--verify")
         .arg("--strict")
@@ -29,7 +39,7 @@ fn bundled_helper() -> Result<std::path::PathBuf, String> {
         .status()
         .map_err(|e| format!("无法校验本地 OCR helper：{e}"))?;
     if !status.success() {
-        return Err(String::from("OCR helper 签名无效，拒绝执行"));
+        return Err(String::from("Full OCR helper 签名无效，拒绝执行"));
     }
     Ok(helper)
 }

@@ -58,6 +58,21 @@ jobs:
         run: PICPASTE_VARIANT=Lite bash scripts/package-macos.sh
       - name: Assemble Full development app
         run: PICPASTE_VARIANT=Full bash scripts/package-macos.sh
+      - name: Validate offline OCR Add-on and build independent dev archive
+        run: |
+          bash -n scripts/manage-ocr-addon.sh
+          bash -n scripts/package-ocr-addon.sh
+          bash scripts/package-ocr-addon.sh
+          codesign --verify --strict dist/OCR-AddOn/PicPasteOCR
+          test "$(dist/OCR-AddOn/PicPasteOCR --addon-info)" = "PICPASTE-OCR-ADDON/1 SHOC/1"
+          bash scripts/manage-ocr-addon.sh status dist/Lite/PicPaste.app
+          # Ad-hoc apps and Add-ons have no Developer Team ID: never trust them.
+          if bash scripts/manage-ocr-addon.sh install dist/Lite/PicPaste.app dist/OCR-AddOn/PicPasteOCR; then
+            echo "ERROR: ad-hoc helper was accepted as a trusted external Add-on" >&2
+            exit 1
+          fi
+          test ! -e "$HOME/Library/Application Support/PicPaste/AddOns/OCR/PicPasteOCR"
+          bash scripts/manage-ocr-addon.sh uninstall
       - name: Upload unsigned development package
         uses: actions/upload-artifact@v4
         with:
@@ -65,4 +80,6 @@ jobs:
           path: |
             dist/PicPaste-macos-*-UNSIGNED-DEV.zip
             dist/PicPaste-macos-*-UNSIGNED-DEV.zip.sha256
+            dist/PicPaste-OCR-AddOn-macos-*-UNSIGNED-DEV.zip
+            dist/PicPaste-OCR-AddOn-macos-*-UNSIGNED-DEV.zip.sha256
           if-no-files-found: error
