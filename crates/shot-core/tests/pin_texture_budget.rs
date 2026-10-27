@@ -15,7 +15,7 @@ fn five_full_hd_pins_fit_and_ninth_distinct_image_is_rejected() {
         }
     }
     assert_eq!(budget.resident_bytes(), 8 * FULL_HD_BYTES);
-    assert!(8 * FULL_HD_BYTES <= MAX_TEXTURE_BYTES);
+    assert!(budget.resident_bytes() <= MAX_TEXTURE_BYTES);
     assert_eq!(
         budget.reserve(9, 1920, 1080, None),
         Err(PinBudgetError::TextureBudgetExceeded)
