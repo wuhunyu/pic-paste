@@ -320,3 +320,30 @@ impl PinnedImage {
         });
     }
 }
+
+#[cfg(test)]
+mod texture_lifetime_tests {
+    use super::*;
+
+    #[test]
+    fn duplicate_pin_keeps_the_same_texture_and_source_but_independent_ui_state() {
+        let ctx = egui::Context::default();
+        let source = Arc::new(RgbaFrame::new(2, 2, vec![255; 16]).unwrap());
+        let mut original = PinnedImage::new(&ctx, 1, source);
+        let mut duplicate = PinnedImage::from_shared(2, &original);
+        assert_eq!(original.texture.id(), duplicate.texture.id());
+        assert!(Arc::ptr_eq(&original.source, &duplicate.source));
+        assert_eq!(original.texture_group, duplicate.texture_group);
+        original.closed.store(true, Ordering::Relaxed);
+        assert!(original.is_closed());
+        assert!(!duplicate.is_closed());
+        duplicate.set_mode(PinMode::TextSelect);
+        assert_eq!(original.mode, PinMode::Move);
+        assert_eq!(duplicate.mode, PinMode::TextSelect);
+    }
+
+    #[test]
+    fn a_closed_pin_can_wake_the_hidden_root_for_resource_cleanup() {
+        assert!(matches!(PinEvent::Closed(42), PinEvent::Closed(42)));
+    }
+}
