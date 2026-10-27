@@ -531,15 +531,24 @@ fn copy_to_clipboard(image: RgbaFrame) -> Result<(), String> {
 
 /// Live capture thumbnails are always bounded at the TileStore producer.
 /// This does not attempt to upload a full long-image canvas to the GPU.
-fn load_scroll_live_texture(ctx: &egui::Context, frame: &RgbaFrame) -> egui::TextureHandle {
-    ctx.load_texture(
-        "scroll-capture-live-preview",
-        egui::ColorImage::from_rgba_unmultiplied(
-            [frame.width as usize, frame.height as usize],
-            &frame.rgba,
-        ),
-        egui::TextureOptions::LINEAR,
-    )
+fn update_scroll_live_texture(
+    ctx: &egui::Context,
+    frame: &RgbaFrame,
+    texture: &mut Option<egui::TextureHandle>,
+) {
+    let image = egui::ColorImage::from_rgba_unmultiplied(
+        [frame.width as usize, frame.height as usize],
+        &frame.rgba,
+    );
+    if let Some(existing) = texture.as_mut() {
+        existing.set(image, egui::TextureOptions::LINEAR);
+    } else {
+        *texture = Some(ctx.load_texture(
+            "scroll-capture-live-preview",
+            image,
+            egui::TextureOptions::LINEAR,
+        ));
+    }
 }
 
 pub struct PicPasteApp {
@@ -1533,7 +1542,7 @@ impl PicPasteApp {
         {
             // A live capture has no ScrollReview yet: upload the bounded
             // latest-frame mailbox directly instead of silently dropping it.
-            self.scroll_preview_texture = Some(load_scroll_live_texture(ctx, frame));
+            update_scroll_live_texture(ctx, frame, &mut self.scroll_preview_texture);
         }
         if let Some(review) = self.scroll_review.as_ref()
             && (has_new_review || self.scroll_preview_radius != Some(self.radius))
@@ -2471,7 +2480,13 @@ mod tests {
     fn bounded_live_thumbnail_upload_keeps_original_pixel_dimensions() {
         let ctx = egui::Context::default();
         let frame = RgbaFrame::new(24, 12, vec![255; 24 * 12 * 4]).unwrap();
-        let texture = load_scroll_live_texture(&ctx, &frame);
-        assert_eq!(texture.size(), [24, 12]);
+        let mut texture = None;
+        update_scroll_live_texture(&ctx, &frame, &mut texture);
+        let original_id = texture.as_ref().unwrap().id();
+        assert_eq!(texture.as_ref().unwrap().size(), [24, 12]);
+        let changed = RgbaFrame::new(20, 15, vec![42; 20 * 15 * 4]).unwrap();
+        update_scroll_live_texture(&ctx, &changed, &mut texture);
+        assert_eq!(texture.as_ref().unwrap().id(), original_id);
+        assert_eq!(texture.as_ref().unwrap().size(), [20, 15]);
     }
 }

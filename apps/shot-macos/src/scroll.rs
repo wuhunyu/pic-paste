@@ -123,6 +123,18 @@ impl ScrollReview {
             .map_err(|error| format!("无法重建可信前缀预览：{error}"))?;
         Ok(anchor)
     }
+
+    /// An asynchronous retake may have appended trusted strips before a later
+    /// ScreenCaptureKit / disk failure. Refresh from source so the recovered
+    /// review never displays an obsolete canvas size or annotation state.
+    fn refresh_after_retake_failure(&mut self) -> Result<(), String> {
+        self.partial = true;
+        self.preview = self
+            .store
+            .preview_with_edits(&self.edits, 720, 900)
+            .map_err(|error| format!("恢复出错后的可信长图预览失败：{error}"))?;
+        Ok(())
+    }
 }
 
 pub enum ScrollEvent {
@@ -179,7 +191,7 @@ fn capture_from_anchor(
     live_preview: &LatestPreview,
     wake: &egui::Context,
     resumed_from_prefix: bool,
-) -> Result<Option<ScrollReview>, (String, ScrollReview)> {
+) -> Result<Option<ScrollReview>, Box<(String, ScrollReview)>> {
     let mut capturer = MacCapture::new();
     let mut recovery = RecoveryTracker::default();
     let mut partial = review.partial;
@@ -202,7 +214,7 @@ fn capture_from_anchor(
                 continue;
             }
             RUNNING => {}
-            _ => return Err((String::from("invalid manual scroll command"), review)),
+            _ => return Err(Box::new((String::from("invalid manual scroll command"), review))),
         }
         thread::sleep(Duration::from_millis(260));
         if command.load(Ordering::SeqCst) != RUNNING {
@@ -211,7 +223,7 @@ fn capture_from_anchor(
         let next = match capturer.capture_region(review.target.display, review.target.roi) {
             Ok(frame) => frame,
             Err(error) => {
-                return Err((format!("连续长图采集失败：{error:?}"), review));
+                return Err(Box::new((format!("连续长图采集失败：{error:?}"), review)));
             }
         };
         if command.load(Ordering::SeqCst) != RUNNING {
@@ -247,7 +259,7 @@ fn capture_from_anchor(
                     break;
                 }
                 Err(error) => {
-                    return Err((format!("写入长图可信片段失败：{error}"), review));
+                    return Err(Box::new((format!("写入长图可信片段失败：{error}"), review)));
                 }
             }
         } else if recovery.observe(FrameObservation::Untrusted) == RecoveryDecision::Pause
@@ -277,7 +289,7 @@ fn capture_from_anchor(
     review.preview = match review.store.preview(720, 900) {
         Ok(image) => image,
         Err(error) => {
-            return Err((format!("无法构建长图复核预览：{error}"), review));
+            return Err(Box::new((format!("无法构建长图复核预览：{error}"), review)));
         }
     };
     Ok(Some(review))
@@ -332,7 +344,10 @@ fn capture_loop(
         false,
     ) {
         Ok(result) => Ok(result),
-        Err((error, _draft)) => Err(error),
+        Err(boxed) => {
+            let (error, _draft) = *boxed;
+            Err(error)
+        },
     }
 }
 
@@ -408,10 +423,21 @@ pub fn launch_retake(
                         true,
                     ) {
                         Ok(result) => ScrollEvent::Finished(Ok(result)),
-                        Err((error, review)) => ScrollEvent::RetakeFailed { review, error },
+                        Err(boxed) => {
+                            let (mut error, mut review) = *boxed;
+                            if let Err(preview_error) = review.refresh_after_retake_failure() {
+                                error.push_str(&format!("；{preview_error}"));
+                            }
+                            ScrollEvent::RetakeFailed { review, error }
+                        },
                     }
                 }
-                Err(error) => ScrollEvent::RetakeFailed { review, error },
+                Err(error) => {
+                    if review.partial {
+                        let _ = review.refresh_after_retake_failure();
+                    }
+                    ScrollEvent::RetakeFailed { review, error }
+                },
             }
         };
         let _ = sender.send(outcome);
@@ -520,6 +546,53 @@ mod tests {
         assert_eq!(std::fs::read_dir(&temp).unwrap().count(), 0);
         std::fs::remove_dir_all(temp).unwrap();
     }
+    #[test]
+    fn retake_failure_refreshes_preview_after_accepted_new_trusted_strip() {
+        let dir = std::env::temp_dir().join(format!(
+            "picpaste-retake-failure-{}",
+            std::process::id()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        let frame = |offset: u32| {
+            let mut pixels = Vec::new();
+            for y in offset..offset + 32 {
+                for x in 0..24 {
+                    let value = ((x * 11 + y * 17) % 251) as u8;
+                    pixels.extend_from_slice(&[value, value, 40, 255]);
+                }
+            }
+            RgbaFrame::new(24, 32, pixels).unwrap()
+        };
+        let mut store = TileStore::new(&frame(0), ScrollAxis::Vertical, &dir).unwrap();
+        store.append(&frame(6), 6).unwrap();
+        let preview = store.preview(720, 900).unwrap();
+        let mut review = ScrollReview {
+            target: ScrollTarget {
+                display: DisplayId(1),
+                roi: RectPx {
+                    x: 0,
+                    y: 0,
+                    width: 24,
+                    height: 32,
+                },
+                axis: ScrollAxis::Vertical,
+            },
+            store,
+            edits: EditStack::default(),
+            preview,
+            partial: false,
+        };
+        review.store.append(&frame(12), 6).unwrap();
+        assert_eq!(review.preview.height, 38);
+        review.refresh_after_retake_failure().unwrap();
+        assert!(review.partial);
+        assert_eq!(review.preview.height, 44);
+        assert_eq!(review.preview.rgba, review.store.preview(720, 900).unwrap().rgba);
+        drop(review);
+        assert_eq!(std::fs::read_dir(&dir).unwrap().count(), 0);
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
 }
 
 /// Scale physical corner radius to a bounded preview using its width.
