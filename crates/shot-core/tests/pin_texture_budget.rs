@@ -76,7 +76,10 @@ fn per_pin_dimensions_and_pixel_limits_reject_unsafe_uploads() {
             Err(error)
         );
     }
-    assert_eq!(PinTextureBudget::validate_dimensions(4000, 1000), Ok(16_000_000));
+    assert_eq!(
+        PinTextureBudget::validate_dimensions(4000, 1000),
+        Ok(16_000_000)
+    );
 }
 
 #[test]
