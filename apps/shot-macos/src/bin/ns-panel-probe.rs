@@ -60,9 +60,7 @@ mod native {
     use objc2_app_kit::{
         NSApplication, NSBackingStoreType, NSEventMask, NSPanel, NSWindowStyleMask,
     };
-    use objc2_foundation::{
-        NSDate, NSDefaultRunLoopMode, NSPoint, NSRect, NSSize, ns_string,
-    };
+    use objc2_foundation::{NSDate, NSDefaultRunLoopMode, NSPoint, NSRect, NSSize, ns_string};
     use raw_window_handle::{AppKitWindowHandle, RawWindowHandle};
     use shot_core::native_panel::{PanelSurfaceLifecycle, PanelSurfaceUpdate};
     use std::ptr::NonNull;
@@ -123,9 +121,7 @@ mod native {
         let panel = NSPanel::initWithContentRect_styleMask_backing_defer(
             NSPanel::alloc(mtm),
             rect,
-            NSWindowStyleMask::Titled
-                | NSWindowStyleMask::Closable
-                | NSWindowStyleMask::Resizable,
+            NSWindowStyleMask::Titled | NSWindowStyleMask::Closable | NSWindowStyleMask::Resizable,
             NSBackingStoreType::Buffered,
             false,
         );
