@@ -316,3 +316,15 @@ mod tests {
         assert_eq!(control.command.load(Ordering::SeqCst), CANCEL);
     }
 }
+
+#[cfg(test)]
+mod rounded_preview_tests {
+    use super::preview_radius;
+    #[test]
+    fn thumbnail_radius_tracks_physical_pixels_without_upscaling() {
+        assert_eq!(preview_radius(0, 100, 100), 0);
+        assert_eq!(preview_radius(16, 200, 100), 8);
+        assert_eq!(preview_radius(64, 60_000, 60), 0);
+        assert_eq!(preview_radius(16, 100, 100), 16);
+    }
+}
