@@ -67,3 +67,64 @@ fn exact_maximum_surface_size_is_allowed() {
         })
     );
 }
+
+
+use shot_core::native_panel::{PanelSurfaceLifecycle, PanelSurfaceUpdate};
+
+#[test]
+fn surface_lifecycle_reconfigures_only_when_physical_size_changes() {
+    let first = PanelSurfaceSize { width: 1280, height: 720 };
+    let mut state = PanelSurfaceLifecycle::new(first);
+    assert_eq!(state.configured_size(), Some(first));
+    assert_eq!(state.observe(640.0, 360.0, 2.0), Ok(PanelSurfaceUpdate::Unchanged));
+    assert_eq!(
+        state.observe(700.0, 360.0, 2.0),
+        Ok(PanelSurfaceUpdate::Reconfigure(PanelSurfaceSize { width: 1400, height: 720 }))
+    );
+    assert_eq!(state.observe(700.0, 360.0, 2.0), Ok(PanelSurfaceUpdate::Unchanged));
+    assert_eq!(
+        state.observe(700.0, 360.0, 1.0),
+        Ok(PanelSurfaceUpdate::Reconfigure(PanelSurfaceSize { width: 700, height: 360 }))
+    );
+}
+
+#[test]
+fn zero_sized_content_suspends_and_restoration_reconfigures() {
+    let initial = PanelSurfaceSize { width: 1280, height: 720 };
+    let mut state = PanelSurfaceLifecycle::new(initial);
+    assert_eq!(state.observe(0.0, 360.0, 2.0), Ok(PanelSurfaceUpdate::Suspended));
+    assert_eq!(state.configured_size(), None);
+    assert_eq!(state.observe(0.0, 360.0, 2.0), Ok(PanelSurfaceUpdate::Suspended));
+    assert_eq!(
+        state.observe(640.0, 360.0, 2.0),
+        Ok(PanelSurfaceUpdate::Reconfigure(initial))
+    );
+}
+
+#[test]
+fn invalid_change_does_not_discard_last_good_surface() {
+    let initial = PanelSurfaceSize { width: 1280, height: 720 };
+    let mut state = PanelSurfaceLifecycle::new(initial);
+    for (w, h, scale) in [
+        (-1.0, 360.0, 2.0),
+        (f64::NAN, 360.0, 2.0),
+        (640.0, 360.0, f64::INFINITY),
+        (9000.0, 360.0, 2.0),
+        (0.0, f64::NAN, 2.0),
+    ] {
+        assert_eq!(state.observe(w, h, scale), Err(PlatformError::InvalidInput));
+        assert_eq!(state.configured_size(), Some(initial));
+    }
+    assert_eq!(state.observe(640.0, 360.0, 2.0), Ok(PanelSurfaceUpdate::Unchanged));
+}
+
+#[test]
+fn closed_panel_never_reconfigures_and_close_is_idempotent() {
+    let initial = PanelSurfaceSize { width: 1280, height: 720 };
+    let mut state = PanelSurfaceLifecycle::new(initial);
+    assert_eq!(state.close(), PanelSurfaceUpdate::Closed);
+    assert_eq!(state.configured_size(), None);
+    assert_eq!(state.close(), PanelSurfaceUpdate::Closed);
+    assert_eq!(state.observe(1000.0, 500.0, 2.0), Ok(PanelSurfaceUpdate::Closed));
+    assert_eq!(state.configured_size(), None);
+}
