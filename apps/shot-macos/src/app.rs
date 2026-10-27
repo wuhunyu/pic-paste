@@ -22,6 +22,7 @@ use shot_ocr_protocol::hit_test::{hit_line_in_capture, selected_text};
 use shot_ocr_protocol::{MAX_RGBA_BYTES, OcrDocument};
 use shot_platform::macos::MacCapture;
 use shot_scroll::fixed_bands::FixedBands;
+use shot_scroll::review_transfer::{default_transfer_rect, map_preview_point, validate_transfer_rect};
 use std::borrow::Cow;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -37,6 +38,10 @@ enum WorkerResult {
     Prepared(PrepareAction, Result<RgbaFrame, String>),
     Saved(Result<PathBuf, String>),
     ScrollSaved(Result<PathBuf, (String, scroll::ScrollReview)>),
+    ScrollPrepared {
+        action: PrepareAction,
+        outcome: Result<(RgbaFrame, scroll::ScrollReview), (String, scroll::ScrollReview)>,
+    },
     ScrollEdited(Result<scroll::ScrollReview, (String, scroll::ScrollReview)>),
     Ocr {
         ticket: OcrTicket,
@@ -53,6 +58,12 @@ enum PrepareAction {
     Save,
     Copy,
     Pin,
+}
+
+enum ScrollReviewEdit {
+    Add(Annotation),
+    Undo,
+    Redo,
 }
 
 struct SelectionView {
@@ -553,6 +564,12 @@ pub struct PicPasteApp {
     scroll_preview_pending: Option<RgbaFrame>,
     scroll_preview_texture: Option<egui::TextureHandle>,
     scroll_preview_radius: Option<u32>,
+    scroll_tool: Tool,
+    scroll_text_buffer: String,
+    scroll_text_size: f32,
+    scroll_drag_anchor: Option<egui::Pos2>,
+    scroll_brush_points: Vec<(f32, f32)>,
+    scroll_share_region: Option<RectPx>,
     menu_rx: Receiver<MenuAction>,
     _menu: Option<MenuBar>,
     quit_requested: bool,
@@ -621,6 +638,12 @@ impl PicPasteApp {
             scroll_preview_pending: None,
             scroll_preview_texture: None,
             scroll_preview_radius: None,
+            scroll_tool: Tool::Select,
+            scroll_text_buffer: String::from("文字"),
+            scroll_text_size: 26.0,
+            scroll_drag_anchor: None,
+            scroll_brush_points: Vec::new(),
+            scroll_share_region: None,
             menu_rx,
             _menu: menu,
             quit_requested: false,
@@ -967,8 +990,86 @@ impl PicPasteApp {
         });
     }
 
+    fn edit_scroll_review(&mut self, ctx: &egui::Context, command: ScrollReviewEdit) {
+        if self.processing {
+            return;
+        }
+        let Some(mut review) = self.scroll_review.take() else {
+            return;
+        };
+        self.processing = true;
+        self.status = String::from("正在处理长图标注并重新生成复核预览…");
+        let sender = self.work_tx.clone();
+        let wake = ctx.clone();
+        thread::spawn(move || {
+            let result = match command {
+                ScrollReviewEdit::Add(annotation) => review
+                    .edits
+                    .apply(&review.store, annotation)
+                    .map_err(|error| format!("添加标注失败：{error}")),
+                ScrollReviewEdit::Undo => {
+                    if review.edits.undo() { Ok(()) }
+                    else { Err(String::from("没有可撤销的标注")) }
+                }
+                ScrollReviewEdit::Redo => {
+                    if review.edits.redo() { Ok(()) }
+                    else { Err(String::from("没有可重做的标注")) }
+                }
+            };
+            let result = result.and_then(|_| {
+                review
+                    .store
+                    .preview_with_edits(&review.edits, 720, 900)
+                    .map_err(|error| format!("重新生成标注预览失败：{error}"))
+            });
+            let event = match result {
+                Ok(image) => {
+                    review.preview = image;
+                    WorkerResult::ScrollEdited(Ok(review))
+                }
+                Err(error) => WorkerResult::ScrollEdited(Err((error, review))),
+            };
+            let _ = sender.send(event);
+            wake.request_repaint();
+        });
+    }
+
+    fn prepare_scroll_transfer(&mut self, ctx: &egui::Context, action: PrepareAction) {
+        if self.processing {
+            return;
+        }
+        let Some(review) = self.scroll_review.take() else {
+            return;
+        };
+        let rect = self
+            .scroll_share_region
+            .unwrap_or_else(|| default_transfer_rect(review.store.canvas()));
+        if let Err(error) = validate_transfer_rect(rect, review.store.canvas()) {
+            self.status = format!("复制/贴图选区无效：{error}");
+            self.scroll_review = Some(review);
+            return;
+        }
+        self.processing = true;
+        self.status = String::from("正在从长图磁盘分块提取原分辨率选区…");
+        let sender = self.work_tx.clone();
+        let wake = ctx.clone();
+        let radius = self.radius;
+        thread::spawn(move || {
+            let outcome = match review.store.render_region_edited(&review.edits, rect, radius) {
+                Ok(image) => Ok((image, review)),
+                Err(error) => Err((format!("提取长图选区失败：{error}"), review)),
+            };
+            let _ = sender.send(WorkerResult::ScrollPrepared { action, outcome });
+            wake.request_repaint();
+        });
+    }
+
     fn undo_scroll_review(&mut self, ctx: &egui::Context) {
         if self.processing {
+            return;
+        }
+        if self.scroll_review.as_ref().is_some_and(|review| review.edits.applied_len() > 0) {
+            self.status = String::from("先撤销所有长图标注，再移除可信片段；片段变化会使标注坐标失效");
             return;
         }
         let Some(mut review) = self.scroll_review.take() else {
@@ -1014,9 +1115,14 @@ impl PicPasteApp {
             self.status = String::from("保留段数无效；只能移除末尾片段，且必须至少保留第一段");
             return;
         }
+        if self.scroll_review.as_ref().is_some_and(|review| review.edits.applied_len() > 0) {
+            self.status = String::from("先撤销所有长图标注，再裁剪可信片段");
+            return;
+        }
         let Some(mut review) = self.scroll_review.take() else {
             return;
         };
+        review.edits.clear();
         self.processing = true;
         self.status = format!("正在保留前 {keep_count} 段并重建缩略图…");
         let sender = self.work_tx.clone();
@@ -1047,6 +1153,9 @@ impl PicPasteApp {
     fn discard_scroll_review(&mut self) {
         // Dropping TileStore removes only its own private tile directory.
         self.scroll_review.take();
+        self.scroll_share_region = None;
+        self.scroll_drag_anchor = None;
+        self.scroll_brush_points.clear();
         self.scroll_keep_segments = 1;
         self.scroll_preview_pending = None;
         self.scroll_preview_texture = None;
@@ -1179,12 +1288,27 @@ impl PicPasteApp {
                         }
                     }
                 }
+                WorkerResult::ScrollPrepared { action, outcome } => {
+                    self.processing = false;
+                    match outcome {
+                        Ok((image, review)) => {
+                            self.scroll_review = Some(review);
+                            self.prepared.push((action, image));
+                            self.status = String::from("已提取长图选区，正在发送至剪贴板或悬浮贴图");
+                        }
+                        Err((error, review)) => {
+                            self.scroll_review = Some(review);
+                            self.status = error;
+                        }
+                    }
+                }
                 WorkerResult::ScrollSaved(outcome) => {
                     self.processing = false;
                     match outcome {
                         Ok(path) => {
                             self.scroll_preview_texture = None;
                             self.scroll_preview_radius = None;
+                            self.scroll_share_region = None;
                             self.scroll_keep_segments = 1;
                             self.status = format!("长图 PNG 已确认保存：{}", path.display());
                         }
@@ -1200,6 +1324,11 @@ impl PicPasteApp {
                         Ok(review) => {
                             self.scroll_keep_segments =
                                 review.store.strip_count().saturating_sub(1).max(1);
+                            if self.scroll_share_region.is_none_or(|rect|
+                                validate_transfer_rect(rect, review.store.canvas()).is_err()
+                            ) {
+                                self.scroll_share_region = Some(default_transfer_rect(review.store.canvas()));
+                            }
                             self.scroll_preview_pending = Some(review.preview.clone());
                             self.status = format!(
                                 "已调整可信片段前缀，当前保留 {} 段",
@@ -1267,9 +1396,13 @@ impl PicPasteApp {
                             };
                             self.scroll_keep_segments = segments.saturating_sub(1).max(1);
                             self.scroll_preview_pending = Some(review.preview.clone());
+                            self.scroll_share_region = Some(default_transfer_rect((width, height)));
+                            self.scroll_tool = Tool::Select;
+                            self.scroll_drag_anchor = None;
+                            self.scroll_brush_points.clear();
                             self.scroll_review = Some(review);
                             format!(
-                                "{prefix}：{segments} 段，{width}×{height}px。请复核后保存或放弃"
+                                "{prefix}：{segments} 段，{width}×{height}px。请复核标注、保存、复制选区或贴图"
                             )
                         }
                         Ok(None) => String::from("已取消长截图，所有临时分块已清理"),
