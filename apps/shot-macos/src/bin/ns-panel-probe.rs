@@ -105,12 +105,8 @@ mod native {
 
         let bounds = content_view.bounds();
         let scale = panel.backingScaleFactor();
-        let size = PanelSurfaceSize::from_points(
-            bounds.size.width,
-            bounds.size.height,
-            scale,
-        )
-        .map_err(|error| format!("invalid initial Metal size: {error:?}"))?;
+        let size = PanelSurfaceSize::from_points(bounds.size.width, bounds.size.height, scale)
+            .map_err(|error| format!("invalid initial Metal size: {error:?}"))?;
 
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
             backends: wgpu::Backends::METAL,
