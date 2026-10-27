@@ -104,10 +104,11 @@ mod native {
         application.activate();
 
         let bounds = content_view.bounds();
+        let scale = panel.backingScaleFactor();
         let size = PanelSurfaceSize::from_points(
             bounds.size.width,
             bounds.size.height,
-            panel.backingScaleFactor(),
+            scale,
         )
         .map_err(|error| format!("invalid initial Metal size: {error:?}"))?;
 
@@ -269,7 +270,7 @@ mod tests {
             )),
             ..Default::default()
         };
-        let output = ctx.run(input, |ctx| controls.ui(ctx));
+        let output = ctx.run_ui(input, |ui| controls.ui(ui));
         assert!(
             !output.shapes.is_empty(),
             "egui controls should generate drawable shapes without Metal"

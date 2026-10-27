@@ -13,8 +13,8 @@ pub(crate) struct ProbeControls {
 }
 
 impl ProbeControls {
-    pub(crate) fn ui(&mut self, ctx: &egui::Context) {
-        egui::CentralPanel::default().show(ctx, |ui| {
+    pub(crate) fn ui(&mut self, root: &mut egui::Ui) {
+        egui::CentralPanel::default().show(root, |ui| {
             ui.heading("PicPaste Native Panel");
             ui.label("egui + WGPU Metal / AppKit test");
             ui.separator();
@@ -281,7 +281,7 @@ impl ProbeEgui {
             viewport.focused = Some(self.focused);
         }
         let controls = &mut self.controls;
-        let output = self.ctx.run(raw, |ctx| controls.ui(ctx));
+        let output = self.ctx.run_ui(raw, |ui| controls.ui(ui));
         let screen = egui_wgpu::ScreenDescriptor {
             size_in_pixels: [size.width, size.height],
             pixels_per_point: output.pixels_per_point,
