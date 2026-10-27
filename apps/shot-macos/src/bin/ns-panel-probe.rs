@@ -70,18 +70,16 @@ mod native {
             MainThreadMarker::new().ok_or("AppKit NSPanel must be created on the main thread")?;
         let application = NSApplication::sharedApplication(mtm);
         let rect = NSRect::new(NSPoint::new(160.0, 160.0), NSSize::new(640.0, 360.0));
-        // SAFETY: MainThreadMarker proves this executes on the AppKit main
-        // thread. This is a newly allocated genuine NSPanel, not a winit
-        // NSWindow whose Objective-C class is being changed in place.
-        let panel = unsafe {
-            NSPanel::initWithContentRect_styleMask_backing_defer(
-                NSPanel::alloc(mtm),
-                rect,
-                NSWindowStyleMask::Titled | NSWindowStyleMask::Closable,
-                NSBackingStoreType::Buffered,
-                false,
-            )
-        };
+        // The MainThreadMarker constrains the initializer to the AppKit
+        // main thread. We create a genuine NSPanel instead of changing the
+        // class of an existing winit-owned NSWindow.
+        let panel = NSPanel::initWithContentRect_styleMask_backing_defer(
+            NSPanel::alloc(mtm),
+            rect,
+            NSWindowStyleMask::Titled | NSWindowStyleMask::Closable,
+            NSBackingStoreType::Buffered,
+            false,
+        );
         // SAFETY: The panel is strongly retained by this function; AppKit
         // must not autorelease it on close while Metal still has a surface.
         unsafe { panel.setReleasedWhenClosed(false) };
