@@ -317,6 +317,14 @@ mod tests {
     }
 }
 
+/// Scale physical corner radius to a bounded preview using its width.
+pub fn preview_radius(radius: u32, canvas_width: u32, preview_width: u32) -> u32 {
+    if canvas_width == 0 || preview_width == 0 {
+        return 0;
+    }
+    (u64::from(radius) * u64::from(preview_width) / u64::from(canvas_width)) as u32
+}
+
 #[cfg(test)]
 mod rounded_preview_tests {
     use super::preview_radius;
