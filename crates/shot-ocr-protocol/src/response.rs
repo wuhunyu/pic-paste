@@ -138,9 +138,7 @@ pub fn read_response<R: Read>(mut reader: R) -> io::Result<OcrResponse> {
         (None, Some(document), None) if valid_qr_document(&document) => {
             Ok(OcrResponse::QrDocument(document))
         }
-        (None, None, Some(message)) if !message.is_empty() => {
-            Ok(OcrResponse::Error(message))
-        }
+        (None, None, Some(message)) if !message.is_empty() => Ok(OcrResponse::Error(message)),
         _ => Err(invalid("invalid OCR response contents")),
     }
 }

@@ -63,8 +63,14 @@ fn call_helper(image: RgbaFrame, mode: Mode) -> Result<OcrResponse, String> {
         .stderr(Stdio::null())
         .spawn()
         .map_err(|e| format!("Vision helper 启动失败：{e}"))?;
-    let mut stdin = child.stdin.take().ok_or("Vision helper stdin unavailable")?;
-    let mut stdout = child.stdout.take().ok_or("Vision helper stdout unavailable")?;
+    let mut stdin = child
+        .stdin
+        .take()
+        .ok_or("Vision helper stdin unavailable")?;
+    let mut stdout = child
+        .stdout
+        .take()
+        .ok_or("Vision helper stdout unavailable")?;
     let expected_size = (image.width, image.height);
     let request = OcrRequest {
         width: image.width,

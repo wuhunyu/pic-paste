@@ -128,14 +128,20 @@ impl PinnedImage {
                                     send_event(
                                         ui,
                                         &sender,
-                                        PinEvent::Recognize { id: pin_id, characters: false },
+                                        PinEvent::Recognize {
+                                            id: pin_id,
+                                            characters: false,
+                                        },
                                     );
                                 }
                                 if ui.small_button("识别字").clicked() {
                                     send_event(
                                         ui,
                                         &sender,
-                                        PinEvent::Recognize { id: pin_id, characters: true },
+                                        PinEvent::Recognize {
+                                            id: pin_id,
+                                            characters: true,
+                                        },
                                     );
                                 }
                                 if ui.small_button("识别二维码").clicked() {
@@ -155,19 +161,27 @@ impl PinnedImage {
                                     .add_enabled(!ocr_pending, egui::Button::new("识别词"))
                                     .clicked()
                                 {
-                                    send_event(ui, &sender, PinEvent::Recognize {
-                                        id: pin_id,
-                                        characters: false,
-                                    });
+                                    send_event(
+                                        ui,
+                                        &sender,
+                                        PinEvent::Recognize {
+                                            id: pin_id,
+                                            characters: false,
+                                        },
+                                    );
                                 }
                                 if ui
                                     .add_enabled(!ocr_pending, egui::Button::new("识别字"))
                                     .clicked()
                                 {
-                                    send_event(ui, &sender, PinEvent::Recognize {
-                                        id: pin_id,
-                                        characters: true,
-                                    });
+                                    send_event(
+                                        ui,
+                                        &sender,
+                                        PinEvent::Recognize {
+                                            id: pin_id,
+                                            characters: true,
+                                        },
+                                    );
                                 }
                                 if ui
                                     .add_enabled(!ocr_pending, egui::Button::new("扫码"))
@@ -179,14 +193,20 @@ impl PinnedImage {
                                     send_event(
                                         ui,
                                         &sender,
-                                        PinEvent::PickMode { id: pin_id, mode: TextPickMode::Line },
+                                        PinEvent::PickMode {
+                                            id: pin_id,
+                                            mode: TextPickMode::Line,
+                                        },
                                     );
                                 }
                                 if ui.small_button("选词/字").clicked() {
                                     send_event(
                                         ui,
                                         &sender,
-                                        PinEvent::PickMode { id: pin_id, mode: TextPickMode::Unit },
+                                        PinEvent::PickMode {
+                                            id: pin_id,
+                                            mode: TextPickMode::Unit,
+                                        },
                                     );
                                 }
                                 ui.label(if pick_mode == TextPickMode::Line {
@@ -214,7 +234,8 @@ impl PinnedImage {
                     if mode == PinMode::TextSelect && ocr_pending {
                         ui.label("正在离线识别…");
                     } else if mode == PinMode::TextSelect
-                        && ocr_result.is_none() && qr_result.is_none()
+                        && ocr_result.is_none()
+                        && qr_result.is_none()
                     {
                         ui.label("请点击识别词、识别字或扫码");
                     }
@@ -228,11 +249,7 @@ impl PinnedImage {
                             ui.horizontal(|ui| {
                                 ui.label(format!("QR {}：{}", index + 1, code.payload));
                                 if ui.small_button("复制内容").clicked() {
-                                    send_event(
-                                        ui,
-                                        &sender,
-                                        PinEvent::CopyQr { id: pin_id, index },
-                                    );
+                                    send_event(ui, &sender, PinEvent::CopyQr { id: pin_id, index });
                                 }
                             });
                         }

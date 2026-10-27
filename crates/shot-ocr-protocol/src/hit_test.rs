@@ -122,10 +122,7 @@ pub fn hit_text_selection(
     }
 }
 
-pub fn selected_selection_text(
-    document: &OcrDocument,
-    selection: TextSelection,
-) -> Option<&str> {
+pub fn selected_selection_text(document: &OcrDocument, selection: TextSelection) -> Option<&str> {
     match selection {
         TextSelection::Line(index) => document.lines.get(index).map(|line| line.text.as_str()),
         TextSelection::Unit { line, unit } => document
@@ -143,8 +140,11 @@ pub fn selection_polygon(
 ) -> Option<&[[f32; 2]; 4]> {
     match selection {
         TextSelection::Line(index) => document.lines.get(index).map(|line| &line.polygon_px),
-        TextSelection::Unit { line, unit } => {
-            document.lines.get(line)?.words.get(unit).map(|entry| &entry.polygon_px)
-        }
+        TextSelection::Unit { line, unit } => document
+            .lines
+            .get(line)?
+            .words
+            .get(unit)
+            .map(|entry| &entry.polygon_px),
     }
 }
