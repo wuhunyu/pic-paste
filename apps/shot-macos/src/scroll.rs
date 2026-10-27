@@ -4,6 +4,7 @@ use eframe::egui;
 use shot_core::platform::{DisplayId, ScreenCapture, ScrollAxis};
 use shot_core::{RectPx, RgbaFrame};
 use shot_platform::macos::MacCapture;
+use shot_scroll::edits::EditStack;
 use shot_scroll::live_preview::LatestPreview;
 use shot_scroll::recovery::{FrameObservation, RecoveryDecision, RecoveryTracker};
 use shot_scroll::stitch::match_scroll_frame;
@@ -78,6 +79,7 @@ impl Drop for ScrollCaptureControl {
 /// the user explicitly saves or discards this review.
 pub struct ScrollReview {
     pub store: TileStore,
+    pub edits: EditStack,
     pub preview: RgbaFrame,
     pub partial: bool,
 }
@@ -116,7 +118,7 @@ pub fn export_review(review: &ScrollReview, radius: u32) -> Result<PathBuf, Stri
     let path = output_path(review.partial)?;
     review
         .store
-        .save_png_rounded_no_clobber(&path, radius)
+        .save_png_edited_no_clobber(&path, radius, &review.edits)
         .map_err(|error| format!("scroll PNG export failed: {error}"))?;
     Ok(path)
 }
@@ -244,6 +246,7 @@ fn capture_loop(
         .map_err(|error| format!("cannot build scroll review thumbnail: {error}"))?;
     Ok(Some(ScrollReview {
         store,
+        edits: EditStack::default(),
         preview,
         partial: partial || recovery.needs_partial_review(),
     }))

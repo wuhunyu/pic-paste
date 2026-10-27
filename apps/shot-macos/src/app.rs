@@ -22,6 +22,9 @@ use shot_ocr_protocol::hit_test::{hit_line_in_capture, selected_text};
 use shot_ocr_protocol::{MAX_RGBA_BYTES, OcrDocument};
 use shot_platform::macos::MacCapture;
 use shot_scroll::fixed_bands::FixedBands;
+use shot_scroll::review_transfer::{
+    default_transfer_rect, map_preview_point, validate_transfer_rect,
+};
 use std::borrow::Cow;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -37,6 +40,10 @@ enum WorkerResult {
     Prepared(PrepareAction, Result<RgbaFrame, String>),
     Saved(Result<PathBuf, String>),
     ScrollSaved(Result<PathBuf, (String, scroll::ScrollReview)>),
+    ScrollPrepared {
+        action: PrepareAction,
+        outcome: Result<(RgbaFrame, scroll::ScrollReview), (String, scroll::ScrollReview)>,
+    },
     ScrollEdited(Result<scroll::ScrollReview, (String, scroll::ScrollReview)>),
     Ocr {
         ticket: OcrTicket,
@@ -53,6 +60,12 @@ enum PrepareAction {
     Save,
     Copy,
     Pin,
+}
+
+enum ScrollReviewEdit {
+    Add(Annotation),
+    Undo,
+    Redo,
 }
 
 struct SelectionView {
@@ -553,6 +566,12 @@ pub struct PicPasteApp {
     scroll_preview_pending: Option<RgbaFrame>,
     scroll_preview_texture: Option<egui::TextureHandle>,
     scroll_preview_radius: Option<u32>,
+    scroll_tool: Tool,
+    scroll_text_buffer: String,
+    scroll_text_size: f32,
+    scroll_drag_anchor: Option<egui::Pos2>,
+    scroll_brush_points: Vec<(f32, f32)>,
+    scroll_share_region: Option<RectPx>,
     menu_rx: Receiver<MenuAction>,
     _menu: Option<MenuBar>,
     quit_requested: bool,
@@ -621,6 +640,12 @@ impl PicPasteApp {
             scroll_preview_pending: None,
             scroll_preview_texture: None,
             scroll_preview_radius: None,
+            scroll_tool: Tool::Select,
+            scroll_text_buffer: String::from("文字"),
+            scroll_text_size: 26.0,
+            scroll_drag_anchor: None,
+            scroll_brush_points: Vec::new(),
+            scroll_share_region: None,
             menu_rx,
             _menu: menu,
             quit_requested: false,
@@ -967,8 +992,100 @@ impl PicPasteApp {
         });
     }
 
+    fn edit_scroll_review(&mut self, ctx: &egui::Context, command: ScrollReviewEdit) {
+        if self.processing {
+            return;
+        }
+        let Some(mut review) = self.scroll_review.take() else {
+            return;
+        };
+        self.processing = true;
+        self.status = String::from("正在处理长图标注并重新生成复核预览…");
+        let sender = self.work_tx.clone();
+        let wake = ctx.clone();
+        thread::spawn(move || {
+            let result = match command {
+                ScrollReviewEdit::Add(annotation) => review
+                    .edits
+                    .apply(&review.store, annotation)
+                    .map_err(|error| format!("添加标注失败：{error}")),
+                ScrollReviewEdit::Undo => {
+                    if review.edits.undo() {
+                        Ok(())
+                    } else {
+                        Err(String::from("没有可撤销的标注"))
+                    }
+                }
+                ScrollReviewEdit::Redo => {
+                    if review.edits.redo() {
+                        Ok(())
+                    } else {
+                        Err(String::from("没有可重做的标注"))
+                    }
+                }
+            };
+            let result = result.and_then(|_| {
+                review
+                    .store
+                    .preview_with_edits(&review.edits, 720, 900)
+                    .map_err(|error| format!("重新生成标注预览失败：{error}"))
+            });
+            let event = match result {
+                Ok(image) => {
+                    review.preview = image;
+                    WorkerResult::ScrollEdited(Ok(review))
+                }
+                Err(error) => WorkerResult::ScrollEdited(Err((error, review))),
+            };
+            let _ = sender.send(event);
+            wake.request_repaint();
+        });
+    }
+
+    fn prepare_scroll_transfer(&mut self, ctx: &egui::Context, action: PrepareAction) {
+        if self.processing {
+            return;
+        }
+        let Some(review) = self.scroll_review.take() else {
+            return;
+        };
+        let rect = self
+            .scroll_share_region
+            .unwrap_or_else(|| default_transfer_rect(review.store.canvas()));
+        if let Err(error) = validate_transfer_rect(rect, review.store.canvas()) {
+            self.status = format!("复制/贴图选区无效：{error}");
+            self.scroll_review = Some(review);
+            return;
+        }
+        self.processing = true;
+        self.status = String::from("正在从长图磁盘分块提取原分辨率选区…");
+        let sender = self.work_tx.clone();
+        let wake = ctx.clone();
+        let radius = self.radius;
+        thread::spawn(move || {
+            let outcome = match review
+                .store
+                .render_region_edited(&review.edits, rect, radius)
+            {
+                Ok(image) => Ok((image, review)),
+                Err(error) => Err((format!("提取长图选区失败：{error}"), review)),
+            };
+            let _ = sender.send(WorkerResult::ScrollPrepared { action, outcome });
+            wake.request_repaint();
+        });
+    }
+
     fn undo_scroll_review(&mut self, ctx: &egui::Context) {
         if self.processing {
+            return;
+        }
+        if self
+            .scroll_review
+            .as_ref()
+            .is_some_and(|review| review.edits.applied_len() > 0)
+        {
+            self.status =
+                String::from("先撤销所有长图标注，再移除可信片段；片段变化会使标注坐标失效");
             return;
         }
         let Some(mut review) = self.scroll_review.take() else {
@@ -980,13 +1097,18 @@ impl PicPasteApp {
         let wake = ctx.clone();
         thread::spawn(move || {
             let result = match review.store.undo_last() {
-                Ok(true) => review
-                    .store
-                    .preview(720, 900)
-                    .map_err(|error| format!("重新预览失败：{error}"))
-                    .map(|image| {
-                        review.preview = image;
-                    }),
+                Ok(true) => {
+                    // Even an entirely undone history may have redo patches
+                    // pointing past the new canvas; drop them before reuse.
+                    review.edits.clear();
+                    review
+                        .store
+                        .preview(720, 900)
+                        .map_err(|error| format!("重新预览失败：{error}"))
+                        .map(|image| {
+                            review.preview = image;
+                        })
+                }
                 Ok(false) => Err(String::from("已经是第一段，不能删除")),
                 Err(error) => Err(format!("撤销最后一段失败：{error}")),
             };
@@ -1014,9 +1136,18 @@ impl PicPasteApp {
             self.status = String::from("保留段数无效；只能移除末尾片段，且必须至少保留第一段");
             return;
         }
+        if self
+            .scroll_review
+            .as_ref()
+            .is_some_and(|review| review.edits.applied_len() > 0)
+        {
+            self.status = String::from("先撤销所有长图标注，再裁剪可信片段");
+            return;
+        }
         let Some(mut review) = self.scroll_review.take() else {
             return;
         };
+        review.edits.clear();
         self.processing = true;
         self.status = format!("正在保留前 {keep_count} 段并重建缩略图…");
         let sender = self.work_tx.clone();
@@ -1047,6 +1178,9 @@ impl PicPasteApp {
     fn discard_scroll_review(&mut self) {
         // Dropping TileStore removes only its own private tile directory.
         self.scroll_review.take();
+        self.scroll_share_region = None;
+        self.scroll_drag_anchor = None;
+        self.scroll_brush_points.clear();
         self.scroll_keep_segments = 1;
         self.scroll_preview_pending = None;
         self.scroll_preview_texture = None;
@@ -1179,12 +1313,28 @@ impl PicPasteApp {
                         }
                     }
                 }
+                WorkerResult::ScrollPrepared { action, outcome } => {
+                    self.processing = false;
+                    match outcome {
+                        Ok((image, review)) => {
+                            self.scroll_review = Some(review);
+                            self.prepared.push((action, image));
+                            self.status =
+                                String::from("已提取长图选区，正在发送至剪贴板或悬浮贴图");
+                        }
+                        Err((error, review)) => {
+                            self.scroll_review = Some(review);
+                            self.status = error;
+                        }
+                    }
+                }
                 WorkerResult::ScrollSaved(outcome) => {
                     self.processing = false;
                     match outcome {
                         Ok(path) => {
                             self.scroll_preview_texture = None;
                             self.scroll_preview_radius = None;
+                            self.scroll_share_region = None;
                             self.scroll_keep_segments = 1;
                             self.status = format!("长图 PNG 已确认保存：{}", path.display());
                         }
@@ -1200,10 +1350,17 @@ impl PicPasteApp {
                         Ok(review) => {
                             self.scroll_keep_segments =
                                 review.store.strip_count().saturating_sub(1).max(1);
+                            if self.scroll_share_region.is_none_or(|rect| {
+                                validate_transfer_rect(rect, review.store.canvas()).is_err()
+                            }) {
+                                self.scroll_share_region =
+                                    Some(default_transfer_rect(review.store.canvas()));
+                            }
                             self.scroll_preview_pending = Some(review.preview.clone());
                             self.status = format!(
-                                "已调整可信片段前缀，当前保留 {} 段",
-                                review.store.strip_count()
+                                "长截图复核已更新：{} 段可信内容、{} 项标注",
+                                review.store.strip_count(),
+                                review.edits.applied_len()
                             );
                             self.scroll_review = Some(review);
                         }
@@ -1267,9 +1424,13 @@ impl PicPasteApp {
                             };
                             self.scroll_keep_segments = segments.saturating_sub(1).max(1);
                             self.scroll_preview_pending = Some(review.preview.clone());
+                            self.scroll_share_region = Some(default_transfer_rect((width, height)));
+                            self.scroll_tool = Tool::Select;
+                            self.scroll_drag_anchor = None;
+                            self.scroll_brush_points.clear();
                             self.scroll_review = Some(review);
                             format!(
-                                "{prefix}：{segments} 段，{width}×{height}px。请复核后保存或放弃"
+                                "{prefix}：{segments} 段，{width}×{height}px。请复核标注、保存、复制选区或贴图"
                             )
                         }
                         Ok(None) => String::from("已取消长截图，所有临时分块已清理"),
@@ -1796,11 +1957,12 @@ impl PicPasteApp {
                 ui.add(egui::TextEdit::multiline(&mut self.ocr_text).desired_rows(7));
             }
             let mut review_action = None;
+            let mut new_annotation = None;
             if let Some(review) = self.scroll_review.as_ref() {
-                let (width, height) = review.store.canvas();
+                let canvas = review.store.canvas();
+                let (width, height) = canvas;
                 ui.separator();
-                ui.heading("长截图复核");
-                ui.label("长图 PNG 会按上方圆角设置输出透明边角；预览随圆角变化");
+                ui.heading("长截图复核与标注");
                 if review.partial {
                     ui.colored_label(
                         egui::Color32::YELLOW,
@@ -1808,21 +1970,196 @@ impl PicPasteApp {
                     );
                 }
                 ui.label(format!(
-                    "{} 段可信片段 · 原图 {}×{} px · 缩略图不影响导出分辨率",
+                    "{} 段可信片段 · 原图 {}×{} px · 已应用 {} 个标注",
                     review.store.strip_count(),
                     width,
-                    height
+                    height,
+                    review.edits.applied_len(),
                 ));
+                ui.label("标注使用原始像素坐标并写入完整长图 PNG；长图不会整张加载入内存");
+                ui.horizontal_wrapped(|ui| {
+                    for (tool, title) in [
+                        (Tool::Select, "复制/贴图选区"),
+                        (Tool::Line, "线条"),
+                        (Tool::Arrow, "箭头"),
+                        (Tool::Brush, "画笔"),
+                        (Tool::Rectangle, "矩形"),
+                        (Tool::Ellipse, "椭圆"),
+                        (Tool::Pixelate, "马赛克"),
+                        (Tool::Blur, "模糊"),
+                        (Tool::Text, "文字"),
+                    ] {
+                        ui.selectable_value(&mut self.scroll_tool, tool, title);
+                    }
+                });
+                if self.scroll_tool == Tool::Text {
+                    ui.horizontal(|ui| {
+                        ui.label("文字内容");
+                        ui.add(
+                            egui::TextEdit::singleline(&mut self.scroll_text_buffer)
+                                .desired_width(210.0),
+                        );
+                        ui.add(
+                            egui::Slider::new(&mut self.scroll_text_size, 12.0..=64.0).text("字号"),
+                        );
+                        ui.label("点击长图定位");
+                    });
+                }
+                ui.horizontal(|ui| {
+                    if ui.button("撤销标注").clicked() {
+                        review_action = Some(4);
+                    }
+                    if ui.button("重做标注").clicked() {
+                        review_action = Some(5);
+                    }
+                    ui.label("每项标注最多处理 400 万像素；区域过大会明确拒绝");
+                });
                 if let Some(texture) = self.scroll_preview_texture.as_ref() {
                     let full = texture.size_vec2();
                     let available = ui.available_size();
                     let scale = (available.x / full.x)
-                        .min((available.y - 42.0).max(1.0) / full.y)
+                        .min((available.y - 120.0).max(1.0) / full.y)
                         .min(1.0);
-                    ui.add(egui::Image::new((texture.id(), full * scale)));
+                    let response = ui.add(
+                        egui::Image::new((texture.id(), full * scale))
+                            .sense(egui::Sense::click_and_drag()),
+                    );
+                    let to_source = |pointer: egui::Pos2| {
+                        map_preview_point(
+                            (
+                                pointer.x - response.rect.min.x,
+                                pointer.y - response.rect.min.y,
+                            ),
+                            (response.rect.width(), response.rect.height()),
+                            canvas,
+                        )
+                    };
+                    if self.scroll_tool == Tool::Text
+                        && response.clicked()
+                        && !self.scroll_text_buffer.trim().is_empty()
+                        && let Some(pointer) = response.interact_pointer_pos()
+                        && let Some((x, y)) = to_source(pointer)
+                    {
+                        new_annotation = Some(Annotation::Text {
+                            at: (x as f32, y as f32),
+                            content: self.scroll_text_buffer.clone(),
+                            size: self.scroll_text_size,
+                            rgba: [39, 178, 231, 255],
+                        });
+                    }
+                    if self.scroll_tool != Tool::Text {
+                        if response.drag_started() {
+                            self.scroll_drag_anchor = response.interact_pointer_pos();
+                            self.scroll_brush_points.clear();
+                        }
+                        if (response.dragged() || response.drag_stopped())
+                            && let Some(start) = self.scroll_drag_anchor
+                            && let Some(end) = response.interact_pointer_pos()
+                            && let (Some(a), Some(b)) = (to_source(start), to_source(end))
+                        {
+                            if self.scroll_tool == Tool::Select {
+                                if response.drag_stopped() {
+                                    self.scroll_share_region = from_drag(a, b).ok();
+                                }
+                            } else if self.scroll_tool == Tool::Brush {
+                                if self.scroll_brush_points.is_empty() {
+                                    self.scroll_brush_points.push((a.0 as f32, a.1 as f32));
+                                }
+                                let current = (b.0 as f32, b.1 as f32);
+                                if self.scroll_brush_points.last() != Some(&current)
+                                    && self.scroll_brush_points.len() < 20_000
+                                {
+                                    self.scroll_brush_points.push(current);
+                                }
+                                if response.drag_stopped() && !self.scroll_brush_points.is_empty() {
+                                    new_annotation = Some(Annotation::Brush {
+                                        points: std::mem::take(&mut self.scroll_brush_points),
+                                        rgba: [39, 178, 231, 255],
+                                        width: 3.0,
+                                    });
+                                }
+                            } else if response.drag_stopped() {
+                                new_annotation = annotation_for_drag(self.scroll_tool, a, b);
+                            }
+                        }
+                        if response.drag_stopped() {
+                            self.scroll_drag_anchor = None;
+                            self.scroll_brush_points.clear();
+                        }
+                    }
+                    if let Some(region) = self.scroll_share_region {
+                        let sx = response.rect.width() / width as f32;
+                        let sy = response.rect.height() / height as f32;
+                        let selected = egui::Rect::from_min_size(
+                            egui::pos2(
+                                response.rect.left() + region.x as f32 * sx,
+                                response.rect.top() + region.y as f32 * sy,
+                            ),
+                            egui::vec2(region.width as f32 * sx, region.height as f32 * sy),
+                        );
+                        let valid = validate_transfer_rect(region, canvas).is_ok();
+                        ui.painter().rect_stroke(
+                            selected,
+                            0.0,
+                            egui::Stroke::new(
+                                2.0,
+                                if valid {
+                                    egui::Color32::from_rgb(72, 210, 175)
+                                } else {
+                                    egui::Color32::RED
+                                },
+                            ),
+                            egui::StrokeKind::Inside,
+                        );
+                    }
                 }
+                ui.label("复制/贴图仅针对绿色选区，按真实像素提取；不降低分辨率");
+                if let Some(region) = self.scroll_share_region.as_mut() {
+                    ui.horizontal_wrapped(|ui| {
+                        ui.label("X");
+                        ui.add(
+                            egui::DragValue::new(&mut region.x)
+                                .range(0..=width.saturating_sub(1) as i32),
+                        );
+                        ui.label("Y");
+                        ui.add(
+                            egui::DragValue::new(&mut region.y)
+                                .range(0..=height.saturating_sub(1) as i32),
+                        );
+                        ui.label("宽");
+                        ui.add(egui::DragValue::new(&mut region.width).range(1..=width));
+                        ui.label("高");
+                        ui.add(egui::DragValue::new(&mut region.height).range(1..=height));
+                    });
+                }
+                let valid_selection = self
+                    .scroll_share_region
+                    .is_some_and(|region| validate_transfer_rect(region, canvas).is_ok());
+                if !valid_selection {
+                    ui.colored_label(
+                        egui::Color32::YELLOW,
+                        "选区需在长图范围内，最多 400 万像素，单边不超过 4096 像素",
+                    );
+                }
+                ui.horizontal_wrapped(|ui| {
+                    if ui
+                        .add_enabled(valid_selection, egui::Button::new("复制选区图片"))
+                        .clicked()
+                    {
+                        review_action = Some(6);
+                    }
+                    if ui
+                        .add_enabled(valid_selection, egui::Button::new("悬浮贴图选区"))
+                        .clicked()
+                    {
+                        review_action = Some(7);
+                    }
+                    if ui.button("选区重置到安全大小").clicked() {
+                        self.scroll_share_region = Some(default_transfer_rect(canvas));
+                    }
+                });
                 ui.horizontal(|ui| {
-                    if ui.button("确认保存 PNG").clicked() {
+                    if ui.button("确认保存完整 PNG").clicked() {
                         review_action = Some(0);
                     }
                     if ui.button("移除最后一个拼接段").clicked() {
@@ -1850,15 +2187,23 @@ impl PicPasteApp {
                             review_action = Some(3);
                         }
                     });
-                    ui.label("仅裁剪尾部；不会断开中间某段后强行拼接后续内容");
+                    ui.label("先撤销标注，再裁剪可信片段；仅裁剪尾部，不强行拼接中间不可信段");
                 }
             }
-            match review_action {
-                Some(0) => self.save_scroll_review(ui.ctx()),
-                Some(1) => self.undo_scroll_review(ui.ctx()),
-                Some(2) => self.discard_scroll_review(),
-                Some(3) => self.trim_scroll_review(ui.ctx(), self.scroll_keep_segments),
-                _ => {}
+            if let Some(annotation) = new_annotation {
+                self.edit_scroll_review(ui.ctx(), ScrollReviewEdit::Add(annotation));
+            } else {
+                match review_action {
+                    Some(0) => self.save_scroll_review(ui.ctx()),
+                    Some(1) => self.undo_scroll_review(ui.ctx()),
+                    Some(2) => self.discard_scroll_review(),
+                    Some(3) => self.trim_scroll_review(ui.ctx(), self.scroll_keep_segments),
+                    Some(4) => self.edit_scroll_review(ui.ctx(), ScrollReviewEdit::Undo),
+                    Some(5) => self.edit_scroll_review(ui.ctx(), ScrollReviewEdit::Redo),
+                    Some(6) => self.prepare_scroll_transfer(ui.ctx(), PrepareAction::Copy),
+                    Some(7) => self.prepare_scroll_transfer(ui.ctx(), PrepareAction::Pin),
+                    _ => {}
+                }
             }
             if !self.pins.is_empty() {
                 ui.separator();
