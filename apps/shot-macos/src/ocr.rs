@@ -19,7 +19,9 @@ fn bundled_helper() -> Result<std::path::PathBuf, String> {
             // An invalid Full helper is never replaced with untrusted external
             // code: fail closed until the app installation is repaired.
             if metadata.file_type().is_symlink() || !metadata.is_file() {
-                return Err(String::from("Full OCR helper 路径无效或为符号链接，拒绝执行"));
+                return Err(String::from(
+                    "Full OCR helper 路径无效或为符号链接，拒绝执行",
+                ));
             }
         }
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
