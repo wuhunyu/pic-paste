@@ -50,7 +50,10 @@ fn line_mode_returns_whole_line_instead_of_subdividing() {
     let doc = document();
     let selected = hit_text_selection(&doc, (100, 200), (160.0, 214.0), TextPickMode::Line);
     assert_eq!(selected, Some(TextSelection::Line(0)));
-    assert_eq!(selected_selection_text(&doc, selected.unwrap()), Some("你好 world"));
+    assert_eq!(
+        selected_selection_text(&doc, selected.unwrap()),
+        Some("你好 world")
+    );
 }
 
 #[test]
