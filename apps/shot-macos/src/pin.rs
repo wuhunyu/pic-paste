@@ -5,7 +5,7 @@ use shot_core::RgbaFrame;
 use shot_core::input::{DragAction, DragLatch};
 use shot_core::pin_view::{PinImageView, map_pin_click};
 use shot_core::pins::{PinMode, PinOcrGate};
-use shot_ocr_protocol::hit_test::{TextSelection, selection_polygon};
+use shot_ocr_protocol::hit_test::{TextPickMode, TextSelection, selection_polygon};
 use shot_ocr_protocol::{OcrDocument, QrDocument};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::Sender;
@@ -19,6 +19,7 @@ pub enum PinEvent {
     CopySelected(u64),
     CopyQr { id: u64, index: usize },
     PickText { id: u64, pixel: (f32, f32) },
+    PickMode { id: u64, mode: TextPickMode },
 }
 
 /// Explicitly wake the root app when the user acts inside a deferred pin
@@ -40,6 +41,7 @@ pub struct PinnedImage {
     pub ocr_result: Option<Arc<OcrDocument>>,
     pub selected_text: Option<TextSelection>,
     pub character_mode: bool,
+    pub pick_mode: TextPickMode,
     pub qr_result: Option<Arc<QrDocument>>,
     gesture: Arc<Mutex<DragLatch>>,
     texture: egui::TextureHandle,
@@ -63,6 +65,7 @@ impl PinnedImage {
             ocr_result: None,
             selected_text: None,
             character_mode: false,
+            pick_mode: TextPickMode::Unit,
             qr_result: None,
             gesture: Arc::new(Mutex::new(DragLatch::default())),
             texture,
@@ -96,6 +99,7 @@ impl PinnedImage {
         let ocr_result = self.ocr_result.clone();
         let selected_text = self.selected_text;
         let character_mode = self.character_mode;
+        let pick_mode = self.pick_mode;
         let qr_result = self.qr_result.clone();
         let gesture = Arc::clone(&self.gesture);
         let sender = events.clone();
@@ -171,6 +175,27 @@ impl PinnedImage {
                                 {
                                     send_event(ui, &sender, PinEvent::DetectQr(pin_id));
                                 }
+                                if ui.small_button("选整行").clicked() {
+                                    send_event(
+                                        ui,
+                                        &sender,
+                                        PinEvent::PickMode { id: pin_id, mode: TextPickMode::Line },
+                                    );
+                                }
+                                if ui.small_button("选词/字").clicked() {
+                                    send_event(
+                                        ui,
+                                        &sender,
+                                        PinEvent::PickMode { id: pin_id, mode: TextPickMode::Unit },
+                                    );
+                                }
+                                ui.label(if pick_mode == TextPickMode::Line {
+                                    "行"
+                                } else if character_mode {
+                                    "字"
+                                } else {
+                                    "词"
+                                });
                                 if selected_text.is_some()
                                     && ui.small_button("复制所选文字").clicked()
                                 {
