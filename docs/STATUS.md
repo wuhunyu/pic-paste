@@ -37,3 +37,9 @@
 - `[x] 代码/CI` 不表示原计划 `[x] 验收`；真机用例及性能报告需要独立证据和可复测环境。
 - 有依赖于苹果开发者账号、证书或物理显示器的事项，标明阻塞因素，不假定 Actions 的 macOS runner 已完成交互测试。
 - 新的开发任务按照 P0–P6 的依赖推进，不能因为当前 PR 为 Draft 或 CI 仍运行而声称已经完成该功能。
+
+## 2026-10-27 — PR #25 rounded long PNG
+
+- [x] [PR #25](https://github.com/wuhunyu/pic-paste/pull/25) 已合并：长截图复核与 PNG 导出使用已有 0–64 物理像素透明圆角设置；仅逐行更改 Alpha，仍为磁盘分段、流式 PNG、原子防覆盖导出。无圆角时保留原有行为。
+- [x] 新增 PNG 解码像素比较回归、完整 Linux core + macOS CI [#40432104187](https://github.com/wuhunyu/pic-paste/actions/runs/40432104187) **success**。
+- [ ] 真实 macOS 上验证长图透明角、不同缩放与其他应用显示效果；动态内容过滤、中间段纠错、长图全套标注、贴图、50 场景验收仍未完成。

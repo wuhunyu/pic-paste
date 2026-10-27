@@ -58,3 +58,7 @@ The relevant [GitHub Actions runs](https://github.com/wuhunyu/pic-paste/actions)
 No verified physical macOS multi-monitor/Spaces/TCC/clipboard/performance report; manual scrolling is the explicit product behavior (no auto scroll); no QR or pin-level **word/character** OCR selection; no separate signed OCR Add-on; no x86_64 macOS release or Developer ID notarization; no Windows native implementation. `packaging/macos/Info.plist` retains development bundle ID `com.example.picpaste`.
 
 See [task-by-task acceptance and evidence](docs/TASKS.md). **CI-green proves build and automated tests only—not real screen capture or sustained performance on a user's device.**
+
+## 2026-10-27 incremental delivery — rounded long screenshots
+
+PR [#25](https://github.com/wuhunyu/pic-paste/pull/25) is merged into `main`. Manual long-screenshot review now uses the same 0–64 physical-pixel rounded-alpha setting as regular PNG capture: its bounded thumbnail updates when the radius changes, and the final source-resolution PNG applies the mask per output scanline without building a contiguous long RGBA image. Zero-radius, PNG-only, no-overwrite, trusted-tile cleanup, and disk-backed export remain unchanged. Linux/macOS PR CI [#40432104187](https://github.com/wuhunyu/pic-paste/actions/runs/40432104187) succeeded; physical-device alpha, visual parity, and 50-scene acceptance remain open.

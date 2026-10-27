@@ -39,3 +39,8 @@
 6. 最后接入 Windows 截图贴图/OCR（[#11](https://github.com/wuhunyu/pic-paste/issues/11)）。
 
 更新规则：**代码/PR 是否已合并，以 GitHub 当前状态为准；完成代码 ≠ 满足验收。** 所有阶段关闭时必须附 CI run、设备矩阵、可复测指标和最后的发行证据。
+
+## 2026-10-27 — P4-T3 incremental delivery
+
+- [x] [PR #25](https://github.com/wuhunyu/pic-paste/pull/25) 长截图复核可按现有圆角半径预览并导出带透明圆角的 PNG，逐行处理避免整图 RGBA 内存分配。Linux 和 macOS 完整 CI [#40432104187](https://github.com/wuhunyu/pic-paste/actions/runs/40432104187) success。
+- [ ] 长图标注、复制/贴图闭环、中间段纠错及真机验收仍未完成，不应把 P4-T3 改为“代码基本完成”。
