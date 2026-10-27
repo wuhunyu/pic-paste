@@ -1430,13 +1430,9 @@ impl PicPasteApp {
                         Err(error) => self.status = format!("图像处理失败: {error}"),
                     }
                 }
-                WorkerResult::Ocr { ticket, outcome } => {
+                WorkerResult::Ocr { ticket, characters, outcome } => {
                     self.ocr_waiting = false;
-                    if !self
-                        .screen
-                        .as_ref()
-                        .is_some_and(|screen| screen.accepts_ocr(ticket))
-                    {
+                    if !self.screen.as_ref().is_some_and(|screen| screen.accepts_ocr(ticket)) {
                         self.ocr_text.clear();
                         self.ocr_lines = 0;
                         self.status = String::from("截图或选区已变化，已丢弃过期 OCR 结果");
@@ -1455,18 +1451,44 @@ impl PicPasteApp {
                                 let region = screen.selected_region();
                                 screen.ocr_origin = (region.x as u32, region.y as u32);
                                 screen.ocr_mode = true;
-                                screen.ocr_line = None;
+                                screen.ocr_pick_mode = TextPickMode::Unit;
+                                screen.ocr_selection = None;
+                                screen.ocr_characters = characters;
+                                screen.qr_result = None;
                                 screen.ocr_result = Some(document);
                             }
                             self.status = format!(
-                                "Vision OCR 完成，共 {} 行；可点击原图上的文字框选行",
-                                self.ocr_lines
+                                "Vision {}识别完成，共 {} 行；点击原图上的{}框可复制",
+                                if characters { "逐字(Fast)" } else { "词级(Accurate)" },
+                                self.ocr_lines,
+                                if characters { "字" } else { "词" },
                             );
                         }
                         Err(error) => self.status = format!("文字识别失败：{error}"),
                     }
                 }
-                WorkerResult::PinOcr { pin_id, outcome } => {
+                WorkerResult::Qr { ticket, outcome } => {
+                    self.ocr_waiting = false;
+                    if !self.screen.as_ref().is_some_and(|screen| screen.accepts_ocr(ticket)) {
+                        self.status = String::from("截图或选区已变化，已丢弃过期二维码结果");
+                        continue;
+                    }
+                    match outcome {
+                        Ok(document) => {
+                            let count = document.codes.len();
+                            if let Some(screen) = self.screen.as_mut() {
+                                screen.qr_result = Some(document);
+                            }
+                            self.status = if count == 0 {
+                                String::from("本地 Vision 未发现二维码")
+                            } else {
+                                format!("本地 Vision 找到 {count} 个二维码；请明确点击复制内容")
+                            };
+                        }
+                        Err(error) => self.status = format!("二维码识别失败：{error}"),
+                    }
+                }
+                WorkerResult::PinOcr { pin_id, characters, outcome } => {
                     if let Some(pin) = self
                         .pins
                         .iter_mut()
@@ -1481,14 +1503,46 @@ impl PicPasteApp {
                             Ok(document) => {
                                 let lines = document.lines.len();
                                 pin.ocr_result = Some(Arc::new(document));
-                                pin.selected_line = None;
+                                pin.qr_result = None;
+                                pin.selected_text = None;
+                                pin.pick_mode = TextPickMode::Unit;
+                                pin.character_mode = characters;
                                 self.status = format!(
-                                    "贴图 #{pin_id} 离线识别完成，共 {lines} 行；点击文字行后复制"
+                                    "贴图 #{pin_id} {}识别完成，共 {lines} 行；点击识别框复制",
+                                    if characters { "逐字" } else { "词级" }
                                 );
                             }
                             Err(error) => {
                                 pin.ocr_result = None;
                                 self.status = format!("贴图 #{pin_id} 离线识别失败：{error}");
+                            }
+                        }
+                    }
+                }
+                WorkerResult::PinQr { pin_id, outcome } => {
+                    if let Some(pin) = self
+                        .pins
+                        .iter_mut()
+                        .find(|pin| pin.id == pin_id && !pin.is_closed())
+                        && pin.ocr_gate.pending()
+                    {
+                        if !pin.ocr_gate.finish(pin.mode) {
+                            self.status = format!("贴图 #{pin_id} 已退出识别模式，扫码结果已丢弃");
+                            continue;
+                        }
+                        match outcome {
+                            Ok(document) => {
+                                let count = document.codes.len();
+                                pin.ocr_result = None;
+                                pin.qr_result = Some(Arc::new(document));
+                                pin.selected_text = None;
+                                self.status = format!(
+                                    "贴图 #{pin_id} 本地扫码完成，找到 {count} 个二维码；仅显式复制"
+                                );
+                            }
+                            Err(error) => {
+                                pin.qr_result = None;
+                                self.status = format!("贴图 #{pin_id} 本地扫码失败：{error}");
                             }
                         }
                     }
