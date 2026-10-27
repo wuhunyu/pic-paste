@@ -117,7 +117,6 @@ impl PanelSurfaceLifecycle {
     }
 }
 
-
 /// Logical coordinates relative to the top-left corner of an AppKit content
 /// view, suitable for egui input. Never uses desktop-global screen pixels.
 #[derive(Clone, Copy, Debug, PartialEq)]
