@@ -16,6 +16,7 @@ pub enum PinEvent {
     Recognize { id: u64, characters: bool },
     DetectQr(u64),
     Move(u64),
+    Closed(u64),
     CopySelected(u64),
     CopyQr { id: u64, index: usize },
     PickText { id: u64, pixel: (f32, f32) },
@@ -32,6 +33,8 @@ fn send_event(ui: &egui::Ui, sender: &Sender<PinEvent>, event: PinEvent) {
 
 pub struct PinnedImage {
     pub id: u64,
+    /// First pin ID that allocated this texture; shared pins keep it alive.
+    pub texture_group: u64,
     pub source: Arc<RgbaFrame>,
     pub opacity: f32,
     pub zoom: f32,
@@ -48,15 +51,37 @@ pub struct PinnedImage {
 }
 
 impl PinnedImage {
+    /// A unique frame is uploaded exactly once after budget admission.
     pub fn new(ctx: &egui::Context, id: u64, frame: Arc<RgbaFrame>) -> Self {
         let image = egui::ColorImage::from_rgba_unmultiplied(
             [frame.width as usize, frame.height as usize],
             &frame.rgba,
         );
         let texture = ctx.load_texture(format!("pin-{id}"), image, egui::TextureOptions::LINEAR);
+        Self::with_texture(id, frame, texture, id)
+    }
+
+    /// Only use after comparing *all* source bytes and dimensions. This does
+    /// not re-upload a GPU texture or duplicate the source RGBA allocation.
+    pub fn from_shared(id: u64, other: &Self) -> Self {
+        Self::with_texture(
+            id,
+            Arc::clone(&other.source),
+            other.texture.clone(),
+            other.texture_group,
+        )
+    }
+
+    fn with_texture(
+        id: u64,
+        source: Arc<RgbaFrame>,
+        texture: egui::TextureHandle,
+        texture_group: u64,
+    ) -> Self {
         Self {
             id,
-            source: frame,
+            texture_group,
+            source,
             opacity: 1.0,
             zoom: 1.0,
             mode: PinMode::Move,
@@ -114,8 +139,10 @@ impl PinnedImage {
             .with_resizable(true)
             .with_mouse_passthrough(mode == PinMode::Passthrough);
         ctx.show_viewport_deferred(id, builder, move |ui, _| {
-            if ui.ctx().input(|input| input.viewport().close_requested()) {
-                closed.store(true, Ordering::Relaxed);
+            if ui.ctx().input(|input| input.viewport().close_requested())
+                && !closed.swap(true, Ordering::Relaxed)
+            {
+                send_event(ui, &sender, PinEvent::Closed(pin_id));
             }
             egui::CentralPanel::default()
                 .frame(egui::Frame::NONE)
@@ -227,7 +254,9 @@ impl PinnedImage {
                             }
                         }
                         if ui.small_button("×").clicked() {
-                            closed.store(true, Ordering::Relaxed);
+                            if !closed.swap(true, Ordering::Relaxed) {
+                                send_event(ui, &sender, PinEvent::Closed(pin_id));
+                            }
                             ui.ctx().send_viewport_cmd(egui::ViewportCommand::Close);
                         }
                     });
