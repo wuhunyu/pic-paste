@@ -85,7 +85,7 @@ fn check_capability(helper: &Path) -> Result<(), String> {
         .stderr(Stdio::null())
         .spawn()
         .map_err(|error| format!("无法查询 OCR Add-on 版本：{error}"))?;
-    let mut stdout = child
+    let stdout = child
         .stdout
         .take()
         .ok_or_else(|| String::from("OCR Add-on 无法提供版本信息"))?;
