@@ -1929,11 +1929,12 @@ impl PicPasteApp {
                 ui.add(egui::TextEdit::multiline(&mut self.ocr_text).desired_rows(7));
             }
             let mut review_action = None;
+            let mut new_annotation = None;
             if let Some(review) = self.scroll_review.as_ref() {
-                let (width, height) = review.store.canvas();
+                let canvas = review.store.canvas();
+                let (width, height) = canvas;
                 ui.separator();
-                ui.heading("长截图复核");
-                ui.label("长图 PNG 会按上方圆角设置输出透明边角；预览随圆角变化");
+                ui.heading("长截图复核与标注");
                 if review.partial {
                     ui.colored_label(
                         egui::Color32::YELLOW,
@@ -1941,21 +1942,185 @@ impl PicPasteApp {
                     );
                 }
                 ui.label(format!(
-                    "{} 段可信片段 · 原图 {}×{} px · 缩略图不影响导出分辨率",
+                    "{} 段可信片段 · 原图 {}×{} px · 已应用 {} 个标注",
                     review.store.strip_count(),
                     width,
-                    height
+                    height,
+                    review.edits.applied_len(),
                 ));
+                ui.label("标注使用原始像素坐标并写入完整长图 PNG；长图不会整张加载入内存");
+                ui.horizontal_wrapped(|ui| {
+                    for (tool, title) in [
+                        (Tool::Select, "复制/贴图选区"),
+                        (Tool::Line, "线条"),
+                        (Tool::Arrow, "箭头"),
+                        (Tool::Brush, "画笔"),
+                        (Tool::Rectangle, "矩形"),
+                        (Tool::Ellipse, "椭圆"),
+                        (Tool::Pixelate, "马赛克"),
+                        (Tool::Blur, "模糊"),
+                        (Tool::Text, "文字"),
+                    ] {
+                        ui.selectable_value(&mut self.scroll_tool, tool, title);
+                    }
+                });
+                if self.scroll_tool == Tool::Text {
+                    ui.horizontal(|ui| {
+                        ui.label("文字内容");
+                        ui.add(
+                            egui::TextEdit::singleline(&mut self.scroll_text_buffer)
+                                .desired_width(210.0),
+                        );
+                        ui.add(
+                            egui::Slider::new(&mut self.scroll_text_size, 12.0..=64.0)
+                                .text("字号"),
+                        );
+                        ui.label("点击长图定位");
+                    });
+                }
+                ui.horizontal(|ui| {
+                    if ui.button("撤销标注").clicked() {
+                        review_action = Some(4);
+                    }
+                    if ui.button("重做标注").clicked() {
+                        review_action = Some(5);
+                    }
+                    ui.label("每项标注最多处理 400 万像素；区域过大会明确拒绝");
+                });
                 if let Some(texture) = self.scroll_preview_texture.as_ref() {
                     let full = texture.size_vec2();
                     let available = ui.available_size();
                     let scale = (available.x / full.x)
-                        .min((available.y - 42.0).max(1.0) / full.y)
+                        .min((available.y - 120.0).max(1.0) / full.y)
                         .min(1.0);
-                    ui.add(egui::Image::new((texture.id(), full * scale)));
+                    let response = ui.add(
+                        egui::Image::new((texture.id(), full * scale))
+                            .sense(egui::Sense::click_and_drag()),
+                    );
+                    let to_source = |pointer: egui::Pos2| {
+                        map_preview_point(
+                            (
+                                pointer.x - response.rect.min.x,
+                                pointer.y - response.rect.min.y,
+                            ),
+                            (response.rect.width(), response.rect.height()),
+                            canvas,
+                        )
+                    };
+                    if self.scroll_tool == Tool::Text
+                        && response.clicked()
+                        && !self.scroll_text_buffer.trim().is_empty()
+                        && let Some(pointer) = response.interact_pointer_pos()
+                        && let Some((x, y)) = to_source(pointer)
+                    {
+                        new_annotation = Some(Annotation::Text {
+                            at: (x as f32, y as f32),
+                            content: self.scroll_text_buffer.clone(),
+                            size: self.scroll_text_size,
+                            rgba: [39, 178, 231, 255],
+                        });
+                    }
+                    if self.scroll_tool != Tool::Text {
+                        if response.drag_started() {
+                            self.scroll_drag_anchor = response.interact_pointer_pos();
+                            self.scroll_brush_points.clear();
+                        }
+                        if (response.dragged() || response.drag_stopped())
+                            && let Some(start) = self.scroll_drag_anchor
+                            && let Some(end) = response.interact_pointer_pos()
+                            && let (Some(a), Some(b)) = (to_source(start), to_source(end))
+                        {
+                            if self.scroll_tool == Tool::Select {
+                                if response.drag_stopped() {
+                                    self.scroll_share_region = from_drag(a, b).ok();
+                                }
+                            } else if self.scroll_tool == Tool::Brush {
+                                if self.scroll_brush_points.is_empty() {
+                                    self.scroll_brush_points.push((a.0 as f32, a.1 as f32));
+                                }
+                                let current = (b.0 as f32, b.1 as f32);
+                                if self.scroll_brush_points.last() != Some(&current)
+                                    && self.scroll_brush_points.len() < 20_000
+                                {
+                                    self.scroll_brush_points.push(current);
+                                }
+                                if response.drag_stopped() && !self.scroll_brush_points.is_empty() {
+                                    new_annotation = Some(Annotation::Brush {
+                                        points: std::mem::take(&mut self.scroll_brush_points),
+                                        rgba: [39, 178, 231, 255],
+                                        width: 3.0,
+                                    });
+                                }
+                            } else if response.drag_stopped() {
+                                new_annotation = annotation_for_drag(self.scroll_tool, a, b);
+                            }
+                        }
+                        if response.drag_stopped() {
+                            self.scroll_drag_anchor = None;
+                            self.scroll_brush_points.clear();
+                        }
+                    }
+                    if let Some(region) = self.scroll_share_region {
+                        let sx = response.rect.width() / width as f32;
+                        let sy = response.rect.height() / height as f32;
+                        let selected = egui::Rect::from_min_size(
+                            egui::pos2(
+                                response.rect.left() + region.x as f32 * sx,
+                                response.rect.top() + region.y as f32 * sy,
+                            ),
+                            egui::vec2(region.width as f32 * sx, region.height as f32 * sy),
+                        );
+                        let valid = validate_transfer_rect(region, canvas).is_ok();
+                        ui.painter().rect_stroke(
+                            selected,
+                            0.0,
+                            egui::Stroke::new(
+                                2.0,
+                                if valid {
+                                    egui::Color32::from_rgb(72, 210, 175)
+                                } else {
+                                    egui::Color32::RED
+                                },
+                            ),
+                            egui::StrokeKind::Inside,
+                        );
+                    }
                 }
+                ui.label("复制/贴图仅针对绿色选区，按真实像素提取；不降低分辨率");
+                if let Some(region) = self.scroll_share_region.as_mut() {
+                    ui.horizontal_wrapped(|ui| {
+                        ui.label("X");
+                        ui.add(egui::DragValue::new(&mut region.x).range(0..=width.saturating_sub(1) as i32));
+                        ui.label("Y");
+                        ui.add(egui::DragValue::new(&mut region.y).range(0..=height.saturating_sub(1) as i32));
+                        ui.label("宽");
+                        ui.add(egui::DragValue::new(&mut region.width).range(1..=width));
+                        ui.label("高");
+                        ui.add(egui::DragValue::new(&mut region.height).range(1..=height));
+                    });
+                }
+                let valid_selection = self
+                    .scroll_share_region
+                    .is_some_and(|region| validate_transfer_rect(region, canvas).is_ok());
+                if !valid_selection {
+                    ui.colored_label(
+                        egui::Color32::YELLOW,
+                        "选区需在长图范围内，最多 400 万像素，单边不超过 4096 像素",
+                    );
+                }
+                ui.horizontal_wrapped(|ui| {
+                    if ui.add_enabled(valid_selection, egui::Button::new("复制选区图片")).clicked() {
+                        review_action = Some(6);
+                    }
+                    if ui.add_enabled(valid_selection, egui::Button::new("悬浮贴图选区")).clicked() {
+                        review_action = Some(7);
+                    }
+                    if ui.button("选区重置到安全大小").clicked() {
+                        self.scroll_share_region = Some(default_transfer_rect(canvas));
+                    }
+                });
                 ui.horizontal(|ui| {
-                    if ui.button("确认保存 PNG").clicked() {
+                    if ui.button("确认保存完整 PNG").clicked() {
                         review_action = Some(0);
                     }
                     if ui.button("移除最后一个拼接段").clicked() {
@@ -1973,25 +2138,30 @@ impl PicPasteApp {
                                 .range(1..=review.store.strip_count()),
                         );
                         ui.label("段");
-                        if ui
-                            .add_enabled(
-                                self.scroll_keep_segments < review.store.strip_count(),
-                                egui::Button::new("裁剪后续所有片段"),
-                            )
-                            .clicked()
-                        {
+                        if ui.add_enabled(
+                            self.scroll_keep_segments < review.store.strip_count(),
+                            egui::Button::new("裁剪后续所有片段"),
+                        ).clicked() {
                             review_action = Some(3);
                         }
                     });
-                    ui.label("仅裁剪尾部；不会断开中间某段后强行拼接后续内容");
+                    ui.label("先撤销标注，再裁剪可信片段；仅裁剪尾部，不强行拼接中间不可信段");
                 }
             }
-            match review_action {
-                Some(0) => self.save_scroll_review(ui.ctx()),
-                Some(1) => self.undo_scroll_review(ui.ctx()),
-                Some(2) => self.discard_scroll_review(),
-                Some(3) => self.trim_scroll_review(ui.ctx(), self.scroll_keep_segments),
-                _ => {}
+            if let Some(annotation) = new_annotation {
+                self.edit_scroll_review(ui.ctx(), ScrollReviewEdit::Add(annotation));
+            } else {
+                match review_action {
+                    Some(0) => self.save_scroll_review(ui.ctx()),
+                    Some(1) => self.undo_scroll_review(ui.ctx()),
+                    Some(2) => self.discard_scroll_review(),
+                    Some(3) => self.trim_scroll_review(ui.ctx(), self.scroll_keep_segments),
+                    Some(4) => self.edit_scroll_review(ui.ctx(), ScrollReviewEdit::Undo),
+                    Some(5) => self.edit_scroll_review(ui.ctx(), ScrollReviewEdit::Redo),
+                    Some(6) => self.prepare_scroll_transfer(ui.ctx(), PrepareAction::Copy),
+                    Some(7) => self.prepare_scroll_transfer(ui.ctx(), PrepareAction::Pin),
+                    _ => {}
+                }
             }
             if !self.pins.is_empty() {
                 ui.separator();
