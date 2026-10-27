@@ -78,5 +78,5 @@
 ## 2026-10-27 — P0-T3/P0-T4 局部像素和焦点加固（PR #31）
 
 - [x] [PR #31](https://github.com/wuhunyu/pic-paste/pull/31) 增加 `CapturedFrame` 局部像素/校验裁剪、截图请求激活和 Pin 初始不激活/无阴影/仅模式穿透。
-- [ ] 代码需全量 CI 和 macOS 设备验证；不能将 `with_active` 的初始焦点请求误作真实 AppKit/Spaces 焦点保证。
+- [x] 代码通过完整 [PR CI #40461875462](https://github.com/wuhunyu/pic-paste/actions/runs/40461875462)：Linux/macOS 全工作区测试、严格 Clippy、Release、Swift IPC 与 Lite/Full/Add-on 打包；**macOS 设备验证仍未完成**，不能将 `with_active` 当作实机焦点保证。
 - [ ] [窗口策略](macos-window-strategy.md)明确 NSPanel 仍需独立 AppKit 主线程窗口、Metal surface 和事件桥接，不得声称已替代。

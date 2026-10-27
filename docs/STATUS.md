@@ -4,8 +4,8 @@
 
 ## 当前基线
 
-- 已合并：PR [#1](https://github.com/wuhunyu/pic-paste/pull/1)、[#2](https://github.com/wuhunyu/pic-paste/pull/2)、[#3](https://github.com/wuhunyu/pic-paste/pull/3)、[#12](https://github.com/wuhunyu/pic-paste/pull/12)–[#30](https://github.com/wuhunyu/pic-paste/pull/30)。截至本次核验共 **22 个已合并 PR**。
-- 最新功能合并：[#30 多贴图资源预算与共享释放](https://github.com/wuhunyu/pic-paste/pull/30)，提交 [`0657fd5`](https://github.com/wuhunyu/pic-paste/commit/0657fd52dcb3f1250a2a5db8aae2ff63993ecd5e)；完整 [PR CI #40458668058](https://github.com/wuhunyu/pic-paste/actions/runs/40458668058) **success**（Linux 核心测试、macOS egui 共享纹理回归、严格 Clippy、Release 和 Lite/Full/Add-on 开发包）。#29 OCR Add-on、#28 OCR/QR 和 #27 长图也已合并。**5Pin 帧 P95、GPU/RSS/CPU、Retina/Spaces、真实剪贴板仍需设备验收。**
+- 已合并：PR [#1](https://github.com/wuhunyu/pic-paste/pull/1)、[#2](https://github.com/wuhunyu/pic-paste/pull/2)、[#3](https://github.com/wuhunyu/pic-paste/pull/3)、[#12](https://github.com/wuhunyu/pic-paste/pull/12)–[#31](https://github.com/wuhunyu/pic-paste/pull/31)。截至本次核验共 **23 个已合并 PR**。
+- 最新功能合并：[#31 macOS 截图局部物理像素及窗口焦点加固](https://github.com/wuhunyu/pic-paste/pull/31)，提交 [`73122e0`](https://github.com/wuhunyu/pic-paste/commit/73122e009c4bef66b39c4ef0f0f60def4680c76e)；完整 [PR CI #40461875462](https://github.com/wuhunyu/pic-paste/actions/runs/40461875462) **success**（Linux/macOS Rust 测试、严格 Clippy、Swift IPC、Release 及 Lite/Full/Add-on 包装）。#30 贴图纹理、#29 Add-on 和 #28 OCR/QR 已合并。**专用 NSPanel、真实多屏/Spaces/TCC/焦点、冷启动/热键 P95 仍未通过真机验收。**
 - #17 合并提交 `7e492a4bb91f6062c225dfb33f524cc51756e556`；[main CI #40297130672](https://github.com/wuhunyu/pic-paste/actions/runs/40297130672) **success**。
 - 历史增量：[#23 手动失败恢复](https://github.com/wuhunyu/pic-paste/pull/23)、[#24 手动固定栏排除](https://github.com/wuhunyu/pic-paste/pull/24)、[#25 长图圆角](https://github.com/wuhunyu/pic-paste/pull/25)、[#26 长图标注/贴图](https://github.com/wuhunyu/pic-paste/pull/26) 均已合并；对应测试记录详见各 PR。合并后的主分支 CI 已在 #40440845772 覆盖这些功能。
 - 跟踪 Issues：[#5 原生窗口和多屏](https://github.com/wuhunyu/pic-paste/issues/5)、[#6 标注与贴图](https://github.com/wuhunyu/pic-paste/issues/6)、[#7 长截图](https://github.com/wuhunyu/pic-paste/issues/7)、[#8 OCR/二维码/Add-on](https://github.com/wuhunyu/pic-paste/issues/8)、[#10 真机与性能](https://github.com/wuhunyu/pic-paste/issues/10)、[#9 macOS 正式发布](https://github.com/wuhunyu/pic-paste/issues/9)、[#11 Windows](https://github.com/wuhunyu/pic-paste/issues/11)。[#4](https://github.com/wuhunyu/pic-paste/issues/4) 已关闭。
@@ -68,5 +68,5 @@
 ## 2026-10-27 — #5 显示器像素坐标与窗口焦点（PR #31）
 
 - [x] 测试先行：Linux RED 缺少 `CapturedFrame::for_display` / `region_origin_px`；macOS RED 缺少 `pin_builder`，均为预期接口缺失而非误报。
-- [ ] 生产路径：完整屏幕 (0,0) 的局部物理像素 + 校验区域源矩形；截图浮层请求焦点、Pin 初始不激活、纯透明阴影关闭、穿透按模式配置。需最新完整 CI 验证。
+- [x] 生产路径：完整屏幕 (0,0) 的局部物理像素 + 校验区域源矩形；截图浮层请求焦点、Pin 初始不激活、纯透明阴影关闭、穿透按模式配置。已通过 [PR CI #40461875462](https://github.com/wuhunyu/pic-paste/actions/runs/40461875462)，不等于实机焦点保证。
 - [ ] 真机：双显示器负原点/不同 Retina DPI、插拔、全屏 Spaces、TCC 授予/撤销、系统热键/焦点/拖动和 10 帧自窗残影；30 次冷启动及 100 次热键 P95。专用 NSPanel 尚未提供，详见 [决策](macos-window-strategy.md)。

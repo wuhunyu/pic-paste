@@ -43,24 +43,24 @@ impl CapturedFrame {
 - [x] **Verify RED** on CI Ubuntu: `cargo test -p shot-core --test capture_pixel_space --locked`, expect unresolved `CapturedFrame::for_display`.
 - [x] **Implement core constructor** and checked region offset; test image is small and generated in memory, no actual TCC permission required. Negative *desktop-point* overlay placement remains separate from local pixel geometry.
 - [x] **Wire macOS adapter**: replace `(frame.origin.x * filter.point_pixel_scale())` global-origin calculation with `CapturedFrame::for_display`; `capture_region` uses `full.region_origin_px(region)?` before cropping.
-- [ ] **Verify GREEN** Linux core suite and macOS full workspace/Clippy/Release. No reading screen necessary for pure tests.
+- [x] **Verify GREEN** Linux core suite and macOS full workspace/Clippy/Release. No reading screen necessary for pure tests.
 
 ### Task 2: Screenshot and pin focus policy, RED then GREEN
 
 **Interfaces:** `overlay::capture_builder(OverlayPlacement)->ViewportBuilder`; `pin::pin_builder(id:u64,size:egui::Vec2,mode:PinMode)->ViewportBuilder`.
 
-- [ ] **Test first**: capture builder expects `active=Some(true)`, `mouse_passthrough=Some(false)`, `movable_by_window_background=Some(false)`; pin builder for Move/TextSelect/Passthrough expects `active=Some(false)`, `has_shadow=Some(false)`, `movable_by_window_background=Some(false)`, and passthrough enabled only in the dedicated mode.
-- [ ] **Verify RED** with macOS CI; expect failed focus assertion and missing `pin_builder` API.
+- [x] **Test first**: capture builder expects `active=Some(true)`, `mouse_passthrough=Some(false)`, `movable_by_window_background=Some(false)`; pin builder for Move/TextSelect/Passthrough expects `active=Some(false)`, `has_shadow=Some(false)`, `movable_by_window_background=Some(false)`, and passthrough enabled only in the dedicated mode.
+- [x] **Verify RED** with macOS CI; expect failed focus assertion and missing `pin_builder` API.
 - [x] **Implement minimal builders** while preserving `with_always_on_top()`, `with_decorations(false)`, existing window sizes, explicit drag via `ViewportCommand::StartDrag`, and current OCR UI/close event handling.
-- [ ] **Verify GREEN** with macOS `cargo fmt --all -- --check`, `cargo test --workspace --locked`, `cargo clippy --workspace --all-targets --locked -- -D warnings`, `cargo build --release -p shot-macos --locked`.
+- [x] **Verify GREEN** with macOS `cargo fmt --all -- --check`, `cargo test --workspace --locked`, `cargo clippy --workspace --all-targets --locked -- -D warnings`, `cargo build --release -p shot-macos --locked`.
 
 ### Task 3: Architecture decision and delivery evidence
 
 - [x] Document that eframe/winit currently generates `NSWindow` viewports, not `NSPanel`. Switching to a dedicated NSPanel requires an AppKit main-thread host, renderer surface/window lifecycle and keyboard/mouse event bridge, not just calling `setLevel` on an existing window. Keep Issue #5 NSPanel acceptance open pending physical-device reproduction or explicit requirements waiver.
 - [x] Link [Apple SCDisplay frame documentation](https://developer.apple.com/documentation/screencapturekit/scdisplay/frame) (points) and [eframe 0.37 window/viewport APIs](https://docs.rs/eframe/0.37.0/eframe/struct.NativeOptions.html) as design references.
 - [x] Update README/status/remaining/tasks and Issue #5, clearly distinguishing unit/CI evidence from physical macOS 14+ heterogeneous display, negative-origin, Spaces, TCC and focus behavior.
-- [ ] Run PR CI including Linux core, macOS Swift IPC, Rust workspace tests, strict Clippy, release and Lite/Full/Add-on packaging. Fix failures before squash merge.
-- [ ] Merge only when latest PR CI is green, then synchronize the main ledger/Issue with commit and run references. Keep Issue #5 open until real device tests.
+- [x] Run PR CI including Linux core, macOS Swift IPC, Rust workspace tests, strict Clippy, release and Lite/Full/Add-on packaging. Fix failures before squash merge.
+- [x] Merge only when latest PR CI is green, then synchronize the main ledger/Issue with commit and run references. Keep Issue #5 open until real device tests.
 
 ## Acceptance Matrix
 
@@ -74,3 +74,11 @@ impl CapturedFrame {
 | Pin Passthrough mode | Mouse passthrough true only in that mode, still recoverable |
 | True AppKit NSPanel | **Not delivered**; architecture and acceptance gap remain documented |
 | Mixed DPI/Spaces/TCC/30 cold starts/100 hotkeys | Real macOS device evidence still pending; CI-green is not a pass |
+
+## Verified outcome
+
+- [x] Linux TDD RED [#40461102528](https://github.com/wuhunyu/pic-paste/actions/runs/40461102528): the new pure tests failed because `for_display` / `region_origin_px` did not exist.
+- [x] macOS TDD RED [#40461250472](https://github.com/wuhunyu/pic-paste/actions/runs/40461250472): the focus tests failed because `pin_builder` was missing.
+- [x] Full GREEN [#40461875462](https://github.com/wuhunyu/pic-paste/actions/runs/40461875462): Linux/macOS tests, Clippy, release, Swift IPC, Lite/Full/Add-on packaging.
+- [x] [PR #31](https://github.com/wuhunyu/pic-paste/pull/31) squash merged to `main` at `73122e0`.
+- [ ] AppKit NSPanel backend, real macOS 14+ mixed-DPI/Spaces/TCC/focus and quantitative P95 acceptance are still open in Issues #5/#10.

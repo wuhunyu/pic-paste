@@ -1,6 +1,6 @@
 # PicPaste 未完成任务与 Issue 对账台账
 
-> **核对日期：2026-10-27** · 主线基线 [`main@0657fd5`](https://github.com/wuhunyu/pic-paste/commit/0657fd52dcb3f1250a2a5db8aae2ff63993ecd5e)，[PR #30](https://github.com/wuhunyu/pic-paste/pull/30) 已合并 · 完整 [PR CI #40458668058](https://github.com/wuhunyu/pic-paste/actions/runs/40458668058) 成功。独立 Add-on 的真实签名和多贴图真实性能仍需设备验收。
+> **核对日期：2026-10-27** · 最新功能基线 [`main@73122e0`](https://github.com/wuhunyu/pic-paste/commit/73122e009c4bef66b39c4ef0f0f60def4680c76e)，[PR #31](https://github.com/wuhunyu/pic-paste/pull/31) 已合并 · 完整 [PR CI #40461875462](https://github.com/wuhunyu/pic-paste/actions/runs/40461875462) 成功。原生 NSPanel、多屏焦点/Spaces/TCC、OCR Add-on 真签名及性能仍需设备验收。
 >
 > 此文档与 [TASKS.md](TASKS.md)、[STATUS.md](STATUS.md) 和 [Issues](https://github.com/wuhunyu/pic-paste/issues?q=is%3Aissue+is%3Aopen) 同步。以下任务状态指 **代码与证据**，不能将单元测试、编译成功等同于操作系统真机功能验收。独立的当前 Issue 正文是每项工作的逐条关闭清单。
 
@@ -10,7 +10,7 @@
 | --- | --- |
 | 原始 v1.2 任务 | 20 项：**8 项代码基本完成、9 项部分实现、3 项未开始** |
 | GitHub Issues（非 PR） | **7 个未关闭：#5–#11**；最初 workspace/CI 对应的 #4 已关闭 |
-| GitHub Pull Requests | **22 个已合并**（#1–#3、#12–#30），当前无待合并功能 PR |
+| GitHub Pull Requests | **23 个已合并**（#1–#3、#12–#31），当前无待合并功能 PR |
 | macOS 开发包 | ARM64 Lite/Full ad-hoc 签名 ZIP、SHA256；**不是正式发行件** |
 | GitHub Releases | **0** |
 | Windows 原生能力 | 未开始；Rust 核心接口存在，不代表 Windows 构建可用 |
