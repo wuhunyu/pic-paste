@@ -22,7 +22,9 @@ use shot_ocr_protocol::hit_test::{hit_line_in_capture, selected_text};
 use shot_ocr_protocol::{MAX_RGBA_BYTES, OcrDocument};
 use shot_platform::macos::MacCapture;
 use shot_scroll::fixed_bands::FixedBands;
-use shot_scroll::review_transfer::{default_transfer_rect, map_preview_point, validate_transfer_rect};
+use shot_scroll::review_transfer::{
+    default_transfer_rect, map_preview_point, validate_transfer_rect,
+};
 use std::borrow::Cow;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -1008,12 +1010,18 @@ impl PicPasteApp {
                     .apply(&review.store, annotation)
                     .map_err(|error| format!("添加标注失败：{error}")),
                 ScrollReviewEdit::Undo => {
-                    if review.edits.undo() { Ok(()) }
-                    else { Err(String::from("没有可撤销的标注")) }
+                    if review.edits.undo() {
+                        Ok(())
+                    } else {
+                        Err(String::from("没有可撤销的标注"))
+                    }
                 }
                 ScrollReviewEdit::Redo => {
-                    if review.edits.redo() { Ok(()) }
-                    else { Err(String::from("没有可重做的标注")) }
+                    if review.edits.redo() {
+                        Ok(())
+                    } else {
+                        Err(String::from("没有可重做的标注"))
+                    }
                 }
             };
             let result = result.and_then(|_| {
@@ -1055,7 +1063,10 @@ impl PicPasteApp {
         let wake = ctx.clone();
         let radius = self.radius;
         thread::spawn(move || {
-            let outcome = match review.store.render_region_edited(&review.edits, rect, radius) {
+            let outcome = match review
+                .store
+                .render_region_edited(&review.edits, rect, radius)
+            {
                 Ok(image) => Ok((image, review)),
                 Err(error) => Err((format!("提取长图选区失败：{error}"), review)),
             };
@@ -1068,8 +1079,13 @@ impl PicPasteApp {
         if self.processing {
             return;
         }
-        if self.scroll_review.as_ref().is_some_and(|review| review.edits.applied_len() > 0) {
-            self.status = String::from("先撤销所有长图标注，再移除可信片段；片段变化会使标注坐标失效");
+        if self
+            .scroll_review
+            .as_ref()
+            .is_some_and(|review| review.edits.applied_len() > 0)
+        {
+            self.status =
+                String::from("先撤销所有长图标注，再移除可信片段；片段变化会使标注坐标失效");
             return;
         }
         let Some(mut review) = self.scroll_review.take() else {
@@ -1119,7 +1135,11 @@ impl PicPasteApp {
             self.status = String::from("保留段数无效；只能移除末尾片段，且必须至少保留第一段");
             return;
         }
-        if self.scroll_review.as_ref().is_some_and(|review| review.edits.applied_len() > 0) {
+        if self
+            .scroll_review
+            .as_ref()
+            .is_some_and(|review| review.edits.applied_len() > 0)
+        {
             self.status = String::from("先撤销所有长图标注，再裁剪可信片段");
             return;
         }
@@ -1298,7 +1318,8 @@ impl PicPasteApp {
                         Ok((image, review)) => {
                             self.scroll_review = Some(review);
                             self.prepared.push((action, image));
-                            self.status = String::from("已提取长图选区，正在发送至剪贴板或悬浮贴图");
+                            self.status =
+                                String::from("已提取长图选区，正在发送至剪贴板或悬浮贴图");
                         }
                         Err((error, review)) => {
                             self.scroll_review = Some(review);
@@ -1328,10 +1349,11 @@ impl PicPasteApp {
                         Ok(review) => {
                             self.scroll_keep_segments =
                                 review.store.strip_count().saturating_sub(1).max(1);
-                            if self.scroll_share_region.is_none_or(|rect|
+                            if self.scroll_share_region.is_none_or(|rect| {
                                 validate_transfer_rect(rect, review.store.canvas()).is_err()
-                            ) {
-                                self.scroll_share_region = Some(default_transfer_rect(review.store.canvas()));
+                            }) {
+                                self.scroll_share_region =
+                                    Some(default_transfer_rect(review.store.canvas()));
                             }
                             self.scroll_preview_pending = Some(review.preview.clone());
                             self.status = format!(
@@ -1977,8 +1999,7 @@ impl PicPasteApp {
                                 .desired_width(210.0),
                         );
                         ui.add(
-                            egui::Slider::new(&mut self.scroll_text_size, 12.0..=64.0)
-                                .text("字号"),
+                            egui::Slider::new(&mut self.scroll_text_size, 12.0..=64.0).text("字号"),
                         );
                         ui.label("点击长图定位");
                     });
@@ -2095,9 +2116,15 @@ impl PicPasteApp {
                 if let Some(region) = self.scroll_share_region.as_mut() {
                     ui.horizontal_wrapped(|ui| {
                         ui.label("X");
-                        ui.add(egui::DragValue::new(&mut region.x).range(0..=width.saturating_sub(1) as i32));
+                        ui.add(
+                            egui::DragValue::new(&mut region.x)
+                                .range(0..=width.saturating_sub(1) as i32),
+                        );
                         ui.label("Y");
-                        ui.add(egui::DragValue::new(&mut region.y).range(0..=height.saturating_sub(1) as i32));
+                        ui.add(
+                            egui::DragValue::new(&mut region.y)
+                                .range(0..=height.saturating_sub(1) as i32),
+                        );
                         ui.label("宽");
                         ui.add(egui::DragValue::new(&mut region.width).range(1..=width));
                         ui.label("高");
@@ -2114,10 +2141,16 @@ impl PicPasteApp {
                     );
                 }
                 ui.horizontal_wrapped(|ui| {
-                    if ui.add_enabled(valid_selection, egui::Button::new("复制选区图片")).clicked() {
+                    if ui
+                        .add_enabled(valid_selection, egui::Button::new("复制选区图片"))
+                        .clicked()
+                    {
                         review_action = Some(6);
                     }
-                    if ui.add_enabled(valid_selection, egui::Button::new("悬浮贴图选区")).clicked() {
+                    if ui
+                        .add_enabled(valid_selection, egui::Button::new("悬浮贴图选区"))
+                        .clicked()
+                    {
                         review_action = Some(7);
                     }
                     if ui.button("选区重置到安全大小").clicked() {
@@ -2143,10 +2176,13 @@ impl PicPasteApp {
                                 .range(1..=review.store.strip_count()),
                         );
                         ui.label("段");
-                        if ui.add_enabled(
-                            self.scroll_keep_segments < review.store.strip_count(),
-                            egui::Button::new("裁剪后续所有片段"),
-                        ).clicked() {
+                        if ui
+                            .add_enabled(
+                                self.scroll_keep_segments < review.store.strip_count(),
+                                egui::Button::new("裁剪后续所有片段"),
+                            )
+                            .clicked()
+                        {
                             review_action = Some(3);
                         }
                     });
