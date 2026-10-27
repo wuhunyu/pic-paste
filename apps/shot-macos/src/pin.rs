@@ -5,17 +5,20 @@ use shot_core::RgbaFrame;
 use shot_core::input::{DragAction, DragLatch};
 use shot_core::pin_view::{PinImageView, map_pin_click};
 use shot_core::pins::{PinMode, PinOcrGate};
-use shot_ocr_protocol::OcrDocument;
+use shot_ocr_protocol::hit_test::{TextSelection, selection_polygon};
+use shot_ocr_protocol::{OcrDocument, QrDocument};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::Sender;
 use std::sync::{Arc, Mutex};
 
 #[derive(Clone, Copy, Debug)]
 pub enum PinEvent {
-    Recognize(u64),
+    Recognize { id: u64, characters: bool },
+    DetectQr(u64),
     Move(u64),
     CopySelected(u64),
-    PickLine { id: u64, pixel: (f32, f32) },
+    CopyQr { id: u64, index: usize },
+    PickText { id: u64, pixel: (f32, f32) },
 }
 
 /// Explicitly wake the root app when the user acts inside a deferred pin
@@ -35,7 +38,9 @@ pub struct PinnedImage {
     pub closed: Arc<AtomicBool>,
     pub ocr_gate: PinOcrGate,
     pub ocr_result: Option<Arc<OcrDocument>>,
-    pub selected_line: Option<usize>,
+    pub selected_text: Option<TextSelection>,
+    pub character_mode: bool,
+    pub qr_result: Option<Arc<QrDocument>>,
     gesture: Arc<Mutex<DragLatch>>,
     texture: egui::TextureHandle,
 }
@@ -56,7 +61,9 @@ impl PinnedImage {
             closed: Arc::new(AtomicBool::new(false)),
             ocr_gate: PinOcrGate::default(),
             ocr_result: None,
-            selected_line: None,
+            selected_text: None,
+            character_mode: false,
+            qr_result: None,
             gesture: Arc::new(Mutex::new(DragLatch::default())),
             texture,
         }
@@ -65,7 +72,7 @@ impl PinnedImage {
     pub fn set_mode(&mut self, mode: PinMode) {
         if self.mode == PinMode::TextSelect && mode != PinMode::TextSelect {
             self.ocr_gate.cancel_selection();
-            self.selected_line = None;
+            self.selected_text = None;
         }
         self.mode = mode;
     }
@@ -87,7 +94,9 @@ impl PinnedImage {
         let closed = Arc::clone(&self.closed);
         let ocr_pending = self.ocr_gate.pending();
         let ocr_result = self.ocr_result.clone();
-        let selected_line = self.selected_line;
+        let selected_text = self.selected_text;
+        let character_mode = self.character_mode;
+        let qr_result = self.qr_result.clone();
         let gesture = Arc::clone(&self.gesture);
         let sender = events.clone();
         let pin_id = self.id;
@@ -111,23 +120,59 @@ impl PinnedImage {
                         match mode {
                             PinMode::Move => {
                                 ui.label("PicPaste · 拖动");
-                                if ui.small_button("识别文字 (Full)").clicked() {
-                                    send_event(ui, &sender, PinEvent::Recognize(pin_id));
+                                if ui.small_button("识别词").clicked() {
+                                    send_event(
+                                        ui,
+                                        &sender,
+                                        PinEvent::Recognize { id: pin_id, characters: false },
+                                    );
+                                }
+                                if ui.small_button("识别字").clicked() {
+                                    send_event(
+                                        ui,
+                                        &sender,
+                                        PinEvent::Recognize { id: pin_id, characters: true },
+                                    );
+                                }
+                                if ui.small_button("识别二维码").clicked() {
+                                    send_event(ui, &sender, PinEvent::DetectQr(pin_id));
                                 }
                             }
                             PinMode::TextSelect => {
-                                ui.label("PicPaste · 点击选字");
+                                ui.label(if character_mode {
+                                    "PicPaste · 单字定位"
+                                } else {
+                                    "PicPaste · 词级定位"
+                                });
                                 if ui.small_button("移动").clicked() {
                                     send_event(ui, &sender, PinEvent::Move(pin_id));
                                 }
                                 if ui
-                                    .add_enabled(!ocr_pending, egui::Button::new("重新识别"))
+                                    .add_enabled(!ocr_pending, egui::Button::new("识别词"))
                                     .clicked()
                                 {
-                                    send_event(ui, &sender, PinEvent::Recognize(pin_id));
+                                    send_event(ui, &sender, PinEvent::Recognize {
+                                        id: pin_id,
+                                        characters: false,
+                                    });
                                 }
-                                if selected_line.is_some()
-                                    && ui.small_button("复制选中行").clicked()
+                                if ui
+                                    .add_enabled(!ocr_pending, egui::Button::new("识别字"))
+                                    .clicked()
+                                {
+                                    send_event(ui, &sender, PinEvent::Recognize {
+                                        id: pin_id,
+                                        characters: true,
+                                    });
+                                }
+                                if ui
+                                    .add_enabled(!ocr_pending, egui::Button::new("扫码"))
+                                    .clicked()
+                                {
+                                    send_event(ui, &sender, PinEvent::DetectQr(pin_id));
+                                }
+                                if selected_text.is_some()
+                                    && ui.small_button("复制所选文字").clicked()
                                 {
                                     send_event(ui, &sender, PinEvent::CopySelected(pin_id));
                                 }
@@ -143,8 +188,29 @@ impl PinnedImage {
                     });
                     if mode == PinMode::TextSelect && ocr_pending {
                         ui.label("正在离线识别…");
-                    } else if mode == PinMode::TextSelect && ocr_result.is_none() {
-                        ui.label("请点击重新识别获取文字行");
+                    } else if mode == PinMode::TextSelect
+                        && ocr_result.is_none() && qr_result.is_none()
+                    {
+                        ui.label("请点击识别词、识别字或扫码");
+                    }
+                    if mode == PinMode::TextSelect
+                        && let Some(document) = qr_result.as_ref()
+                    {
+                        if document.codes.is_empty() {
+                            ui.label("未发现二维码");
+                        }
+                        for (index, code) in document.codes.iter().enumerate() {
+                            ui.horizontal(|ui| {
+                                ui.label(format!("QR {}：{}", index + 1, code.payload));
+                                if ui.small_button("复制内容").clicked() {
+                                    send_event(
+                                        ui,
+                                        &sender,
+                                        PinEvent::CopyQr { id: pin_id, index },
+                                    );
+                                }
+                            });
+                        }
                     }
                     let available = ui.available_size();
                     let shrink = (available.x / size.x).min(available.y / size.y).min(1.0);
@@ -184,16 +250,15 @@ impl PinnedImage {
                             (pointer.x, pointer.y),
                         )
                     {
-                        send_event(ui, &sender, PinEvent::PickLine { id: pin_id, pixel });
+                        send_event(ui, &sender, PinEvent::PickText { id: pin_id, pixel });
                     }
                     if mode == PinMode::TextSelect
-                        && let Some(index) = selected_line
-                        && let Some(line) = ocr_result
+                        && let Some(selection) = selected_text
+                        && let Some(polygon) = ocr_result
                             .as_ref()
-                            .and_then(|document| document.lines.get(index))
+                            .and_then(|document| selection_polygon(document, selection))
                     {
-                        let vertices = line
-                            .polygon_px
+                        let vertices = polygon
                             .iter()
                             .map(|[x, y]| {
                                 egui::pos2(
