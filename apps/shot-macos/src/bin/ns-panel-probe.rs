@@ -4,6 +4,9 @@
 //! production eframe/winit screenshot or pin window backend.
 use shot_core::native_panel::PanelSurfaceSize;
 
+#[cfg(target_os = "macos")]
+mod panel_egui;
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum ProbeCommand {
     Check,
@@ -262,4 +265,23 @@ mod tests {
         assert!(ProbeCommand::parse(&["--show", "--check"]).is_err());
         assert!(ProbeCommand::parse(&["--unknown"]).is_err());
     }
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn egui_controls_emit_shapes_without_a_gpu_or_window() {
+        let ctx = egui::Context::default();
+        let mut controls = panel_egui::ProbeControls::default();
+        let input = egui::RawInput {
+            screen_rect: Some(egui::Rect::from_min_size(
+                egui::Pos2::ZERO,
+                egui::vec2(640.0, 360.0),
+            )),
+            ..Default::default()
+        };
+        let output = ctx.run(input, |ctx| controls.ui(ctx));
+        assert!(
+            !output.shapes.is_empty(),
+            "egui controls should generate drawable shapes without Metal"
+        );
+    }
+
 }
