@@ -271,5 +271,8 @@ mod tests {
             !output.shapes.is_empty(),
             "egui controls should generate drawable shapes without Metal"
         );
+        // This test deliberately has no GPU renderer; explicitly discard
+        // the generated font texture updates rather than leaking them.
+        output.drop_without_applying_deltas();
     }
 }
