@@ -103,7 +103,8 @@ fn overlapping_vector_pixelate_and_blur_match_full_composite_byte_for_byte() {
 
 #[test]
 fn horizontal_edits_and_native_selection_match_the_full_canvas() {
-    let root = std::env::temp_dir().join(format!("picpaste-edits-{}-horizontal", std::process::id()));
+    let root =
+        std::env::temp_dir().join(format!("picpaste-edits-{}-horizontal", std::process::id()));
     fs::create_dir_all(&root).unwrap();
     let frame = |offset: u32, width: u32| {
         let mut rgba = Vec::new();
@@ -130,21 +131,46 @@ fn horizontal_edits_and_native_selection_match_the_full_canvas() {
     let expected = shot_image::composite::composite(&frame(0, 12), &[mark]).unwrap();
     assert_eq!(decode(png).rgba, expected.rgba);
 
-    let rect = shot_core::RectPx { x: 4, y: 1, width: 5, height: 4 };
+    let rect = shot_core::RectPx {
+        x: 4,
+        y: 1,
+        width: 5,
+        height: 4,
+    };
     let actual = store.render_region_edited(&edits, rect, 2).unwrap();
     let mut cropped = shot_image::crop_rgba(&expected, rect).unwrap();
     shot_image::rounded_alpha(&mut cropped, 2);
     assert_eq!(actual.rgba, cropped.rgba);
-    assert!(store.render_region_edited(
-        &edits,
-        shot_core::RectPx { x: 0, y: 0, width: 13, height: 8 },
-        0,
-    ).is_err());
+    assert!(
+        store
+            .render_region_edited(
+                &edits,
+                shot_core::RectPx {
+                    x: 0,
+                    y: 0,
+                    width: 13,
+                    height: 8
+                },
+                0,
+            )
+            .is_err()
+    );
 
     let before = edits.applied_len();
-    assert!(edits.apply(&store, Annotation::Pixelate {
-        left: 1, top: 1, width: 5, height: 5, block_size: 0,
-    }).is_err());
+    assert!(
+        edits
+            .apply(
+                &store,
+                Annotation::Pixelate {
+                    left: 1,
+                    top: 1,
+                    width: 5,
+                    height: 5,
+                    block_size: 0,
+                }
+            )
+            .is_err()
+    );
     assert_eq!(edits.applied_len(), before);
 
     drop(edits);
