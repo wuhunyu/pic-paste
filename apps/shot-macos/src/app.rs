@@ -9,6 +9,7 @@ use eframe::egui;
 use shot_core::async_ticket::OcrTicket;
 use shot_core::display::{DisplaySelection, OverlayPlacement};
 use shot_core::overlay::OverlayState;
+use shot_core::pin_texture_budget::{MAX_PIN_COUNT, MAX_TEXTURE_BYTES, PinTextureBudget};
 use shot_core::pins::PinMode;
 use shot_core::platform::{CapturedFrame, DisplayId, PlatformError, ScrollAxis};
 use shot_core::selection::{ResizeHandle, adjust_selection, from_drag, hit_selection_handle};
@@ -604,6 +605,7 @@ pub struct PicPasteApp {
     prepared: Vec<(PrepareAction, RgbaFrame)>,
     screen: Option<SelectionView>,
     pins: Vec<PinnedImage>,
+    pin_budget: PinTextureBudget,
     next_pin_id: u64,
     pin_tx: Sender<PinEvent>,
     pin_rx: Receiver<PinEvent>,
@@ -679,6 +681,7 @@ impl PicPasteApp {
             prepared: Vec::new(),
             screen: None,
             pins: Vec::new(),
+            pin_budget: PinTextureBudget::default(),
             next_pin_id: 0,
             pin_tx,
             pin_rx,
@@ -954,24 +957,71 @@ impl PicPasteApp {
                 .map_err(|e| e.to_string())?;
             let w = u32::try_from(image.width).map_err(|e| e.to_string())?;
             let h = u32::try_from(image.height).map_err(|e| e.to_string())?;
+            // Reject a giant clipboard image before allocating a ColorImage/GPU texture.
+            PinTextureBudget::validate_dimensions(w, h)
+                .map_err(|error| format!("贴图资源限制：{error}"))?;
             RgbaFrame::new(w, h, image.bytes.into_owned())
                 .map_err(|e| format!("invalid clipboard frame: {e:?}"))
         })();
         match result {
             Ok(image) => self.create_pin(ctx, image),
-            Err(error) => self.status = format!("剪贴板没有可用图片：{error}"),
+            Err(error) => self.status = format!("剪贴板贴图失败：{error}"),
         }
     }
 
+    /// Every new viewport must reserve its resident resources *before*
+    /// building egui::ColorImage or uploading a GPU texture.
     fn create_pin(&mut self, ctx: &egui::Context, image: RgbaFrame) {
+        self.prune_closed_pins();
         let Some(id) = self.next_pin_id.checked_add(1) else {
             self.status = String::from("贴图 ID 已用尽");
             return;
         };
+
+        // Use exact pixel equality, not an unchecked hash. A clone of an
+        // identical pin keeps the original texture handle and RGBA Arc alive.
+        let shared_index = self.pins.iter().position(|pin| {
+            pin.source.width == image.width
+                && pin.source.height == image.height
+                && pin.source.rgba == image.rgba
+        });
+        let reuse_group = shared_index.map(|index| self.pins[index].texture_group);
+        if let Err(error) =
+            self.pin_budget
+                .reserve(id, image.width, image.height, reuse_group)
+        {
+            self.status = format!("贴图未创建：{error}");
+            return;
+        }
+        let reused = shared_index.is_some();
+        let pin = if let Some(index) = shared_index {
+            PinnedImage::from_shared(id, &self.pins[index])
+        } else {
+            PinnedImage::new(ctx, id, Arc::new(image))
+        };
         self.next_pin_id = id;
-        self.pins.push(PinnedImage::new(ctx, id, Arc::new(image)));
-        self.status = format!("已创建贴图 #{id}");
+        self.pins.push(pin);
+        self.status = if reused {
+            format!("已复用现有 GPU 纹理创建贴图 #{id}")
+        } else {
+            format!("已创建贴图 #{id}")
+        };
         ctx.request_repaint();
+    }
+
+    /// Drop closed pinned windows together with their texture-ledger lease.
+    /// egui frees the texture after the last cloned TextureHandle is dropped.
+    fn prune_closed_pins(&mut self) {
+        let budget = &mut self.pin_budget;
+        self.pins.retain(|pin| {
+            if pin.is_closed() {
+                let released = budget.release(pin.id);
+                debug_assert!(released, "closed pin must have a resource lease");
+                false
+            } else {
+                true
+            }
+        });
     }
 
     fn recover_pins(&mut self) {
@@ -1058,6 +1108,12 @@ impl PicPasteApp {
         match event {
             PinEvent::Recognize { id, characters } => self.request_pin_ocr(ctx, id, characters),
             PinEvent::DetectQr(id) => self.request_pin_qr(ctx, id),
+            PinEvent::Closed(id) => {
+                if let Some(pin) = self.pins.iter().find(|pin| pin.id == id) {
+                    pin.closed
+                        .store(true, std::sync::atomic::Ordering::Relaxed);
+                }
+            }
             PinEvent::Move(id) => {
                 if let Some(pin) = self
                     .pins
@@ -1730,7 +1786,7 @@ impl PicPasteApp {
         for event in pin_events {
             self.process_pin_event(event, ctx);
         }
-        self.pins.retain(|pin| !pin.is_closed());
+        self.prune_closed_pins();
     }
 
     fn process_ui_images(&mut self, ctx: &egui::Context) {
@@ -2572,6 +2628,13 @@ impl PicPasteApp {
             if !self.pins.is_empty() {
                 ui.separator();
                 ui.heading("悬浮贴图");
+                ui.label(format!(
+                    "GPU RGBA 纹理估算：{:.1} / {:.0} MiB · {}/{} 个贴图（相同图像复用）",
+                    self.pin_budget.resident_bytes() as f64 / 1_048_576.0,
+                    MAX_TEXTURE_BYTES as f64 / 1_048_576.0,
+                    self.pin_budget.active_pins(),
+                    MAX_PIN_COUNT,
+                ));
                 for pin in &mut self.pins {
                     ui.horizontal(|ui| {
                         ui.label(format!("#{}", pin.id));
