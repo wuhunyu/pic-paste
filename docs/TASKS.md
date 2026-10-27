@@ -1,6 +1,6 @@
 # 原始 v1.2 执行计划：20 项任务同步台账
 
-更新于 **2026-10-26**，对应 [STATUS.md](STATUS.md) 与 [GitHub Issues](https://github.com/wuhunyu/pic-paste/issues)。`代码基本完成` 指核心实现与自动化测试存在，**不表示功能已通过真实 macOS/Windows 验收**；`部分实现` 指原任务至少有一项实质性缺口；`未开始` 指该目标尚无功能代码。
+更新于 **2026-10-27**，对应 [STATUS.md](STATUS.md) 与 [GitHub Issues](https://github.com/wuhunyu/pic-paste/issues)。`代码基本完成` 指核心实现与自动化测试存在，**不表示功能已通过真实 macOS/Windows 验收**；`部分实现` 指原任务至少有一项实质性缺口；`未开始` 指该目标尚无功能代码。
 
 | 序号 | 原计划任务 | 当前状态 | 可核验代码 / 剩余缺口 | 跟踪 |
 | --- | --- | --- | --- | --- |
@@ -18,7 +18,7 @@
 | P3-T3 | Lite / Full / Add-on 交付 | **部分实现** | Lite/Full 开发包自动打包；独立签名 Add-on 安装/版本兼容未实现 | [#8](https://github.com/wuhunyu/pic-paste/issues/8) |
 | P4-T1 | 手动纵向/横向滚动及 ROI | **代码基本完成** | 手动区域采样与纵横方向；[#24](https://github.com/wuhunyu/pic-paste/pull/24) 增加可配置固定边距后再取帧（完整 CI 通过，已合并）；真实网页/文档和鼠标穿透未验收 | [#7](https://github.com/wuhunyu/pic-paste/issues/7) |
 | P4-T2 | 重叠拼接、磁盘块与实时预览 | **代码基本完成** | 匹配拒绝/TileStore/实时小窗 #18；[#20](https://github.com/wuhunyu/pic-paste/pull/20) 已按 PID 排除自身窗口；复杂页面与真实无残影效果仍待实测 | [#7](https://github.com/wuhunyu/pic-paste/issues/7) |
-| P4-T3 | 手动滚动失败恢复、拼接纠错、编辑 | **部分实现** | [#23](https://github.com/wuhunyu/pic-paste/pull/23) 失败暂停、人工回滚慢速重试、复用可信锚点；[#21](https://github.com/wuhunyu/pic-paste/pull/21) 可裁剪尾部；**[#24](https://github.com/wuhunyu/pic-paste/pull/24) 提供手动固定页眉/页脚/侧栏裁剪（完整 CI 通过，已合并），仍缺自动动态内容过滤、真正中间段纠错、长图二次标注与 50 场景实测**。自动滚动为用户明确取消的需求，不计为缺项 | [#7](https://github.com/wuhunyu/pic-paste/issues/7) |
+| P4-T3 | 手动滚动失败恢复、拼接纠错、编辑 | **部分实现** | [#23](https://github.com/wuhunyu/pic-paste/pull/23) 失败暂停、人工回滚慢速重试、复用可信锚点；[#21](https://github.com/wuhunyu/pic-paste/pull/21) 可裁剪尾部；**[#24](https://github.com/wuhunyu/pic-paste/pull/24) 提供手动固定页眉/页脚/侧栏裁剪（完整 CI 通过，已合并），[#25](https://github.com/wuhunyu/pic-paste/pull/25) 支持 PNG 圆角；[#26](https://github.com/wuhunyu/pic-paste/pull/26) 已实现完整长图的磁盘补丁标注/撤销重做/流式导出及有界原像素复制/贴图；仍缺动态内容过滤、中间段纠错和 50 场景实测**。自动滚动为用户明确取消的需求，不计为缺项 | [#7](https://github.com/wuhunyu/pic-paste/issues/7) |
 | P4-T4 | 行流式 PNG/30k–60k 限制 | **代码基本完成** | 行流式 PNG 和 60k/200MP 上限；极端尺寸/内存压力报告缺失 | [#7](https://github.com/wuhunyu/pic-paste/issues/7)、[#10](https://github.com/wuhunyu/pic-paste/issues/10) |
 | P5-T1 | 稳定性、质量、性能验收 | **部分实现** | CI 和统计脚本存在；真实设备 P95/CPU/RSS、400 OCR/50 长截图报告尚无 | [#10](https://github.com/wuhunyu/pic-paste/issues/10) |
 | P5-T2 | Developer ID、公证、正式发布/回滚 | **未开始正式发布** | ad-hoc 开发 ZIP 有；正式 ID、双架构、Developer ID/notarization/Gatekeeper、回滚未完成；Release 0 | [#9](https://github.com/wuhunyu/pic-paste/issues/9) |
@@ -43,4 +43,10 @@
 ## 2026-10-27 — P4-T3 incremental delivery
 
 - [x] [PR #25](https://github.com/wuhunyu/pic-paste/pull/25) 长截图复核可按现有圆角半径预览并导出带透明圆角的 PNG，逐行处理避免整图 RGBA 内存分配。Linux 和 macOS 完整 CI [#40432104187](https://github.com/wuhunyu/pic-paste/actions/runs/40432104187) success。
-- [ ] 长图标注、复制/贴图闭环、中间段纠错及真机验收仍未完成，不应把 P4-T3 改为“代码基本完成”。
+- [ ] 完整长图的标注 PNG 与有界选区复制/贴图已由 PR #26 完成；中间段纠错、动态页面过滤、真机交互及性能验收仍未完成，P4-T3 继续保持「部分实现」。
+
+## 2026-10-27 — P4-T3 复核编辑闭环（PR #26）
+
+- [x] [PR #26](https://github.com/wuhunyu/pic-paste/pull/26)：磁盘补丁保存各项源像素标注，支持撤销/重做；逐行合成完整 PNG；原像素选区复制/贴图（最多 4MP/4096 px 单边）；保留 PNG-only 与圆角 Alpha。
+- [x] 代码层回归：横纵拼接、叠加标注、马赛克/模糊、撤销/重做、原子无覆盖 PNG 和有界原生像素裁剪；Linux + macOS 完整 [CI #40435034912](https://github.com/wuhunyu/pic-paste/actions/runs/40435034912) success。
+- [ ] 尚无 50 场景真实滚动准确率、macOS 14 多屏/权限与剪贴板真机验收；动态区域过滤及中间段修复另行推进。注意 PR #26 不允许完整 60k 边长长图作为一张贴图常驻 GPU。

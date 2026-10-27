@@ -1,10 +1,10 @@
 # PicPaste 开发与验收状态
 
-> **记录时点：2026-10-26。** 此文件以 [`main`](https://github.com/wuhunyu/pic-paste/tree/main) 中已合并的代码为依据；原始 v1.2 执行计划的 20 个任务逐项记录在 [TASKS.md](TASKS.md)。**代码完成、自动化测试成功、真机验收通过是三个不同的状态。**
+> **记录时点：2026-10-27。** 此文件以 [`main`](https://github.com/wuhunyu/pic-paste/tree/main) 中已合并的代码为依据；原始 v1.2 执行计划的 20 个任务逐项记录在 [TASKS.md](TASKS.md)。**代码完成、自动化测试成功、真机验收通过是三个不同的状态。**
 
 ## 当前基线
 
-- 已合并：PR [#1](https://github.com/wuhunyu/pic-paste/pull/1)、[#2](https://github.com/wuhunyu/pic-paste/pull/2)、[#3](https://github.com/wuhunyu/pic-paste/pull/3)、[#12](https://github.com/wuhunyu/pic-paste/pull/12)–[#24](https://github.com/wuhunyu/pic-paste/pull/24)。截至本次核验共 **16 个已合并 PR**.
+- 已合并：PR [#1](https://github.com/wuhunyu/pic-paste/pull/1)、[#2](https://github.com/wuhunyu/pic-paste/pull/2)、[#3](https://github.com/wuhunyu/pic-paste/pull/3)、[#12](https://github.com/wuhunyu/pic-paste/pull/12)–[#26](https://github.com/wuhunyu/pic-paste/pull/26)。截至本次核验共 **18 个已合并 PR**。
 - 最新功能合并：[#24 手动长截图固定区域排除](https://github.com/wuhunyu/pic-paste/pull/24)，合并提交 `141767c6fac8915e199231e969ae24a24875511c`，完整 [CI #40317451349](https://github.com/wuhunyu/pic-paste/actions/runs/40317451349) **success**：Linux core、macOS workspace tests/Clippy/Release、Swift OCR IPC、Lite/Full 开发包。此前 [#23](https://github.com/wuhunyu/pic-paste/pull/23) 手动失败恢复 [CI #40314126081](https://github.com/wuhunyu/pic-paste/actions/runs/40314126081) success。
 - #17 合并提交 `7e492a4bb91f6062c225dfb33f524cc51756e556`；[main CI #40297130672](https://github.com/wuhunyu/pic-paste/actions/runs/40297130672) **success**。
 - #23 合并及文档同步后 [main CI #40315393621](https://github.com/wuhunyu/pic-paste/actions/runs/40315393621) **success**；#24 及本次文档同步后的最新 main CI 仍需单独核验。
@@ -19,7 +19,7 @@
 | P1 标注与 PNG | 线、箭头、画笔、矩形、椭圆、马赛克、模糊、**中英文离线文字**（[#17](https://github.com/wuhunyu/pic-paste/pull/17)）；Undo/Redo；PNG-only 无覆盖原子保存、透明圆角、限定大小的 PNG 缩略图、⌘S 保存（[#16](https://github.com/wuhunyu/pic-paste/pull/16)） | 文字字体回退与跨版本系统覆盖、Native 剪贴板粘贴/色彩/Alpha 真机验证、工具边界压力测试 |
 | P2 多贴图 | 多窗口置顶、缩放、透明度、鼠标穿透和一键恢复；[#22](https://github.com/wuhunyu/pic-paste/pull/22) 新增贴图离线 OCR 行级点击与复制、移动/选字/穿透互斥模式 | 词/字符框未提供；GPU 纹理与 5 张贴图帧延迟实测、焦点恢复/拖动及跨 Spaces 真机验收 |
 | P3 OCR | Swift Apple Vision 本地 OCR helper（Full）、版本化 SHOC IPC、20s 超时、无 helper 的 Lite 降级、截图与贴图行级 hit test/复制（#22） | 词/字符 bbox、400 张 CER 统计、独立签名 Add-on；**QR 离线识别 R-010 尚未实现** |
-| P4 长截图 | 由用户手动纵/横滚动、自动识别可信重叠并拼接；[#23](https://github.com/wuhunyu/pic-paste/pull/23) 连续匹配不可靠时暂停提示，用户手动回滚并在菜单栏继续慢速重试，同一磁盘会话保留可信分段；行流式 PNG、60k/200MP 限制、复核删最后段/保留前 N 段（#21）、实时缩略图（#18）；[#24](https://github.com/wuhunyu/pic-paste/pull/24) 已实现手动排除上/下固定栏或左/右侧栏（裁剪内容不进入 PNG） | **自动滚动已从需求移除**；自动识别固定栏、动态页面动画/懒加载的区域过滤仍缺；中间段纠错、长图标注/贴图及 50 场景真机验收仍缺 |
+| P4 长截图 | 由用户手动纵/横滚动、自动识别可信重叠并拼接；[#23](https://github.com/wuhunyu/pic-paste/pull/23) 连续匹配不可靠时暂停提示，用户手动回滚并在菜单栏继续慢速重试，同一磁盘会话保留可信分段；行流式 PNG、60k/200MP 限制、复核删最后段/保留前 N 段（#21）、实时缩略图（#18）、#25 透明圆角和 #26 磁盘补丁标注/撤销重做、复核选区复制与贴图；[#24](https://github.com/wuhunyu/pic-paste/pull/24) 已实现手动排除上/下固定栏或左/右侧栏（裁剪内容不进入 PNG） | **自动滚动已从需求移除**；自动识别固定栏、动态页面动画/懒加载区域过滤仍缺；中间段纠错及 50 场景真机验收仍缺；长图贴图/复制仅支持经过 4MP/4096px 限制的原像素选区 |
 | P5 测试/发布 | macOS CI fmt/test/clippy/release、Swift OCR IPC，Lite/Full 开发包、SHA256；基础 `scripts/bench_report.py` 测试 | P50/P95、RSS/CPU、OLED/Retina/Spaces、TCC、CER、50 场景报告；x86_64、正式 Bundle ID/图标、Developer ID 签名/公证/Gatekeeper、发行和回滚 |
 | P6 Windows | Rust core/platform 接口可复用 | **无 Windows 原生捕获/贴图/OCR/安装包**；按计划在 macOS 验收后开始 |
 
@@ -43,3 +43,10 @@
 - [x] [PR #25](https://github.com/wuhunyu/pic-paste/pull/25) 已合并：长截图复核与 PNG 导出使用已有 0–64 物理像素透明圆角设置；仅逐行更改 Alpha，仍为磁盘分段、流式 PNG、原子防覆盖导出。无圆角时保留原有行为。
 - [x] 新增 PNG 解码像素比较回归、完整 Linux core + macOS CI [#40432104187](https://github.com/wuhunyu/pic-paste/actions/runs/40432104187) **success**。
 - [ ] 真实 macOS 上验证长图透明角、不同缩放与其他应用显示效果；动态内容过滤、中间段纠错、长图全套标注、贴图、50 场景验收仍未完成。
+
+## 2026-10-27 — PR #26 长图编辑、复制与贴图
+
+- [x] [PR #26](https://github.com/wuhunyu/pic-paste/pull/26) 已合并：长图复核增加线、箭头、画笔、矩形、椭圆、马赛克、模糊、文字标注与撤销/重做；每项标注以 ≤400 万像素磁盘补丁持久化，原始可信块不修改。完整 PNG 以源分辨率逐行合成和导出（带透明圆角）。
+- [x] 可拖选或输入 X/Y/宽/高复制或创建贴图，输出无压缩、无静默降采样；上限 400 万像素/单边 4096 像素。超限显式拒绝，不声称支持整张 60000px 的原生贴图或剪贴板。
+- [x] 纵横长截图、重叠标注、撤销/重做、PNG 原子防覆盖、原像素选区与错误边界自动回归。完整 PR [CI #40435034912](https://github.com/wuhunyu/pic-paste/actions/runs/40435034912) **success**（Linux/macOS 单元测试、Clippy、Release、Swift Vision IPC、Lite/Full 开发包）。
+- [ ] 真机交互、原生应用剪贴板兼容、贴图焦点、动态内容过滤、中间分段修复、50 场景长截图验收和真实性能预算仍待完成。原计划 P4-T3 保持「部分实现」，不得把 CI 视作设备验收。
