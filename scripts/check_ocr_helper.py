@@ -17,10 +17,20 @@ def call(helper: str, data: bytes, *, expected_success: bool, args=()) -> dict:
             f"{proc.stderr.decode('utf-8', errors='replace')}"
         )
     if len(proc.stdout) < 4:
-        raise AssertionError("No length-prefixed helper response")
+        raise AssertionError(
+            f"No length-prefixed helper response for {args}: rc={proc.returncode}, "
+            f"stdout_len={len(proc.stdout)}, "
+            f"stderr={proc.stderr[:1000]!r}"
+        )
     declared = struct.unpack("<I", proc.stdout[:4])[0]
     if declared == 0 or declared > 8 * 1024 * 1024 or len(proc.stdout) != declared + 4:
-        raise AssertionError("Invalid response length prefix")
+        raise AssertionError(
+            f"Invalid Vision helper response frame for {args}: rc={proc.returncode}, "
+            f"declared={declared}, stdout_len={len(proc.stdout)}, "
+            f"head_hex={proc.stdout[:96].hex()}, "
+            f"tail_hex={proc.stdout[-48:].hex()}, "
+            f"stderr={proc.stderr[:1000]!r}"
+        )
     result = json.loads(proc.stdout[4:].decode("utf-8"))
     if result["protocol_version"] != 1:
         raise AssertionError("Unexpected protocol version")
@@ -60,7 +70,22 @@ def main(helper: str) -> None:
 
     bad_arg = call(helper, request, expected_success=False, args=("--unknown",))
     assert bad_arg["error"], bad_arg
-    print("Vision helper text, character and QR-only SHOC round trips: success")
+    # Positive sample: CoreImage produces a local QR code (no network).
+    generated = subprocess.run(
+        ["swift", "scripts/generate_qr_fixture.swift"],
+        capture_output=True,
+        timeout=90,
+        check=False,
+    )
+    if generated.returncode != 0:
+        raise AssertionError(
+            "Could not generate QR fixture: "
+            + generated.stderr.decode("utf-8", errors="replace")
+        )
+    decoded = call(helper, generated.stdout, expected_success=True, args=("--qr",))
+    payloads = [code["payload"] for code in decoded["qr_document"]["codes"]]
+    assert payloads == ["PICPASTE-QR-OFFLINE-TEST"], payloads
+    print("Vision Helper: text/character protocol and native offline QR decode passed")
 
 
 if __name__ == "__main__":
