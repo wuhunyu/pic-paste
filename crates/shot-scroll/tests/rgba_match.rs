@@ -98,7 +98,11 @@ fn accepts_scrolling_with_small_animated_side_band_in_both_directions() {
     let mut horizontal = screenshot(96, 80, 9, 0);
     animate_cross_axis_band(&mut horizontal, ScrollAxis::Horizontal, 20);
     assert_eq!(
-        match_scroll_frame(&screenshot(96, 80, 0, 0), &horizontal, ScrollAxis::Horizontal),
+        match_scroll_frame(
+            &screenshot(96, 80, 0, 0),
+            &horizontal,
+            ScrollAxis::Horizontal
+        ),
         Some(9)
     );
 }
@@ -125,11 +129,17 @@ fn rejects_large_dynamic_regions_animation_only_and_repeated_wallpaper() {
     let baseline = screenshot(80, 96, 0, 0);
     let mut changed = screenshot(80, 96, 0, 9);
     animate_cross_axis_band(&mut changed, ScrollAxis::Vertical, 50);
-    assert_eq!(match_scroll_frame(&baseline, &changed, ScrollAxis::Vertical), None);
+    assert_eq!(
+        match_scroll_frame(&baseline, &changed, ScrollAxis::Vertical),
+        None
+    );
 
     let mut no_motion = baseline.clone();
     animate_cross_axis_band(&mut no_motion, ScrollAxis::Vertical, 20);
-    assert_eq!(match_scroll_frame(&baseline, &no_motion, ScrollAxis::Vertical), None);
+    assert_eq!(
+        match_scroll_frame(&baseline, &no_motion, ScrollAxis::Vertical),
+        None
+    );
 
     let wallpaper = |offset: u32| {
         let mut pixels = Vec::new();

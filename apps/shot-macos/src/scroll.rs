@@ -321,7 +321,8 @@ mod tests {
     #[test]
     fn retake_prefix_rejects_active_edits_and_reuses_trusted_pixel_anchor() {
         use shot_image::history::Annotation;
-        let temp = std::env::temp_dir().join(format!("picpaste-retake-test-{}", std::process::id()));
+        let temp =
+            std::env::temp_dir().join(format!("picpaste-retake-test-{}", std::process::id()));
         std::fs::create_dir_all(&temp).unwrap();
         let source = |offset: u32| {
             let mut bytes = Vec::new();
@@ -343,19 +344,27 @@ mod tests {
             partial: false,
             target: ScrollTarget {
                 display: DisplayId(42),
-                roi: RectPx { x: 100, y: 300, width: 24, height: 32 },
+                roi: RectPx {
+                    x: 100,
+                    y: 300,
+                    width: 24,
+                    height: 32,
+                },
                 axis: ScrollAxis::Vertical,
             },
         };
-        review.edits.apply(
-            &review.store,
-            Annotation::Line {
-                from: (1.0, 1.0),
-                to: (4.0, 4.0),
-                rgba: [0, 0, 255, 255],
-                width: 1.0,
-            },
-        ).unwrap();
+        review
+            .edits
+            .apply(
+                &review.store,
+                Annotation::Line {
+                    from: (1.0, 1.0),
+                    to: (4.0, 4.0),
+                    rgba: [0, 0, 255, 255],
+                    width: 1.0,
+                },
+            )
+            .unwrap();
         assert!(review.retake_prefix(1).is_err());
         assert_eq!(review.store.strip_count(), 3);
         assert!(review.edits.undo());
@@ -370,7 +379,6 @@ mod tests {
         assert_eq!(std::fs::read_dir(&temp).unwrap().count(), 0);
         std::fs::remove_dir_all(temp).unwrap();
     }
-
 }
 
 /// Scale physical corner radius to a bounded preview using its width.

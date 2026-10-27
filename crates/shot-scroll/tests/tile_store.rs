@@ -220,7 +220,10 @@ fn trimmed_middle_retake_restores_last_native_viewport_and_can_reappend() {
     assert_eq!(store.segment_span(3), Some((39, 47)));
     assert_eq!(store.segment_span(5), None);
     assert_eq!(store.keep_first(2).unwrap(), 2);
-    assert_eq!(store.last_viewport().unwrap().rgba, frame(12, 32, 0, 7).rgba);
+    assert_eq!(
+        store.last_viewport().unwrap().rgba,
+        frame(12, 32, 0, 7).rgba
+    );
     assert_eq!(store.canvas(), (12, 39));
     store.append(&frame(12, 32, 0, 13), 6).unwrap();
     assert_eq!(store.canvas(), (12, 45));
@@ -242,7 +245,10 @@ fn horizontal_middle_retake_anchor_is_exact_and_does_not_keep_untrusted_suffix()
     store.append(&frame(32, 12, 16, 0), 8).unwrap();
     assert_eq!(store.segment_span(2), Some((32, 40)));
     assert_eq!(store.keep_first(2).unwrap(), 1);
-    assert_eq!(store.last_viewport().unwrap().rgba, frame(32, 12, 8, 0).rgba);
+    assert_eq!(
+        store.last_viewport().unwrap().rgba,
+        frame(32, 12, 8, 0).rgba
+    );
     store.append(&frame(32, 12, 13, 0), 5).unwrap();
     assert_eq!(store.canvas(), (45, 12));
     for y in 0..12 {
