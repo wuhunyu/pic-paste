@@ -208,3 +208,48 @@ fn invalid_prefix_trim_does_not_modify_files_or_dimensions() {
     drop(store);
     fs::remove_dir_all(dir).unwrap();
 }
+
+#[test]
+fn trimmed_middle_retake_restores_last_native_viewport_and_can_reappend() {
+    let dir = root();
+    let mut store = TileStore::new(&frame(12, 32, 0, 0), ScrollAxis::Vertical, &dir).unwrap();
+    store.append(&frame(12, 32, 0, 7), 7).unwrap();
+    store.append(&frame(12, 32, 0, 15), 8).unwrap();
+    store.append(&frame(12, 32, 0, 22), 7).unwrap();
+    assert_eq!(store.segment_span(2), Some((32, 39)));
+    assert_eq!(store.segment_span(3), Some((39, 47)));
+    assert_eq!(store.segment_span(5), None);
+    assert_eq!(store.keep_first(2).unwrap(), 2);
+    assert_eq!(store.last_viewport().unwrap().rgba, frame(12, 32, 0, 7).rgba);
+    assert_eq!(store.canvas(), (12, 39));
+    store.append(&frame(12, 32, 0, 13), 6).unwrap();
+    assert_eq!(store.canvas(), (12, 45));
+    for y in 0..45 {
+        let mut row = vec![0; 12 * 4];
+        store.fill_row(y, &mut row).unwrap();
+        assert_eq!(row, frame(12, 1, 0, y).rgba);
+    }
+    drop(store);
+    assert_eq!(fs::read_dir(&dir).unwrap().count(), 0);
+    fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn horizontal_middle_retake_anchor_is_exact_and_does_not_keep_untrusted_suffix() {
+    let dir = root();
+    let mut store = TileStore::new(&frame(32, 12, 0, 0), ScrollAxis::Horizontal, &dir).unwrap();
+    store.append(&frame(32, 12, 8, 0), 8).unwrap();
+    store.append(&frame(32, 12, 16, 0), 8).unwrap();
+    assert_eq!(store.segment_span(2), Some((32, 40)));
+    assert_eq!(store.keep_first(2).unwrap(), 1);
+    assert_eq!(store.last_viewport().unwrap().rgba, frame(32, 12, 8, 0).rgba);
+    store.append(&frame(32, 12, 13, 0), 5).unwrap();
+    assert_eq!(store.canvas(), (45, 12));
+    for y in 0..12 {
+        let mut row = vec![0; 45 * 4];
+        store.fill_row(y, &mut row).unwrap();
+        assert_eq!(row, frame(45, 1, 0, y).rgba);
+    }
+    drop(store);
+    fs::remove_dir_all(dir).unwrap();
+}
