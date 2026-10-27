@@ -25,10 +25,10 @@
 
 **Interfaces:** `PanelPointerPoint { x: f32, y: f32 }`; `PanelPointerPoint::from_view(x: f64, y: f64, origin_x: f64, origin_y: f64, width_pt: f64, height_pt: f64, flipped: bool) -> Result<Self, PlatformError>`.
 
-- [ ] RED: add tests for bottom-left conversion `(40,70)` in `200×120` → top-left `(40,50)`, flipped view unchanged, nonzero bounds origin, outside-view drags, and rejection of NaN/Infinity/zero geometry.
-- [ ] Verify `cargo fmt --all -- --check` passes, and `cargo test -p shot-core --test native_panel_surface --locked` fails with the intended missing symbol.
-- [ ] GREEN: add pure coordinate converter in `shot-core`; inputs stay in logical points and remain valid outside bounds for drag release.
-- [ ] Verify Linux core tests and strict Clippy.
+- [x] RED: add tests for bottom-left conversion `(40,70)` in `200×120` → top-left `(40,50)`, flipped view unchanged, nonzero bounds origin, outside-view drags, and rejection of NaN/Infinity/zero geometry.
+- [x] Verify `cargo fmt --all -- --check` passes, and `cargo test -p shot-core --test native_panel_surface --locked` fails with the intended missing symbol.
+- [x] GREEN: add pure coordinate converter in `shot-core`; inputs stay in logical points and remain valid outside bounds for drag release.
+- [x] Verify Linux core tests and strict Clippy.
 
 ### Task 2 — Paint egui UI through Metal, no production changes
 
@@ -36,7 +36,7 @@
 
 **Interfaces:** `ProbeEgui::new(device: &wgpu::Device, format: wgpu::TextureFormat) -> Self`; `ProbeEgui::paint(surface, device, queue, size, backing_scale, logical_width, logical_height, focused) -> Result<(), String>`.
 
-- [ ] RED: introduce a macOS-bin test asserting the egui-only widget pass produces nonempty shapes without requiring a GPU, initially failing on the missing `ProbeEgui` type.
+- [x] RED: introduce a macOS-bin test asserting the egui-only widget pass produces nonempty shapes without requiring a GPU, initially failing on the missing `ProbeEgui` type.
 - [ ] Add optional pinned `egui = "=0.37.0"` (`default_fonts`) and `egui-wgpu = "=0.37.0"` dependencies behind `native-panel-probe`, and add the already-resolved package names to `shot-macos` in Cargo.lock.
 - [ ] Implement `ProbeEgui` to run one egui pass for an interactive counter and single-line ASCII typing probe; upload texture deltas, call renderer update_buffers, issue WGPU render pass with `forget_lifetime()`, present and free removed textures.
 - [ ] Paint the first frame, then repaint on captured input or view size/backing-scale changes; preserve 50-ms event wakeup and close/suspend safety.

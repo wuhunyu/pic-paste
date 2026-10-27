@@ -59,59 +59,15 @@ mod native {
 #[cfg(target_os = "macos")]
 mod native {
     use super::PanelSurfaceSize;
+    use super::panel_egui::ProbeEgui;
     use objc2::{MainThreadMarker, MainThreadOnly};
     use objc2_app_kit::{
-        NSApplication, NSBackingStoreType, NSEventMask, NSPanel, NSWindowStyleMask,
+        NSApplication, NSBackingStoreType, NSEventMask, NSEventType, NSPanel, NSWindowStyleMask,
     };
     use objc2_foundation::{NSDate, NSDefaultRunLoopMode, NSPoint, NSRect, NSSize, ns_string};
     use raw_window_handle::{AppKitWindowHandle, RawWindowHandle};
     use shot_core::native_panel::{PanelSurfaceLifecycle, PanelSurfaceUpdate};
     use std::ptr::NonNull;
-
-    // All WGPU GPU texture locals die before returning; a Surface must be
-    // dropped before its NSView/NSPanel owners can be released.
-    fn render_frame(
-        surface: &wgpu::Surface<'_>,
-        device: &wgpu::Device,
-        queue: &wgpu::Queue,
-    ) -> Result<(), String> {
-        let frame = match surface.get_current_texture() {
-            wgpu::CurrentSurfaceTexture::Success(frame) => frame,
-            status => return Err(format!("acquire NSPanel Metal frame: {status:?}")),
-        };
-        let texture_view = frame
-            .texture
-            .create_view(&wgpu::TextureViewDescriptor::default());
-        let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-            label: Some("PicPaste NSPanel probe clear"),
-        });
-        {
-            let _pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("NSPanel Metal render pass"),
-                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: &texture_view,
-                    depth_slice: None,
-                    resolve_target: None,
-                    ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: 0.08,
-                            g: 0.17,
-                            b: 0.34,
-                            a: 1.0,
-                        }),
-                        store: wgpu::StoreOp::Store,
-                    },
-                })],
-                depth_stencil_attachment: None,
-                timestamp_writes: None,
-                occlusion_query_set: None,
-                multiview_mask: None,
-            });
-        }
-        queue.submit([encoder.finish()]);
-        queue.present(frame);
-        Ok(())
-    }
 
     /// This opt-in probe must run on AppKit's main thread. It pumps native
     /// events itself so that a close event can return control to Rust and
@@ -136,6 +92,7 @@ mod native {
         panel.setTitle(ns_string!("PicPaste · NSPanel + WGPU Metal 实验"));
         panel.setHasShadow(false);
         panel.setMovableByWindowBackground(false);
+        panel.setAcceptsMouseMovedEvents(true);
         let content_view = panel
             .contentView()
             .ok_or("AppKit NSPanel has no content NSView")?;
@@ -189,7 +146,17 @@ mod native {
             .get_default_config(&adapter, size.width, size.height)
             .ok_or("Metal adapter does not support NSPanel surface")?;
         surface.configure(&device, &config);
-        render_frame(&surface, &device, &queue)?;
+        let mut egui_ui = ProbeEgui::new(&device, config.format);
+        egui_ui.set_focus(panel.isKeyWindow());
+        egui_ui.paint(
+            &surface,
+            &device,
+            &queue,
+            size,
+            bounds.size.width,
+            bounds.size.height,
+            scale,
+        )?;
 
         let mut lifecycle = PanelSurfaceLifecycle::new(size);
         println!(
@@ -209,8 +176,16 @@ mod native {
                     mode,
                     true,
                 ) {
+                    let escape = event.windowNumber() == panel.windowNumber()
+                        && event.r#type() == NSEventType::KeyDown
+                        && event.keyCode() == 53;
+                    egui_ui.on_event(&event, &panel, &content_view);
                     application.sendEvent(&event);
+                    if escape {
+                        panel.orderOut(None);
+                    }
                 }
+                egui_ui.set_focus(panel.isKeyWindow());
                 if !panel.isVisible() {
                     break;
                 }
@@ -221,22 +196,38 @@ mod native {
                     continue;
                 }
                 let view_bounds = content_view.bounds();
-                match lifecycle
+                let change = lifecycle
                     .observe(
                         view_bounds.size.width,
                         view_bounds.size.height,
                         panel.backingScaleFactor(),
                     )
-                    .map_err(|error| format!("invalid resized Metal surface: {error:?}"))?
-                {
+                    .map_err(|error| format!("invalid resized Metal surface: {error:?}"))?;
+                let mut repaint = egui_ui.needs_repaint();
+                match change {
                     PanelSurfaceUpdate::Reconfigure(next) => {
                         config.width = next.width;
                         config.height = next.height;
                         surface.configure(&device, &config);
-                        render_frame(&surface, &device, &queue)?;
+                        repaint = true;
                     }
-                    PanelSurfaceUpdate::Unchanged | PanelSurfaceUpdate::Suspended => {}
+                    PanelSurfaceUpdate::Unchanged => {}
+                    PanelSurfaceUpdate::Suspended => continue,
                     PanelSurfaceUpdate::Closed => break,
+                }
+                if repaint {
+                    let current_size = lifecycle
+                        .configured_size()
+                        .ok_or("native panel has no configured surface")?;
+                    egui_ui.paint(
+                        &surface,
+                        &device,
+                        &queue,
+                        current_size,
+                        view_bounds.size.width,
+                        view_bounds.size.height,
+                        panel.backingScaleFactor(),
+                    )?;
                 }
             }
             Ok(())
@@ -244,6 +235,7 @@ mod native {
         lifecycle.close();
         // A normal close or a rendering error both reach the same cleanup.
         panel.orderOut(None);
+        drop(egui_ui);
         drop(queue);
         drop(device);
         drop(surface);

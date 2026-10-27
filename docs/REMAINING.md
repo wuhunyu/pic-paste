@@ -62,3 +62,8 @@
 - [x] Core close/suspend/Retina size-change transition tests: RED CI [#40483025505](https://github.com/wuhunyu/pic-paste/actions/runs/40483025505) failed with expected unresolved imports; follow-up GREEN core tests and strict Clippy passed.
 - [ ] PR [#34](https://github.com/wuhunyu/pic-paste/pull/34) adds actual AppKit X-close event pump, native view-size/backing-scale reconfiguration, minimize/restore redraw, and explicit WGPU surface-before-view drop order. The Mac compile/full CI and interactive desktop acceptance must both be checked independently.
 - [ ] UI/egui mouse-keyboard/IME event forwarding, production overlay migration and true macOS 14+ Retina/Spaces/TCC tests remain open. Do not close Issue #5 for a successful probe compile.
+
+## 2026-10-27 — NSPanel egui input proof (#35)
+
+- [ ] [PR #35](https://github.com/wuhunyu/pic-paste/pull/35) independently renders egui inside NSPanel's WGPU surface, adds native pointer/button/scroll/basic keyboard conversion, and stays behind `native-panel-probe`. Real macOS 14+ GUI acceptance and full CI must be separately verified.
+- [ ] Native NSTextInputClient CJK IME/marked-text bridge, full keyboard/accessibility behavior and replacing production eframe viewports are still outstanding; Issue #5 stays open.
