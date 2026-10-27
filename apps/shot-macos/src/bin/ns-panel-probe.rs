@@ -8,6 +8,10 @@ use shot_core::native_panel::PanelSurfaceSize;
 #[path = "ns-panel-probe/panel_egui.rs"]
 mod panel_egui;
 
+#[cfg(target_os = "macos")]
+#[path = "ns-panel-probe/glass_toolbar.rs"]
+mod glass_toolbar;
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum ProbeCommand {
     Check,
@@ -61,6 +65,7 @@ mod native {
 mod native {
     use super::PanelSurfaceSize;
     use super::panel_egui::{ProbeEgui, ProbeViewport};
+    use super::glass_toolbar::ProbeGlassToolbar;
     use objc2::{MainThreadMarker, MainThreadOnly};
     use objc2_app_kit::{
         NSApplication, NSBackingStoreType, NSEventMask, NSEventType, NSPanel, NSWindowStyleMask,
@@ -157,6 +162,10 @@ mod native {
                 backing_scale: scale,
             },
         )?;
+        // Native AppKit overlay floats over Metal. The existing NSView is
+        // still the WGPU Surface owner; screenshot pixels remain untouched.
+        let glass_toolbar = ProbeGlassToolbar::new(mtm, &content_view);
+        println!("Experimental native toolbar: {:?}", glass_toolbar.material);
 
         let mut lifecycle = PanelSurfaceLifecycle::new(size);
         println!(
@@ -179,7 +188,17 @@ mod native {
                     let escape = event.windowNumber() == panel.windowNumber()
                         && event.r#type() == NSEventType::KeyDown
                         && event.keyCode() == 53;
-                    egui_ui.on_event(&event, &panel, &content_view);
+                    let pointer_down = matches!(
+                        event.r#type(),
+                        NSEventType::LeftMouseDown
+                            | NSEventType::RightMouseDown
+                            | NSEventType::OtherMouseDown
+                    );
+                    if !pointer_down
+                        || !glass_toolbar.contains_pointer(&event, &content_view)
+                    {
+                        egui_ui.on_event(&event, &panel, &content_view);
+                    }
                     application.sendEvent(&event);
                     if escape {
                         panel.orderOut(None);
@@ -196,6 +215,7 @@ mod native {
                     continue;
                 }
                 let view_bounds = content_view.bounds();
+                glass_toolbar.relayout(view_bounds);
                 let change = lifecycle
                     .observe(
                         view_bounds.size.width,
@@ -237,6 +257,8 @@ mod native {
         lifecycle.close();
         // A normal close or a rendering error both reach the same cleanup.
         panel.orderOut(None);
+        glass_toolbar.detach();
+        drop(glass_toolbar);
         drop(egui_ui);
         drop(queue);
         drop(device);
