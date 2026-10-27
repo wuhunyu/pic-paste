@@ -287,8 +287,10 @@ impl ProbeEgui {
             pixels_per_point: output.pixels_per_point,
         };
         let paint_jobs = self.ctx.tessellate(output.shapes, screen.pixels_per_point);
-        for (id, image) in &output.textures_delta.set {
-            self.renderer.update_texture(device, queue, *id, image);
+        for (id, images) in &output.textures_delta.set {
+            for image in images {
+                self.renderer.update_texture(device, queue, *id, image);
+            }
         }
         let frame = match surface.get_current_texture() {
             wgpu::CurrentSurfaceTexture::Success(frame) => frame,
