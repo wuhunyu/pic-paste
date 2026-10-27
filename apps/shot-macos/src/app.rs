@@ -270,7 +270,7 @@ impl SelectionView {
 
     fn show(&mut self, ui: &mut egui::Ui) {
         if self.ocr_mode {
-            ui.label("文字选择模式：点击高亮的识别行以选中；仅当明确启用时才响应文字点击。");
+            ui.label("文字选择模式：点击 Vision 返回的原生行/词/字框；不推算不存在的字符位置。");
         } else {
             ui.label("单击黄色窗口边框快速选区，或拖动自由框选；可调整边缘和四角。Esc 取消。");
         }
@@ -438,32 +438,44 @@ impl SelectionView {
                 && let Some(document) = self.ocr_result.as_ref()
             {
                 let (x, y) = point_to_pixel(&response.rect, &self.source, pointer);
-                self.ocr_line =
-                    hit_line_in_capture(document, self.ocr_origin, (x as f32, y as f32));
+                self.ocr_selection = hit_text_selection(
+                    document,
+                    self.ocr_origin,
+                    (x as f32, y as f32),
+                    self.ocr_pick_mode,
+                );
             }
             if let Some(document) = self.ocr_result.as_ref() {
                 let sx = response.rect.width() / self.source.width as f32;
                 let sy = response.rect.height() / self.source.height as f32;
-                for (index, line) in document.lines.iter().enumerate() {
-                    let color = if self.ocr_line == Some(index) {
-                        egui::Color32::from_rgb(30, 230, 160)
-                    } else {
-                        egui::Color32::from_rgb(72, 192, 245)
-                    };
+                let screen_pos = |p: [f32; 2]| {
+                    egui::pos2(
+                        response.rect.left() + (self.ocr_origin.0 as f32 + p[0]) * sx,
+                        response.rect.top() + (self.ocr_origin.1 as f32 + p[1]) * sy,
+                    )
+                };
+                let draw_polygon = |polygon: &[[f32; 2]; 4], color: egui::Color32| {
                     for edge in 0..4 {
-                        let a = line.polygon_px[edge];
-                        let b = line.polygon_px[(edge + 1) % 4];
-                        let screen_pos = |p: [f32; 2]| {
-                            egui::pos2(
-                                response.rect.left() + (self.ocr_origin.0 as f32 + p[0]) * sx,
-                                response.rect.top() + (self.ocr_origin.1 as f32 + p[1]) * sy,
-                            )
-                        };
                         ui.painter().line_segment(
-                            [screen_pos(a), screen_pos(b)],
+                            [screen_pos(polygon[edge]), screen_pos(polygon[(edge + 1) % 4])],
                             egui::Stroke::new(2.0, color),
                         );
                     }
+                };
+                for line in &document.lines {
+                    if self.ocr_pick_mode == TextPickMode::Unit {
+                        for word in &line.words {
+                            draw_polygon(&word.polygon_px, egui::Color32::from_rgb(72, 192, 245));
+                        }
+                    } else {
+                        draw_polygon(&line.polygon_px, egui::Color32::from_rgb(72, 192, 245));
+                    }
+                }
+                if let Some(polygon) = self
+                    .ocr_selection
+                    .and_then(|selection| selection_polygon(document, selection))
+                {
+                    draw_polygon(polygon, egui::Color32::from_rgb(30, 230, 160));
                 }
             }
         }
@@ -1996,7 +2008,8 @@ impl PicPasteApp {
 
             let mut selected_action = None;
             let mut start_scroll = None;
-            let mut recognize_text = false;
+            let mut recognize_text = None;
+            let mut recognize_qr = false;
             let mut color_to_copy = None;
             if let Some(screen) = &mut self.screen {
                 ui.horizontal(|ui| {
@@ -2018,8 +2031,14 @@ impl PicPasteApp {
                     if ui.button("手动长截图 →").clicked() {
                         start_scroll = Some(ScrollAxis::Horizontal);
                     }
-                    if ui.button("识别文字 (Full)").clicked() {
-                        recognize_text = true;
+                    if ui.button("识别词 (Accurate)").clicked() {
+                        recognize_text = Some(false);
+                    }
+                    if ui.button("识别字 (Fast)").clicked() {
+                        recognize_text = Some(true);
+                    }
+                    if ui.button("识别二维码 (离线)").clicked() {
+                        recognize_qr = true;
                     }
                 });
                 // Leading/trailing physical-pixel bands apply to either scroll
@@ -2129,30 +2148,58 @@ impl PicPasteApp {
                         }
                     });
                 }
-                if screen.ocr_result.is_some() {
-                    let picked = screen.ocr_line.and_then(|index| {
-                        screen
-                            .ocr_result
-                            .as_ref()
-                            .map(|document| selected_text(document, &[index]))
-                    });
-                    ui.horizontal(|ui| {
+                if let Some(document) = screen.ocr_result.as_ref() {
+                    let picked = screen
+                        .ocr_selection
+                        .and_then(|selection| selected_selection_text(document, selection))
+                        .map(str::to_string);
+                    ui.horizontal_wrapped(|ui| {
                         ui.checkbox(&mut screen.ocr_mode, "文字选择模式");
+                        let previous_mode = screen.ocr_pick_mode;
+                        ui.radio_value(&mut screen.ocr_pick_mode, TextPickMode::Line, "选整行");
+                        ui.radio_value(
+                            &mut screen.ocr_pick_mode,
+                            TextPickMode::Unit,
+                            if screen.ocr_characters { "选字" } else { "选词" },
+                        );
+                        if screen.ocr_pick_mode != previous_mode {
+                            screen.ocr_selection = None;
+                        }
                         if let Some(text) = picked
                             && !text.is_empty()
-                            && ui.button("复制选中的文字行").clicked()
+                            && ui.button("复制选中的文字").clicked()
                         {
                             self.status = match Clipboard::new()
                                 .and_then(|mut clipboard| clipboard.set_text(text))
                             {
-                                Ok(()) => String::from("已复制选中的 OCR 文字行"),
-                                Err(error) => format!("复制选中行失败：{error}"),
+                                Ok(()) => String::from("已复制 Vision 原生框对应文字"),
+                                Err(error) => format!("复制文字失败：{error}"),
                             };
                         }
                     });
                 } else if self.ocr_lines > 0 {
                     self.ocr_lines = 0;
                     self.ocr_text.clear();
+                }
+                if let Some(document) = screen.qr_result.as_ref() {
+                    ui.collapsing(format!("离线二维码 · {} 个", document.codes.len()), |ui| {
+                        if document.codes.is_empty() {
+                            ui.label("没有识别到二维码；可扩大截图选区或提高原图清晰度");
+                        }
+                        for (index, code) in document.codes.iter().enumerate() {
+                            ui.horizontal_wrapped(|ui| {
+                                ui.label(format!("二维码 {}：{}", index + 1, code.payload));
+                                if ui.button(format!("复制二维码 {}", index + 1)).clicked() {
+                                    self.status = match Clipboard::new()
+                                        .and_then(|mut clipboard| clipboard.set_text(code.payload.clone()))
+                                    {
+                                        Ok(()) => String::from("二维码内容已复制；不会自动打开链接"),
+                                        Err(error) => format!("二维码复制失败：{error}"),
+                                    };
+                                }
+                            });
+                        }
+                    });
                 }
             } else {
                 ui.label(format!(
@@ -2188,8 +2235,11 @@ impl PicPasteApp {
             if let Some(axis) = start_scroll {
                 self.start_manual_scroll(ui.ctx(), axis);
             }
-            if recognize_text {
-                self.request_ocr(ui.ctx());
+            if let Some(characters) = recognize_text {
+                self.request_ocr(ui.ctx(), characters);
+            }
+            if recognize_qr {
+                self.request_qr(ui.ctx());
             }
             if self.ocr_waiting {
                 ui.horizontal(|ui| {
@@ -2520,8 +2570,20 @@ impl PicPasteApp {
                         if next_mode != pin.mode {
                             pin.set_mode(next_mode);
                         }
-                        if ui.small_button("OCR (Full)").clicked() {
-                            let _ = self.pin_tx.send(PinEvent::Recognize(pin.id));
+                        if ui.small_button("词 OCR").clicked() {
+                            let _ = self.pin_tx.send(PinEvent::Recognize {
+                                id: pin.id,
+                                characters: false,
+                            });
+                        }
+                        if ui.small_button("字 OCR").clicked() {
+                            let _ = self.pin_tx.send(PinEvent::Recognize {
+                                id: pin.id,
+                                characters: true,
+                            });
+                        }
+                        if ui.small_button("QR").clicked() {
+                            let _ = self.pin_tx.send(PinEvent::DetectQr(pin.id));
                         }
                         ui.add(egui::Slider::new(&mut pin.opacity, 0.2..=1.0).text("透明度"));
                         ui.add(egui::Slider::new(&mut pin.zoom, 0.25..=3.0).text("缩放"));
