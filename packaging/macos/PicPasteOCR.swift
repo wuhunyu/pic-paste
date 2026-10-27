@@ -57,6 +57,7 @@ private enum Mode {
     case words
     case characters
     case qr
+    case addonInfo
 }
 
 private func requestedMode() throws -> Mode {
@@ -71,6 +72,8 @@ private func requestedMode() throws -> Mode {
         return .characters
     case "--qr":
         return .qr
+    case "--addon-info":
+        return .addonInfo
     default:
         throw Failure.invalid("unsupported Vision helper mode")
     }
@@ -176,8 +179,7 @@ private func recognizedUnits(
     return units
 }
 
-private func recognize() throws -> Envelope {
-    let mode = try requestedMode() 
+private func recognize(mode: Mode) throws -> Envelope {
 
     let header = Array(try readExact(16))
     guard Array(header[0..<4]) == Array("SHOC".utf8) else {
@@ -277,7 +279,16 @@ private func recognize() throws -> Envelope {
 }
 
 do {
-    FileHandle.standardOutput.write(try encode(recognize()))
+    let mode = try requestedMode()
+    if case .addonInfo = mode {
+        // This line is compiled into the signed helper: no editable external
+        // manifest, IPC image, OCR request or network dependency.
+        FileHandle.standardOutput.write(
+            Data("PICPASTE-OCR-ADDON/1 SHOC/1\n".utf8)
+        )
+    } else {
+        FileHandle.standardOutput.write(try encode(recognize(mode: mode)))
+    }
 } catch {
     let message = String(describing: error)
     do {
