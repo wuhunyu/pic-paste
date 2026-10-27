@@ -18,8 +18,10 @@ use shot_core::{RectPx, RgbaFrame};
 use shot_image::annotation_tools::{Tool, annotation_for_drag};
 use shot_image::history::{Annotation, AnnotationDocument};
 use shot_image::pixel_tools::{magnifier_patch, sample_rgba};
-use shot_ocr_protocol::hit_test::{hit_line_in_capture, selected_text};
-use shot_ocr_protocol::{MAX_RGBA_BYTES, OcrDocument};
+use shot_ocr_protocol::hit_test::{
+    TextPickMode, TextSelection, hit_text_selection, selected_selection_text, selection_polygon,
+};
+use shot_ocr_protocol::{MAX_RGBA_BYTES, OcrDocument, QrDocument};
 use shot_platform::macos::MacCapture;
 use shot_scroll::fixed_bands::FixedBands;
 use shot_scroll::review_transfer::{
@@ -47,11 +49,21 @@ enum WorkerResult {
     ScrollEdited(Result<scroll::ScrollReview, (String, scroll::ScrollReview)>),
     Ocr {
         ticket: OcrTicket,
+        characters: bool,
         outcome: Result<OcrDocument, String>,
+    },
+    Qr {
+        ticket: OcrTicket,
+        outcome: Result<QrDocument, String>,
     },
     PinOcr {
         pin_id: u64,
+        characters: bool,
         outcome: Result<OcrDocument, String>,
+    },
+    PinQr {
+        pin_id: u64,
+        outcome: Result<QrDocument, String>,
     },
 }
 
@@ -90,7 +102,10 @@ struct SelectionView {
     ocr_result: Option<OcrDocument>,
     ocr_origin: (u32, u32),
     ocr_mode: bool,
-    ocr_line: Option<usize>,
+    ocr_pick_mode: TextPickMode,
+    ocr_selection: Option<TextSelection>,
+    ocr_characters: bool,
+    qr_result: Option<QrDocument>,
 }
 
 impl SelectionView {
@@ -136,15 +151,19 @@ impl SelectionView {
             ocr_result: None,
             ocr_origin: (0, 0),
             ocr_mode: false,
-            ocr_line: None,
+            ocr_pick_mode: TextPickMode::Unit,
+            ocr_selection: None,
+            ocr_characters: false,
+            qr_result: None,
         }
     }
 
     fn invalidate_ocr(&mut self) {
         self.edit_revision = self.edit_revision.saturating_add(1);
         self.ocr_result = None;
-        self.ocr_line = None;
+        self.ocr_selection = None;
         self.ocr_mode = false;
+        self.qr_result = None;
     }
 
     fn set_selection(&mut self, selection: Option<RectPx>) {
@@ -251,7 +270,7 @@ impl SelectionView {
 
     fn show(&mut self, ui: &mut egui::Ui) {
         if self.ocr_mode {
-            ui.label("文字选择模式：点击高亮的识别行以选中；仅当明确启用时才响应文字点击。");
+            ui.label("文字选择模式：点击 Vision 返回的原生行/词/字框；不推算不存在的字符位置。");
         } else {
             ui.label("单击黄色窗口边框快速选区，或拖动自由框选；可调整边缘和四角。Esc 取消。");
         }
@@ -419,32 +438,47 @@ impl SelectionView {
                 && let Some(document) = self.ocr_result.as_ref()
             {
                 let (x, y) = point_to_pixel(&response.rect, &self.source, pointer);
-                self.ocr_line =
-                    hit_line_in_capture(document, self.ocr_origin, (x as f32, y as f32));
+                self.ocr_selection = hit_text_selection(
+                    document,
+                    self.ocr_origin,
+                    (x as f32, y as f32),
+                    self.ocr_pick_mode,
+                );
             }
             if let Some(document) = self.ocr_result.as_ref() {
                 let sx = response.rect.width() / self.source.width as f32;
                 let sy = response.rect.height() / self.source.height as f32;
-                for (index, line) in document.lines.iter().enumerate() {
-                    let color = if self.ocr_line == Some(index) {
-                        egui::Color32::from_rgb(30, 230, 160)
-                    } else {
-                        egui::Color32::from_rgb(72, 192, 245)
-                    };
+                let screen_pos = |p: [f32; 2]| {
+                    egui::pos2(
+                        response.rect.left() + (self.ocr_origin.0 as f32 + p[0]) * sx,
+                        response.rect.top() + (self.ocr_origin.1 as f32 + p[1]) * sy,
+                    )
+                };
+                let draw_polygon = |polygon: &[[f32; 2]; 4], color: egui::Color32| {
                     for edge in 0..4 {
-                        let a = line.polygon_px[edge];
-                        let b = line.polygon_px[(edge + 1) % 4];
-                        let screen_pos = |p: [f32; 2]| {
-                            egui::pos2(
-                                response.rect.left() + (self.ocr_origin.0 as f32 + p[0]) * sx,
-                                response.rect.top() + (self.ocr_origin.1 as f32 + p[1]) * sy,
-                            )
-                        };
                         ui.painter().line_segment(
-                            [screen_pos(a), screen_pos(b)],
+                            [
+                                screen_pos(polygon[edge]),
+                                screen_pos(polygon[(edge + 1) % 4]),
+                            ],
                             egui::Stroke::new(2.0, color),
                         );
                     }
+                };
+                for line in &document.lines {
+                    if self.ocr_pick_mode == TextPickMode::Unit {
+                        for word in &line.words {
+                            draw_polygon(&word.polygon_px, egui::Color32::from_rgb(72, 192, 245));
+                        }
+                    } else {
+                        draw_polygon(&line.polygon_px, egui::Color32::from_rgb(72, 192, 245));
+                    }
+                }
+                if let Some(polygon) = self
+                    .ocr_selection
+                    .and_then(|selection| selection_polygon(document, selection))
+                {
+                    draw_polygon(polygon, egui::Color32::from_rgb(30, 230, 160));
                 }
             }
         }
@@ -854,7 +888,7 @@ impl PicPasteApp {
         });
     }
 
-    fn request_ocr(&mut self, ctx: &egui::Context) {
+    fn request_ocr(&mut self, ctx: &egui::Context, characters: bool) {
         if self.ocr_waiting || self.processing || self.scroll_control.is_some() {
             return;
         }
@@ -862,7 +896,11 @@ impl PicPasteApp {
         self.ocr_waiting = true;
         self.ocr_text.clear();
         self.ocr_lines = 0;
-        self.status = String::from("正在使用离线 Vision Accurate 识别文字…");
+        self.status = if characters {
+            String::from("正在使用离线 Vision Fast 获取逐字原生坐标…")
+        } else {
+            String::from("正在使用离线 Vision Accurate 获取词级原生坐标…")
+        };
         let source = Arc::clone(&screen.rendered);
         let ticket = screen.ocr_ticket();
         let region = screen.selected_region();
@@ -871,11 +909,39 @@ impl PicPasteApp {
         thread::spawn(move || {
             let result = shot_image::crop_rgba(&source, region)
                 .map_err(|error| format!("OCR 区域无效：{error:?}"))
-                .and_then(ocr::recognize);
+                .and_then(|image| {
+                    if characters {
+                        ocr::recognize_characters(image)
+                    } else {
+                        ocr::recognize(image)
+                    }
+                });
             let _ = sender.send(WorkerResult::Ocr {
                 ticket,
+                characters,
                 outcome: result,
             });
+            ctx.request_repaint();
+        });
+    }
+
+    fn request_qr(&mut self, ctx: &egui::Context) {
+        if self.ocr_waiting || self.processing || self.scroll_control.is_some() {
+            return;
+        }
+        let Some(screen) = &self.screen else { return };
+        self.ocr_waiting = true;
+        self.status = String::from("正在本地 Vision 扫描选区二维码，不联网…");
+        let source = Arc::clone(&screen.rendered);
+        let ticket = screen.ocr_ticket();
+        let region = screen.selected_region();
+        let sender = self.work_tx.clone();
+        let ctx = ctx.clone();
+        thread::spawn(move || {
+            let outcome = shot_image::crop_rgba(&source, region)
+                .map_err(|error| format!("二维码区域无效：{error:?}"))
+                .and_then(ocr::recognize_qr);
+            let _ = sender.send(WorkerResult::Qr { ticket, outcome });
             ctx.request_repaint();
         });
     }
@@ -917,7 +983,7 @@ impl PicPasteApp {
         self.status = String::from("所有贴图已解除鼠标穿透");
     }
 
-    fn request_pin_ocr(&mut self, ctx: &egui::Context, pin_id: u64) {
+    fn request_pin_ocr(&mut self, ctx: &egui::Context, pin_id: u64, characters: bool) {
         let Some(pin) = self
             .pins
             .iter_mut()
@@ -934,21 +1000,64 @@ impl PicPasteApp {
         }
         pin.set_mode(PinMode::TextSelect);
         pin.ocr_result = None;
-        pin.selected_line = None;
-        self.status = format!("贴图 #{pin_id} 正在离线识别文字…");
+        pin.qr_result = None;
+        pin.selected_text = None;
+        self.status = format!(
+            "贴图 #{pin_id} 正在离线识别{}…",
+            if characters { "字符" } else { "词语" }
+        );
         let source = Arc::clone(&pin.source);
         let sender = self.work_tx.clone();
         let wake = ctx.clone();
         thread::spawn(move || {
-            let outcome = ocr::recognize(source.as_ref().clone());
-            let _ = sender.send(WorkerResult::PinOcr { pin_id, outcome });
+            let outcome = if characters {
+                ocr::recognize_characters(source.as_ref().clone())
+            } else {
+                ocr::recognize(source.as_ref().clone())
+            };
+            let _ = sender.send(WorkerResult::PinOcr {
+                pin_id,
+                characters,
+                outcome,
+            });
+            wake.request_repaint();
+        });
+    }
+
+    fn request_pin_qr(&mut self, ctx: &egui::Context, pin_id: u64) {
+        let Some(pin) = self
+            .pins
+            .iter_mut()
+            .find(|pin| pin.id == pin_id && !pin.is_closed())
+        else {
+            return;
+        };
+        if pin.source.rgba.len() > MAX_RGBA_BYTES {
+            self.status = String::from("贴图超过本地二维码扫描 80MiB 上限，请缩小原图");
+            return;
+        }
+        if !pin.ocr_gate.begin() {
+            return;
+        }
+        pin.set_mode(PinMode::TextSelect);
+        pin.ocr_result = None;
+        pin.qr_result = None;
+        pin.selected_text = None;
+        self.status = format!("贴图 #{pin_id} 正在本地扫描二维码…");
+        let source = Arc::clone(&pin.source);
+        let sender = self.work_tx.clone();
+        let wake = ctx.clone();
+        thread::spawn(move || {
+            let outcome = ocr::recognize_qr(source.as_ref().clone());
+            let _ = sender.send(WorkerResult::PinQr { pin_id, outcome });
             wake.request_repaint();
         });
     }
 
     fn process_pin_event(&mut self, event: PinEvent, ctx: &egui::Context) {
         match event {
-            PinEvent::Recognize(id) => self.request_pin_ocr(ctx, id),
+            PinEvent::Recognize { id, characters } => self.request_pin_ocr(ctx, id, characters),
+            PinEvent::DetectQr(id) => self.request_pin_qr(ctx, id),
             PinEvent::Move(id) => {
                 if let Some(pin) = self
                     .pins
@@ -958,7 +1067,7 @@ impl PicPasteApp {
                     pin.set_mode(PinMode::Move);
                 }
             }
-            PinEvent::PickLine { id, pixel } => {
+            PinEvent::PickText { id, pixel } => {
                 if let Some(pin) = self
                     .pins
                     .iter_mut()
@@ -966,12 +1075,22 @@ impl PicPasteApp {
                     && pin.mode == PinMode::TextSelect
                     && let Some(document) = pin.ocr_result.as_ref()
                 {
-                    pin.selected_line = hit_line_in_capture(document, (0, 0), pixel);
-                    self.status = if pin.selected_line.is_some() {
-                        format!("贴图 #{id} 已选中文字行，可以复制")
+                    pin.selected_text = hit_text_selection(document, (0, 0), pixel, pin.pick_mode);
+                    self.status = if pin.selected_text.is_some() {
+                        format!("贴图 #{id} 已选中 Vision 原始文字区域，可复制")
                     } else {
-                        format!("贴图 #{id} 点击处没有 OCR 文字行")
+                        format!("贴图 #{id} 点击处没有对应的文字框")
                     };
+                }
+            }
+            PinEvent::PickMode { id, mode } => {
+                if let Some(pin) = self
+                    .pins
+                    .iter_mut()
+                    .find(|pin| pin.id == id && !pin.is_closed())
+                {
+                    pin.pick_mode = mode;
+                    pin.selected_text = None;
                 }
             }
             PinEvent::CopySelected(id) => {
@@ -981,17 +1100,33 @@ impl PicPasteApp {
                     .find(|pin| pin.id == id && !pin.is_closed())
                     .filter(|pin| pin.mode == PinMode::TextSelect)
                     .and_then(|pin| {
-                        Some(selected_text(
-                            pin.ocr_result.as_ref()?,
-                            &[pin.selected_line?],
-                        ))
+                        selected_selection_text(pin.ocr_result.as_ref()?, pin.selected_text?)
                     });
                 if let Some(text) = selected.filter(|text| !text.is_empty()) {
-                    self.status =
-                        match Clipboard::new().and_then(|mut clipboard| clipboard.set_text(text)) {
-                            Ok(()) => format!("已复制贴图 #{id} 选中的文字行"),
-                            Err(error) => format!("贴图复制文字失败：{error}"),
-                        };
+                    self.status = match Clipboard::new()
+                        .and_then(|mut clipboard| clipboard.set_text(text.to_string()))
+                    {
+                        Ok(()) => format!("已复制贴图 #{id} 的精确选中文字"),
+                        Err(error) => format!("贴图复制文字失败：{error}"),
+                    };
+                }
+            }
+            PinEvent::CopyQr { id, index } => {
+                let payload = self
+                    .pins
+                    .iter()
+                    .find(|pin| pin.id == id && !pin.is_closed())
+                    .filter(|pin| pin.mode == PinMode::TextSelect)
+                    .and_then(|pin| pin.qr_result.as_ref())
+                    .and_then(|doc| doc.codes.get(index))
+                    .map(|code| code.payload.clone());
+                if let Some(payload) = payload {
+                    self.status = match Clipboard::new()
+                        .and_then(|mut clipboard| clipboard.set_text(payload))
+                    {
+                        Ok(()) => format!("贴图 #{id} 二维码内容已复制（不会自动打开链接）"),
+                        Err(error) => format!("贴图二维码复制失败：{error}"),
+                    };
                 }
             }
         }
@@ -1316,7 +1451,11 @@ impl PicPasteApp {
                         Err(error) => self.status = format!("图像处理失败: {error}"),
                     }
                 }
-                WorkerResult::Ocr { ticket, outcome } => {
+                WorkerResult::Ocr {
+                    ticket,
+                    characters,
+                    outcome,
+                } => {
                     self.ocr_waiting = false;
                     if !self
                         .screen
@@ -1341,18 +1480,56 @@ impl PicPasteApp {
                                 let region = screen.selected_region();
                                 screen.ocr_origin = (region.x as u32, region.y as u32);
                                 screen.ocr_mode = true;
-                                screen.ocr_line = None;
+                                screen.ocr_pick_mode = TextPickMode::Unit;
+                                screen.ocr_selection = None;
+                                screen.ocr_characters = characters;
+                                screen.qr_result = None;
                                 screen.ocr_result = Some(document);
                             }
                             self.status = format!(
-                                "Vision OCR 完成，共 {} 行；可点击原图上的文字框选行",
-                                self.ocr_lines
+                                "Vision {}识别完成，共 {} 行；点击原图上的{}框可复制",
+                                if characters {
+                                    "逐字(Fast)"
+                                } else {
+                                    "词级(Accurate)"
+                                },
+                                self.ocr_lines,
+                                if characters { "字" } else { "词" },
                             );
                         }
                         Err(error) => self.status = format!("文字识别失败：{error}"),
                     }
                 }
-                WorkerResult::PinOcr { pin_id, outcome } => {
+                WorkerResult::Qr { ticket, outcome } => {
+                    self.ocr_waiting = false;
+                    if !self
+                        .screen
+                        .as_ref()
+                        .is_some_and(|screen| screen.accepts_ocr(ticket))
+                    {
+                        self.status = String::from("截图或选区已变化，已丢弃过期二维码结果");
+                        continue;
+                    }
+                    match outcome {
+                        Ok(document) => {
+                            let count = document.codes.len();
+                            if let Some(screen) = self.screen.as_mut() {
+                                screen.qr_result = Some(document);
+                            }
+                            self.status = if count == 0 {
+                                String::from("本地 Vision 未发现二维码")
+                            } else {
+                                format!("本地 Vision 找到 {count} 个二维码；请明确点击复制内容")
+                            };
+                        }
+                        Err(error) => self.status = format!("二维码识别失败：{error}"),
+                    }
+                }
+                WorkerResult::PinOcr {
+                    pin_id,
+                    characters,
+                    outcome,
+                } => {
                     if let Some(pin) = self
                         .pins
                         .iter_mut()
@@ -1367,14 +1544,46 @@ impl PicPasteApp {
                             Ok(document) => {
                                 let lines = document.lines.len();
                                 pin.ocr_result = Some(Arc::new(document));
-                                pin.selected_line = None;
+                                pin.qr_result = None;
+                                pin.selected_text = None;
+                                pin.pick_mode = TextPickMode::Unit;
+                                pin.character_mode = characters;
                                 self.status = format!(
-                                    "贴图 #{pin_id} 离线识别完成，共 {lines} 行；点击文字行后复制"
+                                    "贴图 #{pin_id} {}识别完成，共 {lines} 行；点击识别框复制",
+                                    if characters { "逐字" } else { "词级" }
                                 );
                             }
                             Err(error) => {
                                 pin.ocr_result = None;
                                 self.status = format!("贴图 #{pin_id} 离线识别失败：{error}");
+                            }
+                        }
+                    }
+                }
+                WorkerResult::PinQr { pin_id, outcome } => {
+                    if let Some(pin) = self
+                        .pins
+                        .iter_mut()
+                        .find(|pin| pin.id == pin_id && !pin.is_closed())
+                        && pin.ocr_gate.pending()
+                    {
+                        if !pin.ocr_gate.finish(pin.mode) {
+                            self.status = format!("贴图 #{pin_id} 已退出识别模式，扫码结果已丢弃");
+                            continue;
+                        }
+                        match outcome {
+                            Ok(document) => {
+                                let count = document.codes.len();
+                                pin.ocr_result = None;
+                                pin.qr_result = Some(Arc::new(document));
+                                pin.selected_text = None;
+                                self.status = format!(
+                                    "贴图 #{pin_id} 本地扫码完成，找到 {count} 个二维码；仅显式复制"
+                                );
+                            }
+                            Err(error) => {
+                                pin.qr_result = None;
+                                self.status = format!("贴图 #{pin_id} 本地扫码失败：{error}");
                             }
                         }
                     }
@@ -1828,7 +2037,8 @@ impl PicPasteApp {
 
             let mut selected_action = None;
             let mut start_scroll = None;
-            let mut recognize_text = false;
+            let mut recognize_text = None;
+            let mut recognize_qr = false;
             let mut color_to_copy = None;
             if let Some(screen) = &mut self.screen {
                 ui.horizontal(|ui| {
@@ -1850,8 +2060,14 @@ impl PicPasteApp {
                     if ui.button("手动长截图 →").clicked() {
                         start_scroll = Some(ScrollAxis::Horizontal);
                     }
-                    if ui.button("识别文字 (Full)").clicked() {
-                        recognize_text = true;
+                    if ui.button("识别词 (Accurate)").clicked() {
+                        recognize_text = Some(false);
+                    }
+                    if ui.button("识别字 (Fast)").clicked() {
+                        recognize_text = Some(true);
+                    }
+                    if ui.button("识别二维码 (离线)").clicked() {
+                        recognize_qr = true;
                     }
                 });
                 // Leading/trailing physical-pixel bands apply to either scroll
@@ -1961,30 +2177,58 @@ impl PicPasteApp {
                         }
                     });
                 }
-                if screen.ocr_result.is_some() {
-                    let picked = screen.ocr_line.and_then(|index| {
-                        screen
-                            .ocr_result
-                            .as_ref()
-                            .map(|document| selected_text(document, &[index]))
-                    });
-                    ui.horizontal(|ui| {
+                if let Some(document) = screen.ocr_result.as_ref() {
+                    let picked = screen
+                        .ocr_selection
+                        .and_then(|selection| selected_selection_text(document, selection))
+                        .map(str::to_string);
+                    ui.horizontal_wrapped(|ui| {
                         ui.checkbox(&mut screen.ocr_mode, "文字选择模式");
+                        let previous_mode = screen.ocr_pick_mode;
+                        ui.radio_value(&mut screen.ocr_pick_mode, TextPickMode::Line, "选整行");
+                        ui.radio_value(
+                            &mut screen.ocr_pick_mode,
+                            TextPickMode::Unit,
+                            if screen.ocr_characters { "选字" } else { "选词" },
+                        );
+                        if screen.ocr_pick_mode != previous_mode {
+                            screen.ocr_selection = None;
+                        }
                         if let Some(text) = picked
                             && !text.is_empty()
-                            && ui.button("复制选中的文字行").clicked()
+                            && ui.button("复制选中的文字").clicked()
                         {
                             self.status = match Clipboard::new()
                                 .and_then(|mut clipboard| clipboard.set_text(text))
                             {
-                                Ok(()) => String::from("已复制选中的 OCR 文字行"),
-                                Err(error) => format!("复制选中行失败：{error}"),
+                                Ok(()) => String::from("已复制 Vision 原生框对应文字"),
+                                Err(error) => format!("复制文字失败：{error}"),
                             };
                         }
                     });
                 } else if self.ocr_lines > 0 {
                     self.ocr_lines = 0;
                     self.ocr_text.clear();
+                }
+                if let Some(document) = screen.qr_result.as_ref() {
+                    ui.collapsing(format!("离线二维码 · {} 个", document.codes.len()), |ui| {
+                        if document.codes.is_empty() {
+                            ui.label("没有识别到二维码；可扩大截图选区或提高原图清晰度");
+                        }
+                        for (index, code) in document.codes.iter().enumerate() {
+                            ui.horizontal_wrapped(|ui| {
+                                ui.label(format!("二维码 {}：{}", index + 1, code.payload));
+                                if ui.button(format!("复制二维码 {}", index + 1)).clicked() {
+                                    self.status = match Clipboard::new()
+                                        .and_then(|mut clipboard| clipboard.set_text(code.payload.clone()))
+                                    {
+                                        Ok(()) => String::from("二维码内容已复制；不会自动打开链接"),
+                                        Err(error) => format!("二维码复制失败：{error}"),
+                                    };
+                                }
+                            });
+                        }
+                    });
                 }
             } else {
                 ui.label(format!(
@@ -2020,8 +2264,11 @@ impl PicPasteApp {
             if let Some(axis) = start_scroll {
                 self.start_manual_scroll(ui.ctx(), axis);
             }
-            if recognize_text {
-                self.request_ocr(ui.ctx());
+            if let Some(characters) = recognize_text {
+                self.request_ocr(ui.ctx(), characters);
+            }
+            if recognize_qr {
+                self.request_qr(ui.ctx());
             }
             if self.ocr_waiting {
                 ui.horizontal(|ui| {
@@ -2352,8 +2599,20 @@ impl PicPasteApp {
                         if next_mode != pin.mode {
                             pin.set_mode(next_mode);
                         }
-                        if ui.small_button("OCR (Full)").clicked() {
-                            let _ = self.pin_tx.send(PinEvent::Recognize(pin.id));
+                        if ui.small_button("词 OCR").clicked() {
+                            let _ = self.pin_tx.send(PinEvent::Recognize {
+                                id: pin.id,
+                                characters: false,
+                            });
+                        }
+                        if ui.small_button("字 OCR").clicked() {
+                            let _ = self.pin_tx.send(PinEvent::Recognize {
+                                id: pin.id,
+                                characters: true,
+                            });
+                        }
+                        if ui.small_button("QR").clicked() {
+                            let _ = self.pin_tx.send(PinEvent::DetectQr(pin.id));
                         }
                         ui.add(egui::Slider::new(&mut pin.opacity, 0.2..=1.0).text("透明度"));
                         ui.add(egui::Slider::new(&mut pin.zoom, 0.25..=3.0).text("缩放"));

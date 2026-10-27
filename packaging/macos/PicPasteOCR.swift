@@ -23,6 +23,20 @@ private struct OcrLine: Encodable {
     let words: [OcrWord]
 }
 
+private struct QrCode: Encodable {
+    let payload: String
+    let symbology: String
+    let polygon_px: [[Double]]
+}
+
+private struct QrDocument: Encodable {
+    let image_hash: String
+    let pixel_width: UInt32
+    let pixel_height: UInt32
+    let provider: String
+    let codes: [QrCode]
+}
+
 private struct OcrDocument: Encodable {
     let image_hash: String
     let pixel_width: UInt32
@@ -35,7 +49,31 @@ private struct OcrDocument: Encodable {
 private struct Envelope: Encodable {
     let protocol_version: UInt32
     let document: OcrDocument?
+    let qr_document: QrDocument?
     let error: String?
+}
+
+private enum Mode {
+    case words
+    case characters
+    case qr
+}
+
+private func requestedMode() throws -> Mode {
+    let arguments = Array(CommandLine.arguments.dropFirst())
+    guard arguments.count <= 1 else {
+        throw Failure.invalid("unsupported Vision helper arguments")
+    }
+    switch arguments.first {
+    case nil:
+        return .words
+    case "--characters":
+        return .characters
+    case "--qr":
+        return .qr
+    default:
+        throw Failure.invalid("unsupported Vision helper mode")
+    }
 }
 
 private enum Failure: Error, LocalizedError {
@@ -94,7 +132,53 @@ private extension Double {
     }
 }
 
-private func recognize() throws -> OcrDocument {
+private func recognizedUnits(
+    _ candidate: VNRecognizedText,
+    mode: Mode,
+    width: UInt32,
+    height: UInt32
+) -> [OcrWord] {
+    var units: [OcrWord] = []
+    let addUnit: (String, Range<String.Index>) -> Void = { value, range in
+        guard !value.isEmpty, let box = try? candidate.boundingBox(for: range) else {
+            return
+        }
+        units.append(OcrWord(
+            text: value,
+            confidence: Double(candidate.confidence).clamped(to: 0...1),
+            polygon_px: polygon(box.boundingBox, width: width, height: height)
+        ))
+    }
+    if case .characters = mode {
+        var start = candidate.string.startIndex
+        while start < candidate.string.endIndex && units.count < 4096 {
+            let next = candidate.string.index(after: start)
+            let letter = String(candidate.string[start..<next])
+            if !letter.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                addUnit(letter, start..<next)
+            }
+            start = next
+        }
+    } else {
+        candidate.string.enumerateSubstrings(
+            in: candidate.string.startIndex..<candidate.string.endIndex,
+            options: [.byWords]
+        ) { substring, range, _, stop in
+            if units.count >= 4096 {
+                stop = true
+                return
+            }
+            if let substring {
+                addUnit(substring, range)
+            }
+        }
+    }
+    return units
+}
+
+private func recognize() throws -> Envelope {
+    let mode = try requestedMode() 
+
     let header = Array(try readExact(16))
     guard Array(header[0..<4]) == Array("SHOC".utf8) else {
         throw Failure.invalid("bad OCR protocol magic")
@@ -131,11 +215,41 @@ private func recognize() throws -> OcrDocument {
     ) else {
         throw Failure.invalid("cannot create CGImage")
     }
+    let handler = VNImageRequestHandler(cgImage: image, options: [:])
+
+    if case .qr = mode {
+        let request = VNDetectBarcodesRequest()
+        request.symbologies = [.qr]
+        try handler.perform([request])
+        let codes = (request.results ?? []).compactMap { observation -> QrCode? in
+            guard let payload = observation.payloadStringValue,
+                  !payload.isEmpty, payload.utf8.count <= 16_384 else {
+                return nil
+            }
+            return QrCode(
+                payload: payload,
+                symbology: "qr",
+                polygon_px: polygon(observation.boundingBox, width: width, height: height)
+            )
+        }
+        return Envelope(
+            protocol_version: protocolVersion,
+            document: nil,
+            qr_document: QrDocument(
+                image_hash: hash,
+                pixel_width: width,
+                pixel_height: height,
+                provider: "apple-vision-qr",
+                codes: Array(codes.prefix(100))
+            ),
+            error: nil
+        )
+    }
+
     let request = VNRecognizeTextRequest()
-    request.recognitionLevel = .accurate
+    request.recognitionLevel = mode == .characters ? .fast : .accurate
     request.usesLanguageCorrection = true
     request.recognitionLanguages = ["zh-Hans", "en-US"]
-    let handler = VNImageRequestHandler(cgImage: image, options: [:])
     try handler.perform([request])
 
     let lines = (request.results ?? []).compactMap { observation -> OcrLine? in
@@ -144,32 +258,33 @@ private func recognize() throws -> OcrDocument {
             text: best.string,
             confidence: Double(best.confidence).clamped(to: 0...1),
             polygon_px: polygon(observation.boundingBox, width: width, height: height),
-            words: []
+            words: recognizedUnits(best, mode: mode, width: width, height: height)
         )
     }
-    return OcrDocument(
-        image_hash: hash,
-        pixel_width: width,
-        pixel_height: height,
-        provider: "apple-vision",
-        model_revision: ProcessInfo.processInfo.operatingSystemVersionString,
-        lines: lines
+    return Envelope(
+        protocol_version: protocolVersion,
+        document: OcrDocument(
+            image_hash: hash,
+            pixel_width: width,
+            pixel_height: height,
+            provider: "apple-vision",
+            model_revision: ProcessInfo.processInfo.operatingSystemVersionString,
+            lines: lines
+        ),
+        qr_document: nil,
+        error: nil
     )
 }
 
 do {
-    let document = try recognize()
-    FileHandle.standardOutput.write(try encode(Envelope(
-        protocol_version: protocolVersion,
-        document: document,
-        error: nil
-    )))
+    FileHandle.standardOutput.write(try encode(recognize()))
 } catch {
     let message = String(describing: error)
     do {
         FileHandle.standardOutput.write(try encode(Envelope(
             protocol_version: protocolVersion,
             document: nil,
+            qr_document: nil,
             error: message
         )))
     } catch {

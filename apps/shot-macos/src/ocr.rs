@@ -1,5 +1,7 @@
 use shot_core::RgbaFrame;
-use shot_ocr_protocol::{MAX_RGBA_BYTES, OcrDocument, OcrRequest, OcrResponse, read_response};
+use shot_ocr_protocol::{
+    MAX_RGBA_BYTES, OcrDocument, OcrRequest, OcrResponse, QrDocument, read_response,
+};
 use std::process::{Command, Stdio};
 use std::sync::mpsc;
 use std::thread;
@@ -32,21 +34,43 @@ fn bundled_helper() -> Result<std::path::PathBuf, String> {
     Ok(helper)
 }
 
-/// Explicitly requested, isolated local OCR. Enforces one child process,
-/// bounded anonymous pipe framing and a hard recognition timeout.
-pub fn recognize(image: RgbaFrame) -> Result<OcrDocument, String> {
+/// A signed, one-shot local helper executes only after a user request.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Mode {
+    AccurateWords,
+    FastCharacters,
+    Qr,
+}
+
+fn call_helper(image: RgbaFrame, mode: Mode) -> Result<OcrResponse, String> {
     if image.rgba.len() > MAX_RGBA_BYTES {
         return Err(String::from("OCR 图片超过 80MiB 上限，请缩小选区"));
     }
     let helper = bundled_helper()?;
-    let mut child = Command::new(helper)
+    let mut command = Command::new(helper);
+    match mode {
+        Mode::AccurateWords => {}
+        Mode::FastCharacters => {
+            command.arg("--characters");
+        }
+        Mode::Qr => {
+            command.arg("--qr");
+        }
+    }
+    let mut child = command
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::null())
         .spawn()
-        .map_err(|e| format!("OCR helper 启动失败：{e}"))?;
-    let mut stdin = child.stdin.take().ok_or("OCR helper stdin unavailable")?;
-    let mut stdout = child.stdout.take().ok_or("OCR helper stdout unavailable")?;
+        .map_err(|e| format!("Vision helper 启动失败：{e}"))?;
+    let mut stdin = child
+        .stdin
+        .take()
+        .ok_or("Vision helper stdin unavailable")?;
+    let mut stdout = child
+        .stdout
+        .take()
+        .ok_or("Vision helper stdout unavailable")?;
     let expected_size = (image.width, image.height);
     let request = OcrRequest {
         width: image.width,
@@ -61,25 +85,53 @@ pub fn recognize(image: RgbaFrame) -> Result<OcrDocument, String> {
                 drop(stdin);
                 read_response(&mut stdout)
             })
-            .map_err(|error| format!("OCR 通信失败：{error}"));
+            .map_err(|error| format!("Vision 通信失败：{error}"));
         let _ = tx.send(result);
     });
-
     let outcome = rx.recv_timeout(Duration::from_secs(20));
-    // Terminate misbehaving or slow helpers. No OCR process survives timeout.
     if outcome.is_err() {
         let _ = child.kill();
     }
     let _ = child.wait();
-    match outcome {
-        Ok(Ok(OcrResponse::Document(document))) => {
-            if (document.pixel_width, document.pixel_height) != expected_size {
-                return Err(String::from("OCR 响应图片尺寸不匹配"));
-            }
-            Ok(document)
+    let response = match outcome {
+        Ok(Ok(response)) => response,
+        Ok(Err(error)) => return Err(error),
+        Err(_) => return Err(String::from("Vision 识别超时（20 秒），已终止 helper")),
+    };
+    let dimensions = match &response {
+        OcrResponse::Document(doc) => (doc.pixel_width, doc.pixel_height),
+        OcrResponse::QrDocument(doc) => (doc.pixel_width, doc.pixel_height),
+        OcrResponse::Error(message) => {
+            return Err(format!("本地 Vision 识别失败：{message}"));
         }
-        Ok(Ok(OcrResponse::Error(message))) => Err(format!("系统 Vision 识别失败：{message}")),
-        Ok(Err(error)) => Err(error),
-        Err(_) => Err(String::from("OCR 识别超时（20 秒），已终止 helper")),
+    };
+    if dimensions != expected_size {
+        return Err(String::from("Vision 响应图片尺寸不匹配"));
+    }
+    Ok(response)
+}
+
+fn recognize_with_mode(image: RgbaFrame, mode: Mode) -> Result<OcrDocument, String> {
+    match call_helper(image, mode)? {
+        OcrResponse::Document(doc) => Ok(doc),
+        _ => Err(String::from("Vision helper 返回了错误的文字识别响应")),
+    }
+}
+
+/// Explicit Accurate OCR: genuine provider word positions, no fake character boxes.
+pub fn recognize(image: RgbaFrame) -> Result<OcrDocument, String> {
+    recognize_with_mode(image, Mode::AccurateWords)
+}
+
+/// Explicit Fast OCR: native character positions may differ in recognition quality.
+pub fn recognize_characters(image: RgbaFrame) -> Result<OcrDocument, String> {
+    recognize_with_mode(image, Mode::FastCharacters)
+}
+
+/// Explicit QR-only Vision request, never open decoded URLs automatically.
+pub fn recognize_qr(image: RgbaFrame) -> Result<QrDocument, String> {
+    match call_helper(image, Mode::Qr)? {
+        OcrResponse::QrDocument(doc) => Ok(doc),
+        _ => Err(String::from("Vision helper 返回了错误的二维码响应")),
     }
 }
