@@ -57,93 +57,23 @@ mod native {
 mod native {
     use super::PanelSurfaceSize;
     use objc2::{MainThreadMarker, MainThreadOnly};
-    use objc2_app_kit::{NSApplication, NSBackingStoreType, NSPanel, NSWindowStyleMask};
-    use objc2_foundation::{NSPoint, NSRect, NSSize, ns_string};
+    use objc2_app_kit::{
+        NSApplication, NSBackingStoreType, NSEventMask, NSPanel, NSWindowStyleMask,
+    };
+    use objc2_foundation::{
+        NSDate, NSDefaultRunLoopMode, NSPoint, NSRect, NSSize, ns_string,
+    };
     use raw_window_handle::{AppKitWindowHandle, RawWindowHandle};
+    use shot_core::native_panel::{PanelSurfaceLifecycle, PanelSurfaceUpdate};
     use std::ptr::NonNull;
 
-    /// Must be called from the process main thread on an interactive Mac.
-    /// We retain the native NSPanel + NSView for the entire WGPU surface
-    /// lifetime and drop the surface before releasing either owner.
-    pub fn show() -> Result<(), String> {
-        let mtm =
-            MainThreadMarker::new().ok_or("AppKit NSPanel must be created on the main thread")?;
-        let application = NSApplication::sharedApplication(mtm);
-        let rect = NSRect::new(NSPoint::new(160.0, 160.0), NSSize::new(640.0, 360.0));
-        // The MainThreadMarker constrains the initializer to the AppKit
-        // main thread. We create a genuine NSPanel instead of changing the
-        // class of an existing winit-owned NSWindow.
-        let panel = NSPanel::initWithContentRect_styleMask_backing_defer(
-            NSPanel::alloc(mtm),
-            rect,
-            NSWindowStyleMask::Titled | NSWindowStyleMask::Closable,
-            NSBackingStoreType::Buffered,
-            false,
-        );
-        // SAFETY: The panel is strongly retained by this function; AppKit
-        // must not autorelease it on close while Metal still has a surface.
-        unsafe { panel.setReleasedWhenClosed(false) };
-        panel.setFloatingPanel(true);
-        panel.setBecomesKeyOnlyIfNeeded(false);
-        panel.setTitle(ns_string!("PicPaste · NSPanel + WGPU Metal 实验"));
-        panel.setHasShadow(false);
-        panel.setMovableByWindowBackground(false);
-        let content_view = panel
-            .contentView()
-            .ok_or("AppKit NSPanel has no content NSView")?;
-        // WGPU's Metal surface uses the NSView as its retained drawable host.
-        // AppKit requires a layer-backed view before a Metal layer is attached.
-        content_view.setWantsLayer(true);
-
-        // The panel must be on its target screen before reading the actual
-        // Retina backing scale. A hidden panel may report the wrong screen.
-        panel.center();
-        application.finishLaunching();
-        panel.makeKeyAndOrderFront(None);
-        application.activate();
-
-        let scale = panel.backingScaleFactor();
-        let size = PanelSurfaceSize::from_points(640.0, 360.0, scale)
-            .map_err(|error| format!("invalid Metal size: {error:?}"))?;
-
-        let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
-            backends: wgpu::Backends::METAL,
-            flags: Default::default(),
-            memory_budget_thresholds: Default::default(),
-            backend_options: Default::default(),
-            display: None,
-        });
-        let handle = AppKitWindowHandle::new(NonNull::from(&*content_view).cast());
-        // SAFETY: The retained NSView and NSPanel remain alive on the AppKit
-        // main thread until *after* this WGPU Surface is dropped. The NSView
-        // itself is the raw-window-handle AppKit target, not an NSWindow.
-        let surface = unsafe {
-            instance.create_surface_unsafe(wgpu::SurfaceTargetUnsafe::RawHandle {
-                raw_display_handle: None,
-                raw_window_handle: RawWindowHandle::AppKit(handle),
-            })
-        }
-        .map_err(|error| format!("create Metal surface: {error}"))?;
-
-        let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
-            compatible_surface: Some(&surface),
-            ..Default::default()
-        }))
-        .map_err(|error| format!("request Metal adapter: {error}"))?;
-        if adapter.get_info().backend != wgpu::Backend::Metal {
-            return Err(String::from(
-                "NSPanel probe unexpectedly chose non-Metal backend",
-            ));
-        }
-        let (device, queue) =
-            pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor::default()))
-                .map_err(|error| format!("request WGPU device: {error}"))?;
-        let config = surface
-            .get_default_config(&adapter, size.width, size.height)
-            .ok_or("Metal adapter does not support NSPanel surface")?;
-        surface.configure(&device, &config);
-
-        // WGPU 30 returns a detailed enum rather than Result<SurfaceTexture>.
+    // All WGPU GPU texture locals die before returning; a Surface must be
+    // dropped before its NSView/NSPanel owners can be released.
+    fn render_frame(
+        surface: &wgpu::Surface<'_>,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+    ) -> Result<(), String> {
         let frame = match surface.get_current_texture() {
             wgpu::CurrentSurfaceTexture::Success(frame) => frame,
             status => return Err(format!("acquire NSPanel Metal frame: {status:?}")),
@@ -179,16 +109,148 @@ mod native {
         }
         queue.submit([encoder.finish()]);
         queue.present(frame);
-        println!("NSPanel + WGPU Metal frame submitted. Close with Ctrl+C in the terminal.");
-        // Manual interactive lifecycle only. We do not claim close/IME/focus
-        // correctness until the full NSPanel event bridge is implemented.
-        application.run();
+        Ok(())
+    }
 
-        // Surface MUST go before its raw NSView/NSPanel owners.
+    /// This opt-in probe must run on AppKit's main thread. It pumps native
+    /// events itself so that a close event can return control to Rust and
+    /// release the Metal surface before AppKit's retained view and panel.
+    pub fn show() -> Result<(), String> {
+        let mtm =
+            MainThreadMarker::new().ok_or("AppKit NSPanel must be created on the main thread")?;
+        let application = NSApplication::sharedApplication(mtm);
+        let rect = NSRect::new(NSPoint::new(160.0, 160.0), NSSize::new(640.0, 360.0));
+        let panel = NSPanel::initWithContentRect_styleMask_backing_defer(
+            NSPanel::alloc(mtm),
+            rect,
+            NSWindowStyleMask::Titled
+                | NSWindowStyleMask::Closable
+                | NSWindowStyleMask::Resizable,
+            NSBackingStoreType::Buffered,
+            false,
+        );
+        // SAFETY: window ownership remains explicit until the WGPU surface
+        // has been dropped; the X close button must not release the NSPanel.
+        unsafe { panel.setReleasedWhenClosed(false) };
+        panel.setFloatingPanel(true);
+        panel.setBecomesKeyOnlyIfNeeded(false);
+        panel.setTitle(ns_string!("PicPaste · NSPanel + WGPU Metal 实验"));
+        panel.setHasShadow(false);
+        panel.setMovableByWindowBackground(false);
+        let content_view = panel
+            .contentView()
+            .ok_or("AppKit NSPanel has no content NSView")?;
+        content_view.setWantsLayer(true);
+
+        panel.center();
+        application.finishLaunching();
+        panel.makeKeyAndOrderFront(None);
+        application.activate();
+
+        let bounds = content_view.bounds();
+        let size = PanelSurfaceSize::from_points(
+            bounds.size.width,
+            bounds.size.height,
+            panel.backingScaleFactor(),
+        )
+        .map_err(|error| format!("invalid initial Metal size: {error:?}"))?;
+
+        let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
+            backends: wgpu::Backends::METAL,
+            flags: Default::default(),
+            memory_budget_thresholds: Default::default(),
+            backend_options: Default::default(),
+            display: None,
+        });
+        let handle = AppKitWindowHandle::new(NonNull::from(&*content_view).cast());
+        // SAFETY: the retained NSView and its owner panel stay alive on the
+        // main thread until the WGPU surface has been dropped.
+        let surface = unsafe {
+            instance.create_surface_unsafe(wgpu::SurfaceTargetUnsafe::RawHandle {
+                raw_display_handle: None,
+                raw_window_handle: RawWindowHandle::AppKit(handle),
+            })
+        }
+        .map_err(|error| format!("create Metal surface: {error}"))?;
+
+        let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
+            compatible_surface: Some(&surface),
+            ..Default::default()
+        }))
+        .map_err(|error| format!("request Metal adapter: {error}"))?;
+        if adapter.get_info().backend != wgpu::Backend::Metal {
+            return Err(String::from(
+                "NSPanel probe unexpectedly chose non-Metal backend",
+            ));
+        }
+        let (device, queue) =
+            pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor::default()))
+                .map_err(|error| format!("request WGPU device: {error}"))?;
+        let mut config = surface
+            .get_default_config(&adapter, size.width, size.height)
+            .ok_or("Metal adapter does not support NSPanel surface")?;
+        surface.configure(&device, &config);
+        render_frame(&surface, &device, &queue)?;
+
+        let mut lifecycle = PanelSurfaceLifecycle::new(size);
+        println!(
+            "NSPanel Metal frame presented. Resize or move between Retina displays; close with X."
+        );
+        // Time-bounded native event wait. Do not busy-spin or enter AppKit
+        // run() forever: the window close button must exit the probe.
+        let result = (|| -> Result<(), String> {
+            while panel.isVisible() {
+                let deadline = NSDate::dateWithTimeIntervalSinceNow(0.05);
+                // SAFETY: Apple's immutable default-runloop-mode global has
+                // process-wide static lifetime.
+                let mode = unsafe { NSDefaultRunLoopMode };
+                if let Some(event) = application.nextEventMatchingMask_untilDate_inMode_dequeue(
+                    NSEventMask::Any,
+                    Some(&deadline),
+                    mode,
+                    true,
+                ) {
+                    application.sendEvent(&event);
+                }
+                if !panel.isVisible() {
+                    break;
+                }
+                // Minimize invalidates visible content. Force one redraw on
+                // restoration even when dimensions have not changed.
+                if panel.isMiniaturized() {
+                    let _ = lifecycle.observe(0.0, 0.0, 1.0);
+                    continue;
+                }
+                let view_bounds = content_view.bounds();
+                match lifecycle
+                    .observe(
+                        view_bounds.size.width,
+                        view_bounds.size.height,
+                        panel.backingScaleFactor(),
+                    )
+                    .map_err(|error| format!("invalid resized Metal surface: {error:?}"))?
+                {
+                    PanelSurfaceUpdate::Reconfigure(next) => {
+                        config.width = next.width;
+                        config.height = next.height;
+                        surface.configure(&device, &config);
+                        render_frame(&surface, &device, &queue)?;
+                    }
+                    PanelSurfaceUpdate::Unchanged | PanelSurfaceUpdate::Suspended => {}
+                    PanelSurfaceUpdate::Closed => break,
+                }
+            }
+            Ok(())
+        })();
+        lifecycle.close();
+        // A normal close or a rendering error both reach the same cleanup.
+        panel.orderOut(None);
+        drop(queue);
+        drop(device);
         drop(surface);
         drop(content_view);
         drop(panel);
-        Ok(())
+        result
     }
 }
 

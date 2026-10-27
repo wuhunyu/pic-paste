@@ -31,10 +31,10 @@
 - `configured_size(&self) -> Option<PanelSurfaceSize>`
 - `enum PanelSurfaceUpdate { Unchanged, Reconfigure(PanelSurfaceSize), Suspended, Closed }`
 
-- [ ] RED: add unit tests expecting same-size/Retina resize/repeated changes, zero-point suspension/restoration, invalid geometry preserving last good state, and close preventing future reconfiguration.
-- [ ] Run `cargo test -p shot-core --test native_panel_surface --locked` in GitHub CI and confirm expected **missing API** error.
-- [ ] GREEN: add state machine to `native_panel.rs`; invalid input is rejected without state mutation; zero-size content suspends only for finite, nonnegative dimensions and valid scale; post-close transitions are inert.
-- [ ] Verify Linux test + strict Clippy, macOS workspace CI, before moving to Task 2.
+- [x] RED: add unit tests expecting same-size/Retina resize/repeated changes, zero-point suspension/restoration, invalid geometry preserving last good state, and close preventing future reconfiguration.
+- [x] Run `cargo test -p shot-core --test native_panel_surface --locked` in GitHub CI and confirm expected **missing API** error.
+- [x] GREEN: add state machine to `native_panel.rs`; invalid input is rejected without state mutation; zero-size content suspends only for finite, nonnegative dimensions and valid scale; post-close transitions are inert.
+- [x] Verify Linux test + strict Clippy, macOS workspace CI, before moving to Task 2.
 
 ### Task 2: Native event pump, redraw and release
 
