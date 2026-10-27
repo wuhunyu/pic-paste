@@ -552,6 +552,7 @@ pub struct PicPasteApp {
     scroll_fixed_bands: FixedBands,
     scroll_preview_pending: Option<RgbaFrame>,
     scroll_preview_texture: Option<egui::TextureHandle>,
+    scroll_preview_radius: Option<u32>,
     menu_rx: Receiver<MenuAction>,
     _menu: Option<MenuBar>,
     quit_requested: bool,
@@ -619,6 +620,7 @@ impl PicPasteApp {
             scroll_fixed_bands: FixedBands::default(),
             scroll_preview_pending: None,
             scroll_preview_texture: None,
+            scroll_preview_radius: None,
             menu_rx,
             _menu: menu,
             quit_requested: false,
@@ -744,6 +746,7 @@ impl PicPasteApp {
         );
         self.scroll_control = Some(control);
         self.scroll_preview_texture = None;
+        self.scroll_preview_radius = None;
         self.scroll_preview_pending = None;
         self.overlay.dismiss();
         self.overlay_placement = None;
@@ -954,10 +957,11 @@ impl PicPasteApp {
         };
         self.processing = true;
         self.status = String::from("正在从磁盘分块导出长图 PNG…");
+        let radius = self.radius;
         let sender = self.work_tx.clone();
         let wake = ctx.clone();
         thread::spawn(move || {
-            let result = scroll::export_review(&review).map_err(|error| (error, review));
+            let result = scroll::export_review(&review, radius).map_err(|error| (error, review));
             let _ = sender.send(WorkerResult::ScrollSaved(result));
             wake.request_repaint();
         });
@@ -1180,6 +1184,7 @@ impl PicPasteApp {
                     match outcome {
                         Ok(path) => {
                             self.scroll_preview_texture = None;
+                            self.scroll_preview_radius = None;
                             self.scroll_keep_segments = 1;
                             self.status = format!("长图 PNG 已确认保存：{}", path.display());
                         }
@@ -1291,15 +1296,24 @@ impl PicPasteApp {
                 std::mem::take(&mut self.pending_window_candidates),
             ));
         }
-        if let Some(image) = self.scroll_preview_pending.take() {
+        let has_new_review = self.scroll_preview_pending.take().is_some();
+        if let Some(review) = self.scroll_review.as_ref()
+            && (has_new_review || self.scroll_preview_radius != Some(self.radius))
+        {
+            // Only clone the already bounded 720x900 thumbnail, never the long canvas.
+            let mut preview = review.preview.clone();
+            let physical_width = review.store.canvas().0;
+            let preview_radius = scroll::preview_radius(self.radius, physical_width, preview.width);
+            shot_image::rounded_alpha(&mut preview, preview_radius);
             self.scroll_preview_texture = Some(ctx.load_texture(
                 "scroll-review-preview",
                 egui::ColorImage::from_rgba_unmultiplied(
-                    [image.width as usize, image.height as usize],
-                    &image.rgba,
+                    [preview.width as usize, preview.height as usize],
+                    &preview.rgba,
                 ),
                 egui::TextureOptions::LINEAR,
             ));
+            self.scroll_preview_radius = Some(self.radius);
         }
         for (action, image) in std::mem::take(&mut self.prepared) {
             match action {
@@ -1786,6 +1800,7 @@ impl PicPasteApp {
                 let (width, height) = review.store.canvas();
                 ui.separator();
                 ui.heading("长截图复核");
+                ui.label("长图 PNG 会按上方圆角设置输出透明边角；预览随圆角变化");
                 if review.partial {
                     ui.colored_label(
                         egui::Color32::YELLOW,
