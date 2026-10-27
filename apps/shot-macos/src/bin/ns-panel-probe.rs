@@ -112,7 +112,7 @@ mod native {
             backend_options: Default::default(),
             display: None,
         });
-        let handle = AppKitWindowHandle::new(NonNull::from(content_view.as_ref()).cast());
+        let handle = AppKitWindowHandle::new(NonNull::from(&*content_view).cast());
         // SAFETY: The retained NSView and NSPanel remain alive on the AppKit
         // main thread until *after* this WGPU Surface is dropped. The NSView
         // itself is the raw-window-handle AppKit target, not an NSWindow.
