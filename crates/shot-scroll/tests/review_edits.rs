@@ -100,3 +100,55 @@ fn overlapping_vector_pixelate_and_blur_match_full_composite_byte_for_byte() {
     assert_eq!(fs::read_dir(&root).unwrap().count(), 1);
     fs::remove_dir_all(root).unwrap();
 }
+
+#[test]
+fn horizontal_edits_and_native_selection_match_the_full_canvas() {
+    let root = std::env::temp_dir().join(format!("picpaste-edits-{}-horizontal", std::process::id()));
+    fs::create_dir_all(&root).unwrap();
+    let frame = |offset: u32, width: u32| {
+        let mut rgba = Vec::new();
+        for y in 0..8 {
+            for x in offset..offset + width {
+                let v = ((x * 19 + y * 31) % 251) as u8;
+                rgba.extend_from_slice(&[v, 255 - v, 61, 255]);
+            }
+        }
+        RgbaFrame::new(width, 8, rgba).unwrap()
+    };
+    let mut store = TileStore::new(&frame(0, 8), ScrollAxis::Horizontal, &root).unwrap();
+    store.append(&frame(4, 8), 4).unwrap();
+    let mark = Annotation::Arrow {
+        from: (2.0, 2.0),
+        to: (10.0, 5.0),
+        rgba: [200, 40, 100, 255],
+        width: 2.0,
+    };
+    let mut edits = EditStack::default();
+    edits.apply(&store, mark.clone()).unwrap();
+    let mut png = Vec::new();
+    store.encode_png_with_edits(&mut png, 0, &edits).unwrap();
+    let expected = shot_image::composite::composite(&frame(0, 12), &[mark]).unwrap();
+    assert_eq!(decode(png).rgba, expected.rgba);
+
+    let rect = shot_core::RectPx { x: 4, y: 1, width: 5, height: 4 };
+    let actual = store.render_region_edited(&edits, rect, 2).unwrap();
+    let mut cropped = shot_image::crop_rgba(&expected, rect).unwrap();
+    shot_image::rounded_alpha(&mut cropped, 2);
+    assert_eq!(actual.rgba, cropped.rgba);
+    assert!(store.render_region_edited(
+        &edits,
+        shot_core::RectPx { x: 0, y: 0, width: 13, height: 8 },
+        0,
+    ).is_err());
+
+    let before = edits.applied_len();
+    assert!(edits.apply(&store, Annotation::Pixelate {
+        left: 1, top: 1, width: 5, height: 5, block_size: 0,
+    }).is_err());
+    assert_eq!(edits.applied_len(), before);
+
+    drop(edits);
+    drop(store);
+    assert_eq!(fs::read_dir(&root).unwrap().count(), 0);
+    fs::remove_dir_all(root).unwrap();
+}
