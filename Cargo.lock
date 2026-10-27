@@ -3459,12 +3459,18 @@ dependencies = [
  "arboard",
  "eframe",
  "global-hotkey",
+ "objc2 0.6.5",
+ "objc2-app-kit 0.3.2",
+ "objc2-foundation 0.3.2",
+ "pollster",
+ "raw-window-handle",
  "shot-core",
  "shot-image",
  "shot-ocr-protocol",
  "shot-platform",
  "shot-scroll",
  "tray-icon",
+ "wgpu",
 ]
 
 [[package]]

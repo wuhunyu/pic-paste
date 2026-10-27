@@ -3,6 +3,22 @@ name = "shot-macos"
 version.workspace = true
 edition.workspace = true
 
+[features]
+# Compiles the experimental companion binary only; normal app is unchanged.
+native-panel-probe = [
+    "dep:objc2",
+    "dep:objc2-app-kit",
+    "dep:objc2-foundation",
+    "dep:pollster",
+    "dep:raw-window-handle",
+    "dep:wgpu",
+]
+
+[[bin]]
+name = "ns-panel-probe"
+path = "src/bin/ns-panel-probe.rs"
+required-features = ["native-panel-probe"]
+
 [dependencies]
 eframe = "=0.37.0"
 shot-core = { path = "../../crates/shot-core" }
@@ -15,3 +31,9 @@ shot-ocr-protocol = { path = "../../crates/shot-ocr-protocol" }
 global-hotkey = "=0.8.0"
 arboard = "=3.7.0"
 tray-icon = "=0.24.0"
+objc2 = { version = "=0.6.5", optional = true }
+objc2-app-kit = { version = "=0.3.2", optional = true, default-features = false, features = ["NSApplication", "NSPanel", "NSWindow", "NSView", "NSColor", "NSGraphics", "NSResponder"] }
+objc2-foundation = { version = "=0.3.2", optional = true, default-features = false, features = ["NSGeometry", "NSString", "objc2-core-foundation"] }
+pollster = { version = "=1.0.1", optional = true }
+raw-window-handle = { version = "=0.6.2", optional = true }
+wgpu = { version = "=30.0.1", optional = true, default-features = false, features = ["std", "metal", "wgsl"] }

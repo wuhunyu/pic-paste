@@ -16,7 +16,7 @@
 
 | 工作流 | 已实现 / 已通过 CI 的代码 | 尚缺失或未验收 |
 | --- | --- | --- |
-| P0 macOS 截图 | ScreenCaptureKit 选显示器；#31 完整图 (0,0) 显示器局部物理像素/校验裁剪、逻辑点独立摆放，截图浮层主动焦点、贴图初始不激活；窗口候选、放大镜、热键与 PID 排除 | 仍是 eframe/winit NSWindow 而非 AppKit NSPanel；需要多屏混合 DPI/Spaces/TCC/焦点/快捷键及 P95 真机验证（见 [窗口策略](macos-window-strategy.md)） |
+| P0 macOS 截图 | ScreenCaptureKit 选显示器；#31 局部物理像素/裁剪及初始焦点策略；[#32](https://github.com/wuhunyu/pic-paste/pull/32) 独立真 NSPanel + WGPU Metal surface 验证程序（显式编译，不替换主应用） | 正式 UI 仍为 eframe/winit NSWindow；NSPanel 真实渲染/关闭/输入桥接未实机验证，多屏 DPI/Spaces/TCC/延迟仍开放（见 [窗口策略](macos-window-strategy.md)） |
 | P1 标注与 PNG | 线、箭头、画笔、矩形、椭圆、马赛克、模糊、**中英文离线文字**（[#17](https://github.com/wuhunyu/pic-paste/pull/17)）；Undo/Redo；PNG-only 无覆盖原子保存、透明圆角、限定大小的 PNG 缩略图、⌘S 保存（[#16](https://github.com/wuhunyu/pic-paste/pull/16)） | 文字字体回退与跨版本系统覆盖、Native 剪贴板粘贴/色彩/Alpha 真机验证、工具边界压力测试 |
 | P2 多贴图 | 多窗口置顶、缩放、透明度、鼠标穿透和恢复；#22 行级、#28 词/字符/QR；[#30](https://github.com/wuhunyu/pic-paste/pull/30) 增加独立 RGBA 预算、逐像素相同的 TextureHandle 复用和关闭释放 | 5 张 1080p 帧 P95 ≤16.7ms、RSS/CPU、焦点/拖动/鼠标穿透、跨 Spaces 真机验收 |
 | P3 OCR | 本地 Vision、SHOC IPC、20s 超时、Lite 降级；#28 原生词/字符 bbox、显式离线 QR；Add-on 固定路径、Developer ID/Team ID/API 验证与安装/卸载代码已通过 #29 CI 并合并 | ≥400 张 CER 实测、旋转多码/权限/焦点、Developer ID 真签名安装、公证与真机验收 |
@@ -70,3 +70,10 @@
 - [x] 测试先行：Linux RED 缺少 `CapturedFrame::for_display` / `region_origin_px`；macOS RED 缺少 `pin_builder`，均为预期接口缺失而非误报。
 - [x] 生产路径：完整屏幕 (0,0) 的局部物理像素 + 校验区域源矩形；截图浮层请求焦点、Pin 初始不激活、纯透明阴影关闭、穿透按模式配置。已通过 [PR CI #40461875462](https://github.com/wuhunyu/pic-paste/actions/runs/40461875462)，不等于实机焦点保证。
 - [ ] 真机：双显示器负原点/不同 Retina DPI、插拔、全屏 Spaces、TCC 授予/撤销、系统热键/焦点/拖动和 10 帧自窗残影；30 次冷启动及 100 次热键 P95。专用 NSPanel 尚未提供，详见 [决策](macos-window-strategy.md)。
+
+## 2026-10-27 — #5 独立 NSPanel / Metal 试验（PR #32）
+
+- [x] 增加 `native-panel-probe` 可选 Feature 和真实 AppKit NSPanel/WGPU Metal 单帧渲染尝试；`--check` 不触发 AppKit/Metal/TCC；Linux Retina backing 几何单测已通过。
+- [ ] 独立 macOS Feature 编译、CLI、严格 Clippy、标准 Lite/Full/Add-on CI 验证以 PR #32 的最新完整 run 为准。
+- [ ] 在真实 macOS 14+ 桌面上确认 NSPanel 的 Metal 画面、关闭、1×/2×、Spaces、焦点；**没有运行过 GUI 模式即不能标为完成**。
+- [ ] egui-wgpu UI、native 事件/IME/关闭/窗口尺寸生命周期、回退开关和生产截屏/贴图面板迁移均未实现。

@@ -48,6 +48,13 @@ jobs:
         run: python3 -m unittest discover -s tests -p 'test_*.py'
       - name: Check formatting
         run: cargo fmt --all -- --check
+      - name: Test opt-in native NSPanel WGPU probe (no GUI)
+        run: cargo test -p shot-macos --features native-panel-probe --bin ns-panel-probe --locked
+      - name: Build and validate NSPanel WGPU probe CLI without GUI
+        run: |
+          cargo build -p shot-macos --features native-panel-probe --bin ns-panel-probe --locked
+          cargo run --quiet -p shot-macos --features native-panel-probe --bin ns-panel-probe --locked -- --check
+          cargo clippy -p shot-macos --features native-panel-probe --bin ns-panel-probe --locked -- -D warnings
       - name: Test workspace
         run: cargo test --workspace --locked
       - name: Lint workspace

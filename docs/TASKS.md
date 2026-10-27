@@ -6,7 +6,7 @@
 | --- | --- | --- | --- | --- |
 | P0-T1 | Rust Cargo workspace 与 CI | **代码基本完成** | `Cargo.lock`、macOS/Linux fmt/test/Clippy/Release、Swift IPC、Lite/Full 构建；缺真机基准 | [#5](https://github.com/wuhunyu/pic-paste/issues/5)、[#10](https://github.com/wuhunyu/pic-paste/issues/10) |
 | P0-T2 | AppKit 菜单栏、全局快捷键 | **部分实现** | 菜单栏、四功能快捷键、Ctrl+Option+1–9 自定义及失败回滚（PR #14）；真机冲突/恢复/权限未验收 | [#5](https://github.com/wuhunyu/pic-paste/issues/5) |
-| P0-T3 | ScreenCaptureKit、多屏与选区浮层 | **部分实现** | 选显示器、窗口候选、八手柄、放大镜；#31 分离完整图局部像素与桌面逻辑点并防御区域越界、使截图浮层请求焦点；**eframe NSWindow 不是 NSPanel**，仍需混合 DPI/Spaces 真机/原生桥 | [#5](https://github.com/wuhunyu/pic-paste/issues/5) |
+| P0-T3 | ScreenCaptureKit、多屏与选区浮层 | **部分实现** | 选显示器、八手柄、窗口候选、放大镜；#31 局部像素/逻辑点隔离；[#32](https://github.com/wuhunyu/pic-paste/pull/32) 提供独立 AppKit NSPanel/WGPU Metal 单帧验证程序（不替换正式 UI） | [#5](https://github.com/wuhunyu/pic-paste/issues/5) |
 | P0-T4 | 原生贴图、鼠标穿透与性能 | **部分实现** | 多贴图/穿透/恢复与 #30 纹理预算；#31 独立 Pin 初始不激活/无阴影、仅穿透模式透传鼠标；真实跨 Spaces、焦点/拖动与性能未验收 | [#5](https://github.com/wuhunyu/pic-paste/issues/5) |
 | P1-T1 | 选区、窗口识别、取色/放大镜 | **代码基本完成** | 窗口点击选择 #15、9×9 放大镜/HEX；真实重叠窗口和负坐标验证未完成 | [#5](https://github.com/wuhunyu/pic-paste/issues/5) |
 | P1-T2 | 标注、撤销重做 | **代码基本完成** | 线/箭头/画笔/几何/模糊/马赛克、文字 #17、Undo/Redo；CJK 系统字体实际覆盖需验证 | [#6](https://github.com/wuhunyu/pic-paste/issues/6) |
@@ -80,3 +80,9 @@
 - [x] [PR #31](https://github.com/wuhunyu/pic-paste/pull/31) 增加 `CapturedFrame` 局部像素/校验裁剪、截图请求激活和 Pin 初始不激活/无阴影/仅模式穿透。
 - [x] 代码通过完整 [PR CI #40461875462](https://github.com/wuhunyu/pic-paste/actions/runs/40461875462)：Linux/macOS 全工作区测试、严格 Clippy、Release、Swift IPC 与 Lite/Full/Add-on 打包；**macOS 设备验证仍未完成**，不能将 `with_active` 当作实机焦点保证。
 - [ ] [窗口策略](macos-window-strategy.md)明确 NSPanel 仍需独立 AppKit 主线程窗口、Metal surface 和事件桥接，不得声称已替代。
+
+## 2026-10-27 — P0-T3 AppKit NSPanel + Metal 试验（PR #32）
+
+- [x] 独立 `ns-panel-probe` Feature 开发：真实 AppKit NSPanel/NSView 与 WGPU Metal-only surface，基于点/Retina 比例的 8192px 物理画布容量单测，命令 `--check`（纯验证）和 `--show`（真实 Mac 交互）。
+- [ ] CI 确认 opt-in Feature 的 macOS 单测/编译、严格 Clippy、`--check`、Linux 核心/默认 Release 与 Lite/Full/Add-on 打包全绿。
+- [ ] 真实 macOS 桌面上的显示/生命周期/混合 DPI 与 Spaces 验证，以及 egui 绘制、键鼠/IME/关闭事件桥接、原生截图窗口切换仍未完成。
