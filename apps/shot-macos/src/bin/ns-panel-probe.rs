@@ -59,7 +59,7 @@ mod native {
 #[cfg(target_os = "macos")]
 mod native {
     use super::PanelSurfaceSize;
-    use super::panel_egui::ProbeEgui;
+    use super::panel_egui::{ProbeEgui, ProbeViewport};
     use objc2::{MainThreadMarker, MainThreadOnly};
     use objc2_app_kit::{
         NSApplication, NSBackingStoreType, NSEventMask, NSEventType, NSPanel, NSWindowStyleMask,
@@ -149,10 +149,12 @@ mod native {
             &surface,
             &device,
             &queue,
-            size,
-            bounds.size.width,
-            bounds.size.height,
-            scale,
+            ProbeViewport {
+                size,
+                width_points: bounds.size.width,
+                height_points: bounds.size.height,
+                backing_scale: scale,
+            },
         )?;
 
         let mut lifecycle = PanelSurfaceLifecycle::new(size);
@@ -220,10 +222,12 @@ mod native {
                         &surface,
                         &device,
                         &queue,
-                        current_size,
-                        view_bounds.size.width,
-                        view_bounds.size.height,
-                        panel.backingScaleFactor(),
+                        ProbeViewport {
+                            size: current_size,
+                            width_points: view_bounds.size.width,
+                            height_points: view_bounds.size.height,
+                            backing_scale: panel.backingScaleFactor(),
+                        },
                     )?;
                 }
             }

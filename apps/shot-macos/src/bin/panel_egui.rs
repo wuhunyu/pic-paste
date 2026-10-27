@@ -6,6 +6,13 @@
 use objc2_app_kit::{NSEvent, NSEventModifierFlags, NSEventType, NSPanel, NSView};
 use shot_core::native_panel::{PanelPointerPoint, PanelSurfaceSize};
 
+pub(crate) struct ProbeViewport {
+    pub size: PanelSurfaceSize,
+    pub width_points: f64,
+    pub height_points: f64,
+    pub backing_scale: f64,
+}
+
 #[derive(Default)]
 pub(crate) struct ProbeControls {
     clicks: u32,
@@ -258,19 +265,16 @@ impl ProbeEgui {
         surface: &wgpu::Surface<'_>,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
-        size: PanelSurfaceSize,
-        width_points: f64,
-        height_points: f64,
-        backing_scale: f64,
+        viewport: ProbeViewport,
     ) -> Result<(), String> {
-        let scale = backing_scale as f32;
+        let scale = viewport.backing_scale as f32;
         if !scale.is_finite() || scale <= 0.0 {
             return Err("invalid native pixels-per-point".to_owned());
         }
         let mut raw = egui::RawInput {
             screen_rect: Some(egui::Rect::from_min_size(
                 egui::Pos2::ZERO,
-                egui::vec2(width_points as f32, height_points as f32),
+                egui::vec2(viewport.width_points as f32, viewport.height_points as f32),
             )),
             focused: self.focused,
             events: std::mem::take(&mut self.events),
@@ -283,7 +287,7 @@ impl ProbeEgui {
         let controls = &mut self.controls;
         let output = self.ctx.run_ui(raw, |ui| controls.ui(ui));
         let screen = egui_wgpu::ScreenDescriptor {
-            size_in_pixels: [size.width, size.height],
+            size_in_pixels: [viewport.size.width, viewport.size.height],
             pixels_per_point: output.pixels_per_point,
         };
         let paint_jobs = self.ctx.tessellate(output.shapes, screen.pixels_per_point);
