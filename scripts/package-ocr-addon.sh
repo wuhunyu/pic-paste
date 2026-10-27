@@ -20,6 +20,10 @@ if [[ "$SIGN_IDENTITY" == "-" ]]; then
   /usr/bin/codesign --force --sign - --timestamp=none "$HELPER"
   CHANNEL="UNSIGNED-DEV"
 else
+  if [[ "$SIGN_IDENTITY" != "Developer ID Application:"* ]]; then
+    echo "PICPASTE_SIGN_IDENTITY must be a Developer ID Application identity" >&2
+    exit 4
+  fi
   /usr/bin/codesign --force --sign "$SIGN_IDENTITY" \
     --options runtime --timestamp "$HELPER"
   CHANNEL="DEVELOPER-ID-SIGNED"
