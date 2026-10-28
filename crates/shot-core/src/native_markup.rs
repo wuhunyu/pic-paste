@@ -198,9 +198,15 @@ impl NativeMarkup {
                     let top_left = (a.0.min(b.0), a.1.min(b.1));
                     let bottom_right = (a.0.max(b.0), a.1.max(b.1));
                     Some(if gesture.tool == NativeMarkupTool::Ellipse {
-                        NativeMark::Ellipse { top_left, bottom_right }
+                        NativeMark::Ellipse {
+                            top_left,
+                            bottom_right,
+                        }
                     } else {
-                        NativeMark::Rectangle { top_left, bottom_right }
+                        NativeMark::Rectangle {
+                            top_left,
+                            bottom_right,
+                        }
                     })
                 }
             }
