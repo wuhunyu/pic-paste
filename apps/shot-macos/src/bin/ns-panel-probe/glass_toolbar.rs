@@ -106,6 +106,11 @@ define_class!(
             self.ivars().pending.set(Some(GlassToolbarAction::UndoMarkup));
         }
 
+        #[unsafe(method(redoMarkup:))]
+        fn redo_markup(&self, _sender: &AnyObject) {
+            self.ivars().pending.set(Some(GlassToolbarAction::RedoMarkup));
+        }
+
         #[unsafe(method(cancelSelection:))]
         fn cancel_selection(&self, _sender: &AnyObject) {
             self.ivars().pending.set(Some(GlassToolbarAction::CancelSelection));
@@ -283,6 +288,7 @@ impl ProbeGlassToolbar {
                 Some(NativeMarkupTool::Text),
             ),
             (ns_string!("撤销"), sel!(undoMarkup:), None),
+            (ns_string!("重做"), sel!(redoMarkup:), None),
             (ns_string!("取消"), sel!(cancelSelection:), None),
         ];
         let mut markup_buttons = Vec::new();
@@ -293,8 +299,8 @@ impl ProbeGlassToolbar {
                 NSButton::buttonWithTitle_target_action(title, Some(&*target), Some(selector), mtm)
             };
             button.setFrame(NSRect::new(
-                NSPoint::new(8.0 + index as f64 * 68.0, 6.0),
-                NSSize::new(66.0, 36.0),
+                NSPoint::new(8.0 + index as f64 * 60.0, 6.0),
+                NSSize::new(58.0, 36.0),
             ));
             button.setBordered(false);
             content.addSubview(&button);
