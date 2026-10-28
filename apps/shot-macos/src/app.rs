@@ -11,6 +11,8 @@ use eframe::egui;
 use shot_core::async_ticket::OcrTicket;
 use shot_core::display::{DisplaySelection, OverlayPlacement};
 #[cfg(feature = "native-panel-probe")]
+use shot_core::native_annotation::NativeEditReply;
+#[cfg(all(feature = "native-panel-probe", test))]
 use shot_core::native_selection::NativeSelectionReply;
 #[cfg(feature = "native-panel-probe")]
 use shot_core::native_snapshot::NativeSnapshot;
@@ -233,6 +235,45 @@ impl SelectionView {
             self.edit_revision,
             self.selected_region(),
         )
+    }
+
+    /// A companion result is tied to the exact screenshot *and edit* revision.
+    /// Even valid bytes from a previously started process cannot overwrite
+    /// edits performed while that process was running.
+    #[cfg(feature = "native-panel-probe")]
+    fn accepts_native_revision(&self, expected: (u64, u64)) -> bool {
+        (self.capture_revision, self.edit_revision) == expected
+    }
+
+    /// Validate selection, display, image dimensions and every native mark,
+    /// then pre-render the entire candidate history before mutating any live
+    /// selection, annotation history, texture or PNG preview state.
+    #[cfg(feature = "native-panel-probe")]
+    fn import_native_reply(&mut self, reply: &NativeEditReply) -> Result<Option<usize>, String> {
+        let Some((rect, marks)) = reply.validated_in(
+            self.display_id,
+            (self.source.width, self.source.height),
+        )? else {
+            return Ok(None); // Cancelled: preserve selection, markup and PNG.
+        };
+        if !marks.is_empty() {
+            let mut staged = self.annotations.clone();
+            shot_image::native_import::import_native_marks(&mut staged, marks)?;
+            let image = shot_image::composite::composite(&self.source, staged.visible())
+                .map_err(|error| format!("原生标注图片合成失败：{error}"))?;
+            let preview = egui::ColorImage::from_rgba_unmultiplied(
+                [image.width as usize, image.height as usize],
+                &image.rgba,
+            );
+            self.annotations = staged;
+            self.texture.set(preview, egui::TextureOptions::LINEAR);
+            self.rendered = Arc::new(image);
+            self.render_error = None;
+            self.invalidate_ocr();
+        }
+        self.tool = Tool::Select;
+        self.set_selection(Some(rect));
+        Ok(Some(marks.len()))
     }
 
     fn refresh_preview(&mut self) {
@@ -644,11 +685,11 @@ pub struct PicPasteApp {
     #[cfg(feature = "native-panel-probe")]
     native_probe: NativeProbeLauncher,
     #[cfg(feature = "native-panel-probe")]
-    native_selection_tx: Sender<Result<NativeSelectionReply, String>>,
+    native_selection_tx: Sender<Result<NativeEditReply, String>>,
     #[cfg(feature = "native-panel-probe")]
-    native_selection_rx: Receiver<Result<NativeSelectionReply, String>>,
+    native_selection_rx: Receiver<Result<NativeEditReply, String>>,
     #[cfg(feature = "native-panel-probe")]
-    native_selection_revision: Option<u64>,
+    native_selection_revision: Option<(u64, u64)>,
 }
 
 impl PicPasteApp {
@@ -1495,30 +1536,21 @@ impl PicPasteApp {
                 let Some(screen) = self.screen.as_mut() else {
                     continue;
                 };
-                if screen.capture_revision != revision {
+                if !screen.accepts_native_revision(revision) {
                     continue;
                 }
                 self.status = match response {
-                    Ok(reply) => {
-                        match reply.validated_in(
-                            screen.display_id,
-                            (screen.source.width, screen.source.height),
-                        ) {
-                            Ok(Some(rect)) => {
-                                screen.tool = Tool::Select;
-                                screen.set_selection(Some(rect));
-                                format!(
-                                    "原生框选已回传并校验：{}×{} 物理像素；可继续标注、复制或保存 PNG",
-                                    rect.width, rect.height
-                                )
-                            }
-                            Ok(None) => String::from("已取消 NSPanel 原生框选，原截图仍可编辑"),
-                            Err(error) => format!("原生框选结果无效，原截图未修改：{error}"),
-                        }
-                    }
-                    Err(error) => format!("原生框选进程未返回有效结果，原截图未修改：{error}"),
+                    Ok(reply) => match screen.import_native_reply(&reply) {
+                        Ok(Some(count)) => format!(
+                            "原生选区与 {} 条标注已校验导入；可撤销/重做、复制/贴图或保存带标注 PNG",
+                            count
+                        ),
+                        Ok(None) => String::from("已取消 NSPanel 原生框选，原截图和已有标注未修改"),
+                        Err(error) => format!("原生标注结果无效，原截图及已有标注未修改：{error}"),
+                    },
+                    Err(error) => format!("原生标注进程未返回有效结果，原截图未修改：{error}"),
                 };
-                let id = egui::ViewportId::from_hash_of(("picpaste-capture", revision));
+                let id = egui::ViewportId::from_hash_of(("picpaste-capture", revision.0));
                 ctx.send_viewport_cmd_to(id, egui::ViewportCommand::Focus);
             }
         }
@@ -2437,7 +2469,7 @@ impl PicPasteApp {
             }
             #[cfg(feature = "native-panel-probe")]
             if requested_native_selection {
-                let prepared = (|| -> Result<(NativeSnapshot, u64), String> {
+                let prepared = (|| -> Result<(NativeSnapshot, (u64, u64)), String> {
                     let screen = self.screen.as_ref().ok_or("截图尚未就绪")?;
                     let placement = self.overlay_placement.ok_or("截图显示器位置不可用")?;
                     if !placement.belongs_to(screen.display_id) {
@@ -2449,7 +2481,7 @@ impl PicPasteApp {
                     )?;
                     let snapshot =
                         NativeSnapshot::new(placement, screen.source.as_ref().clone())?;
-                    Ok((snapshot, screen.capture_revision))
+                    Ok((snapshot, (screen.capture_revision, screen.edit_revision)))
                 })();
                 self.status = match prepared {
                     Ok((snapshot, revision)) => match self.native_probe.launch_select(
@@ -2459,7 +2491,7 @@ impl PicPasteApp {
                     ) {
                         Ok(ProbeLaunchResult::Started) => {
                             self.native_selection_revision = Some(revision);
-                            String::from("已启动 NSPanel 原生框选；拖动鼠标后返回当前编辑器，Esc 取消（待真机验证）")
+                            String::from("已启动 NSPanel 原生框选与标注；确认后回传现有编辑器，Esc 取消（待真机验证）")
                         }
                         Ok(ProbeLaunchResult::AlreadyRunning) => {
                             String::from("原生实验窗口仍在运行，请先关闭后再次框选")
