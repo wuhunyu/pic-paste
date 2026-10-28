@@ -23,7 +23,7 @@ use shot_core::native_markup::NativeMarkupTool;
 const BAR_WIDTH: f64 = 236.0;
 const BAR_HEIGHT: f64 = 44.0;
 const ANNOTATION_BAR_WIDTH: f64 = 560.0;
-const ANNOTATION_BAR_HEIGHT: f64 = 48.0;
+const ANNOTATION_BAR_HEIGHT: f64 = 88.0;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum ToolbarMode {
@@ -73,6 +73,13 @@ define_class!(
             )));
         }
 
+        #[unsafe(method(chooseLine:))]
+        fn choose_line(&self, _sender: &AnyObject) {
+            self.ivars().pending.set(Some(GlassToolbarAction::ChooseTool(
+                NativeMarkupTool::Line,
+            )));
+        }
+
         #[unsafe(method(chooseArrow:))]
         fn choose_arrow(&self, _sender: &AnyObject) {
             self.ivars().pending.set(Some(GlassToolbarAction::ChooseTool(
@@ -91,6 +98,20 @@ define_class!(
         fn choose_ellipse(&self, _sender: &AnyObject) {
             self.ivars().pending.set(Some(GlassToolbarAction::ChooseTool(
                 NativeMarkupTool::Ellipse,
+            )));
+        }
+
+        #[unsafe(method(choosePixelate:))]
+        fn choose_pixelate(&self, _sender: &AnyObject) {
+            self.ivars().pending.set(Some(GlassToolbarAction::ChooseTool(
+                NativeMarkupTool::Pixelate,
+            )));
+        }
+
+        #[unsafe(method(chooseBlur:))]
+        fn choose_blur(&self, _sender: &AnyObject) {
+            self.ivars().pending.set(Some(GlassToolbarAction::ChooseTool(
+                NativeMarkupTool::Blur,
             )));
         }
 
@@ -268,6 +289,11 @@ impl ProbeGlassToolbar {
                 Some(NativeMarkupTool::Brush),
             ),
             (
+                ns_string!("直线"),
+                sel!(chooseLine:),
+                Some(NativeMarkupTool::Line),
+            ),
+            (
                 ns_string!("箭头"),
                 sel!(chooseArrow:),
                 Some(NativeMarkupTool::Arrow),
@@ -281,6 +307,16 @@ impl ProbeGlassToolbar {
                 ns_string!("椭圆"),
                 sel!(chooseEllipse:),
                 Some(NativeMarkupTool::Ellipse),
+            ),
+            (
+                ns_string!("马赛克"),
+                sel!(choosePixelate:),
+                Some(NativeMarkupTool::Pixelate),
+            ),
+            (
+                ns_string!("模糊"),
+                sel!(chooseBlur:),
+                Some(NativeMarkupTool::Blur),
             ),
             (
                 ns_string!("文字"),
@@ -298,9 +334,12 @@ impl ProbeGlassToolbar {
             let button = unsafe {
                 NSButton::buttonWithTitle_target_action(title, Some(&*target), Some(selector), mtm)
             };
+            // Two rows keep the material capsule inside a 580pt-wide host.
+            let x = 8.0 + (index % 6) as f64 * 90.0;
+            let y = if index < 6 { 46.0 } else { 6.0 };
             button.setFrame(NSRect::new(
-                NSPoint::new(8.0 + index as f64 * 60.0, 6.0),
-                NSSize::new(58.0, 36.0),
+                NSPoint::new(x, y),
+                NSSize::new(86.0, 36.0),
             ));
             button.setBordered(false);
             content.addSubview(&button);
@@ -330,12 +369,18 @@ impl ProbeGlassToolbar {
                 (NativeMarkupTool::Select, false) => ns_string!("选区"),
                 (NativeMarkupTool::Brush, true) => ns_string!("●画笔"),
                 (NativeMarkupTool::Brush, false) => ns_string!("画笔"),
+                (NativeMarkupTool::Line, true) => ns_string!("●直线"),
+                (NativeMarkupTool::Line, false) => ns_string!("直线"),
                 (NativeMarkupTool::Arrow, true) => ns_string!("●箭头"),
                 (NativeMarkupTool::Arrow, false) => ns_string!("箭头"),
                 (NativeMarkupTool::Rectangle, true) => ns_string!("●矩形"),
                 (NativeMarkupTool::Rectangle, false) => ns_string!("矩形"),
                 (NativeMarkupTool::Ellipse, true) => ns_string!("●椭圆"),
                 (NativeMarkupTool::Ellipse, false) => ns_string!("椭圆"),
+                (NativeMarkupTool::Pixelate, true) => ns_string!("●马赛克"),
+                (NativeMarkupTool::Pixelate, false) => ns_string!("马赛克"),
+                (NativeMarkupTool::Blur, true) => ns_string!("●模糊"),
+                (NativeMarkupTool::Blur, false) => ns_string!("模糊"),
                 (NativeMarkupTool::Text, true) => ns_string!("●文字"),
                 (NativeMarkupTool::Text, false) => ns_string!("文字"),
             };
