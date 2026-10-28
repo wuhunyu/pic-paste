@@ -129,7 +129,11 @@ impl GlassToolbarAction {
     pub fn tool(self) -> Option<NativeMarkupTool> {
         match self {
             Self::ChooseTool(tool) => Some(tool),
-            Self::ToggleTheme | Self::CloseProbe | Self::UndoMarkup | Self::RedoMarkup | Self::CancelSelection => None,
+            Self::ToggleTheme
+            | Self::CloseProbe
+            | Self::UndoMarkup
+            | Self::RedoMarkup
+            | Self::CancelSelection => None,
         }
     }
 }
