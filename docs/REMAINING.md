@@ -107,3 +107,8 @@
 ## 2026-10-28 — PR #43 原生可调整选区
 
 已实现仅开发 Feature 下的 NSPanel 八方向手柄缩放、内部移动、物理像素尺寸反馈，鼠标拖动结束不会提交选区，只有 Enter/确认才回传，Esc/取消一律保留原截图。沿用 PPSEL001 和旧 eframe 编辑器；源 RGBA 和 PNG 保存链路不修改。剩余任务：真实 Mac 图形交互/负坐标与 Retina/Spaces/权限验收、完整原生标注与 Liquid Glass 工具栏、性能测试和正式可回退后端迁移，保持 Issue #5/#10 开放。
+
+
+## 2026-10-28 — PR #44 原生标注工具栏本地预览
+
+NSPanel 代码已加入真正 AppKit 系统材质工具栏，画笔/箭头/矩形/文字与撤销只操作受限的本地标注图层；已设定一条不可误解的交付边界：**本地标注不会保存到 PNG，也不会通过当前 PPSEL001 同步到 eframe**。后续必须以新的版本化、长度受限标注 IPC 验证传输，父进程在截图 revision/显示器/源尺寸核验通过后再把标注转成 shot-image AnnotationDocument 命令。macOS 26 真实 Liquid Glass、14–25 视觉回退、降低透明度/焦点/中文输入、Retina 多屏、Spaces 与 CPU/GPU/RSS 仍待真机验证。

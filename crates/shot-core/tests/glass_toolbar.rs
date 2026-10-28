@@ -1,6 +1,7 @@
 use shot_core::glass_toolbar::{
-    FloatingBarFrame, GlassMaterial, PreviewTheme, select_glass_material,
+    FloatingBarFrame, GlassMaterial, GlassToolbarAction, PreviewTheme, select_glass_material,
 };
+use shot_core::native_markup::NativeMarkupTool;
 
 #[test]
 fn liquid_glass_is_only_selected_when_macos26_and_runtime_class_are_available() {
@@ -88,4 +89,40 @@ fn preview_theme_toggle_keeps_label_as_next_action() {
     assert_eq!(theme, PreviewTheme::Light);
     assert_eq!(theme.toggle_label(), "深色预览");
     assert_eq!(theme.toggle(), PreviewTheme::Dark);
+}
+
+#[test]
+fn annotation_capsule_centered_but_never_clips_into_small_displays() {
+    let frame = FloatingBarFrame::for_annotation_size(1200.0, 800.0).unwrap();
+    assert_eq!(
+        frame,
+        FloatingBarFrame {
+            x: 320.0,
+            y: 20.0,
+            width: 560.0,
+            height: 48.0,
+        }
+    );
+    assert!(frame.contains(320.0, 20.0));
+    assert!(!frame.contains(880.0, 20.0));
+    assert!(FloatingBarFrame::for_annotation_size(580.0, 140.0).is_some());
+    assert!(FloatingBarFrame::for_annotation_size(579.0, 140.0).is_none());
+    assert!(FloatingBarFrame::for_annotation_size(1200.0, f64::NAN).is_none());
+}
+
+#[test]
+fn native_toolbar_annotation_actions_preserve_select_and_demo_commands() {
+    for tool in [
+        NativeMarkupTool::Select,
+        NativeMarkupTool::Brush,
+        NativeMarkupTool::Arrow,
+        NativeMarkupTool::Rectangle,
+        NativeMarkupTool::Text,
+    ] {
+        assert_eq!(GlassToolbarAction::ChooseTool(tool).tool(), Some(tool));
+    }
+    assert_eq!(GlassToolbarAction::UndoMarkup.tool(), None);
+    assert_eq!(GlassToolbarAction::CancelSelection.tool(), None);
+    assert_eq!(GlassToolbarAction::ToggleTheme.tool(), None);
+    assert_eq!(GlassToolbarAction::CloseProbe.tool(), None);
 }

@@ -1,6 +1,8 @@
 //! Pure layout and macOS material policy for an *experimental* floating
 //! AppKit toolbar. No screenshot pixels, WGPU objects, or native handles live here.
 
+use crate::native_markup::NativeMarkupTool;
+
 /// What kind of native material to create for a small floating control.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum GlassMaterial {
@@ -58,6 +60,21 @@ impl FloatingBarFrame {
         })
     }
 
+    /// The seven-button selection/annotation capsule, also in logical points.
+    /// Width is independent of Retina density; tiny hosts hide the capsule.
+    pub fn for_annotation_size(width_pt: f64, height_pt: f64) -> Option<Self> {
+        if !width_pt.is_finite() || !height_pt.is_finite() || width_pt < 580.0 || height_pt < 140.0
+        {
+            return None;
+        }
+        Some(Self {
+            x: (width_pt - 560.0) / 2.0,
+            y: 20.0,
+            width: 560.0,
+            height: 48.0,
+        })
+    }
+
     /// Half-open rectangle for protecting native overlay hit testing.
     pub fn contains(self, x: f64, y: f64) -> bool {
         x.is_finite()
@@ -102,4 +119,16 @@ impl PreviewTheme {
 pub enum GlassToolbarAction {
     ToggleTheme,
     CloseProbe,
+    ChooseTool(NativeMarkupTool),
+    UndoMarkup,
+    CancelSelection,
+}
+
+impl GlassToolbarAction {
+    pub fn tool(self) -> Option<NativeMarkupTool> {
+        match self {
+            Self::ChooseTool(tool) => Some(tool),
+            Self::ToggleTheme | Self::CloseProbe | Self::UndoMarkup | Self::CancelSelection => None,
+        }
+    }
 }

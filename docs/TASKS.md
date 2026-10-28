@@ -124,3 +124,10 @@ PR #38 (CJK marked-text) and PR #39 (native-consumed key routing) are merged wit
 - [x] NSPanel（仅 `native-panel-probe` 开发 Feature）新增八方向手柄、移动选区与明确的 Enter/按钮确认/取消。所有矩形仍为截屏显示器的物理像素，不能越界、负数或空区域。
 - [x] 提交点从“拖动松开”延迟到“明确确认”，不改变父进程的 PPSEL001 校验、旧 eframe 编辑器和 PNG/OCR/贴图路径。
 - [ ] P0-T3 仍需真实 macOS GUI、Retina、多屏、Spaces 和性能验收，并继续完成原生标注/系统 Liquid Glass 工具栏后才能认定正式原生编辑器完工。
+
+
+## 2026-10-28 — PR #44 原生 Liquid Glass 标注工具（本地预览，不改变 20 项任务完成统计）
+
+- [x] 可选 NSPanel 中的系统材质标注按钮选择画笔、箭头、矩形、文字及撤销；实现非破坏性源分辨率标注的临时预览与容量边界。
+- [ ] **标注保存未完成**：当前 PPSEL001 只携带选区，不携带标注；下一任务需父子进程有界协议、AnnotationDocument 导入与源码单测、PNG 正确性验收。
+- [ ] 完整原生编辑器/系统 Liquid Glass 的真实 macOS 14–26、Retina、TCC、Spaces、IME 和性能测试仍未完成；Issue #5/#10 不能关闭。

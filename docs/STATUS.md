@@ -130,3 +130,10 @@
 - [x] 新增 `native_selection_edit` 纯 Rust 物理像素状态机：创建、内部整体移动、八方向手柄、反向与越界缩放、最低 1px、无效坐标拒绝、单次拖拽撤销；Linux 测试验证 Retina 2× 与负坐标显示器的局部像素操作。
 - [x] `ns-panel-probe --select` 在保持真实 RGBA 冻结帧的前提下绘制八个白色手柄、黄色选区轮廓、大小信息及独立的 egui 确认/取消悬浮操作区；鼠标松开只更新本地选区，Enter/确认才通过既有 `PPSEL001` 回传。Escape/取消与关闭返回取消。
 - [ ] macOS 14+/26 真机鼠标、Retina、多屏、Spaces/TCC、焦点以及 GPU/CPU/RSS 验收；系统 Liquid Glass 原生标注工具栏和完整原生编辑器仍未迁移，Issue #5/#10 保持开放。
+
+
+## 2026-10-28 — PR #44：原生 Liquid Glass 标注工具栏（本地预览里程碑）
+
+- [x] 仅开发 Feature 的 NSPanel 中使用系统 AppKit 原生按钮和保持引用的 Cocoa action target，工具选择包含选区、画笔、箭头、矩形、文字、撤销、取消。macOS 26 采用 `NSGlassEffectView`，macOS 14–25 回退 `NSVisualEffectView`，降低透明度优先使用不透明系统背景；不模拟玻璃、不改变截图纹理。
+- [x] `shot-core::native_markup` 实现限定规模的物理像素标注命令（≤128 条、≤2048 画笔点、≤256 UTF-8 文字字节）、草稿预览与撤销。NSPanel egui/WGPU 渲染覆盖层接入画笔、箭头、矩形和文字输入框。源 RGBA/PNG-only 保持不变。
+- [ ] **标注暂不跨进程回传，也不保存到 PNG**；已有 `PPSEL001` 仅返回选区。下一阶段须另行设计受限的标注 IPC 与主程序 AnnotationDocument 持久化。macOS 真机、Liquid Glass 实物、IME、Retina、Spaces、TCC、性能验收仍未完成。

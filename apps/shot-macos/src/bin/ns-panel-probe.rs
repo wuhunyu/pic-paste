@@ -101,6 +101,7 @@ mod native {
     use raw_window_handle::{AppKitWindowHandle, RawWindowHandle};
     use shot_core::glass_toolbar::{GlassToolbarAction, PreviewTheme};
     use shot_core::ime::{ImeKeyRoute, ImeKeyRouting};
+    use shot_core::native_markup::NativeMarkup;
     use shot_core::native_panel::{PanelSurfaceLifecycle, PanelSurfaceUpdate};
     use shot_core::native_selection::{AppKitSelectionFrame, NativeSelectionReply};
     use shot_core::native_selection_edit::NativeSelectionEdit;
@@ -262,11 +263,21 @@ mod native {
         } else {
             None
         };
+        let native_markup = if let Some(placement) = selection_placement {
+            let frame = snapshot
+                .as_ref()
+                .ok_or("annotation source unavailable")?
+                .image();
+            Some(NativeMarkup::new(placement, (frame.width, frame.height))?)
+        } else {
+            None
+        };
         let mut egui_ui = ProbeEgui::new(
             &device,
             config.format,
             snapshot.map(NativeSnapshot::into_image),
             native_selection,
+            native_markup,
         );
         egui_ui.set_focus(panel.isKeyWindow());
         egui_ui.paint(
@@ -282,9 +293,17 @@ mod native {
         )?;
         // Native AppKit overlay floats over Metal. The existing NSView is
         // still the WGPU Surface owner; screenshot pixels remain untouched.
-        let glass_toolbar = (!selection_mode).then(|| ProbeGlassToolbar::new(mtm, &content_view));
+        let glass_toolbar = Some(if selection_mode {
+            ProbeGlassToolbar::new_selection(mtm, &content_view)
+        } else {
+            ProbeGlassToolbar::new(mtm, &content_view)
+        });
         if let Some(toolbar) = glass_toolbar.as_ref() {
-            println!("Experimental native toolbar: {:?}", toolbar.material);
+            if selection_mode {
+                eprintln!("Native system annotation material: {:?}", toolbar.material);
+            } else {
+                println!("Experimental native toolbar: {:?}", toolbar.material);
+            }
         }
         let mut ime_bridge = ProbeImeBridge::new(mtm, &content_view);
         let mut key_routing = ImeKeyRouting::default();
@@ -318,6 +337,7 @@ mod native {
                         && event.r#type() == NSEventType::KeyDown
                         && event.keyCode() == 53;
                     let enter = selection_mode
+                        && !egui_ui.wants_text_input()
                         && event.windowNumber() == panel.windowNumber()
                         && event.r#type() == NSEventType::KeyDown
                         && matches!(event.keyCode(), 36 | 76);
@@ -368,6 +388,19 @@ mod native {
                                 egui_ui.set_preview_theme(preview_theme);
                             }
                             GlassToolbarAction::CloseProbe => panel.orderOut(None),
+                            GlassToolbarAction::ChooseTool(tool) => {
+                                egui_ui.choose_markup_tool(tool);
+                                if let Some(bar) = glass_toolbar.as_ref() {
+                                    bar.set_markup_tool(tool);
+                                }
+                            }
+                            GlassToolbarAction::UndoMarkup => {
+                                egui_ui.undo_markup();
+                            }
+                            GlassToolbarAction::CancelSelection => {
+                                egui_ui.cancel_selection();
+                                panel.orderOut(None);
+                            }
                         }
                     }
                     if enter && egui_ui.confirm_selection() {
@@ -560,8 +593,18 @@ mod tests {
             ..Default::default()
         };
         let mut selected = None;
+        let mut markup =
+            shot_core::native_markup::NativeMarkup::new(placement, (200, 160)).unwrap();
+        let mut text = String::new();
         let output = ctx.run_ui(input, |ui| {
-            panel_egui::show_native_selection(ui, &texture, &mut selection, &mut selected);
+            panel_egui::show_native_selection(
+                ui,
+                &texture,
+                &mut selection,
+                &mut markup,
+                &mut text,
+                &mut selected,
+            );
         });
         assert!(!output.shapes.is_empty());
         assert!(selected.is_none());
@@ -659,6 +702,35 @@ mod tests {
             ime::ProbeImeBridge::handle_key;
         let _drain: fn(&ime::ProbeImeBridge) -> Vec<shot_core::ime::ImeChange> =
             ime::ProbeImeBridge::drain;
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn native_glass_selection_buttons_and_markup_overlay_have_headless_contracts() {
+        use shot_core::display::OverlayPlacement;
+        use shot_core::native_markup::{NativeMarkup, NativeMarkupTool};
+        use shot_core::platform::DisplayId;
+
+        let _new: fn(
+            objc2::MainThreadMarker,
+            &objc2_app_kit::NSView,
+        ) -> glass_toolbar::ProbeGlassToolbar = glass_toolbar::ProbeGlassToolbar::new_selection;
+        let _choose: fn(&glass_toolbar::ProbeGlassToolbar, NativeMarkupTool) =
+            glass_toolbar::ProbeGlassToolbar::set_markup_tool;
+
+        let placement = OverlayPlacement::new(DisplayId(4), (-200.0, 0.0), (100.0, 80.0)).unwrap();
+        let mut markup = NativeMarkup::new(placement, (200, 160)).unwrap();
+        markup.set_tool(NativeMarkupTool::Arrow);
+        assert!(markup.begin((10.0, 20.0)));
+        assert!(markup.end((30.0, 40.0)));
+        let ctx = egui::Context::default();
+        let output = ctx.run_ui(egui::RawInput::default(), |ui| {
+            panel_egui::paint_native_marks(ui, egui::Pos2::ZERO, &markup);
+        });
+        assert!(!output.shapes.is_empty());
+        output.drop_without_applying_deltas();
+        assert!(markup.undo());
+        assert_eq!(markup.visible().len(), 0);
     }
 
     #[cfg(target_os = "macos")]

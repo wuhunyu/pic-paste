@@ -4,6 +4,7 @@ pub mod display;
 pub mod glass_toolbar;
 pub mod ime;
 pub mod input;
+pub mod native_markup;
 pub mod native_panel;
 pub mod native_selection;
 pub mod native_selection_edit;
