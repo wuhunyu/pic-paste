@@ -1,10 +1,10 @@
 # PicPaste
 
-> **Native frozen screenshot bridge (PR #41, experimental):** with `--features native-panel-probe`, an opt-in button in the *existing* screenshot editor sends the already captured raw RGBA pixels to a same-directory `ns-panel-probe --snapshot` process via a bounded, versioned anonymous stdin pipe. That independent AppKit NSPanel renders a **read-only fitted frozen-image preview** through egui/WGPU Metal; no image is saved, recaptured, annotated or changed by the preview. The default Lite/Full builds do not include this entry or helper. This is **not a native production selection/editor migration**; real macOS 14+/26 GUI/Retina/Spaces/TCC, input and performance testing remain open.
+> **原生 NSPanel（仅实验 Feature）：** PR #45 已在独立原生浮层实现八手柄选区、系统 Liquid Glass 控件、画笔/箭头/矩形/Unicode 文字；确认后通过有界 `PPANN001` 进入既有 eframe 标注历史及 PNG 保存/撤销/贴图链路。使用 `--features native-panel-probe` 才可访问；正式 Lite/Full 默认仍用 eframe/winit，不代表 macOS GUI、Retina、Spaces、TCC、IME 或性能已经真机验收。
 
 An offline, macOS-first screenshot and pinned-image utility written in Rust 2024, egui/eframe + wgpu and native ScreenCaptureKit. No Electron or WebView. **Development preview, not a signed/notarized public release.** Windows integration is planned after the macOS acceptance gates.
 
-> **Progress truth:** [Current status](docs/STATUS.md) · [Remaining work / active Issue ledger](docs/REMAINING.md) · [Original 20-task tracker](docs/TASKS.md) · [Open Issues](https://github.com/wuhunyu/pic-paste/issues). This README describes the code on `main`, not work in an unmerged PR. As of 2026-10-27, manual screenshot preview (#18), self-window exclusion (#20), trusted-prefix trimming (#21), pin OCR line picking (#22), slow-scroll recovery (#23), fixed-band exclusion (#24), rounded long PNG (#25), bounded review annotation/copy/pin (#26), animation-tolerant overlap / trusted middle retake (#27), Vision word/character OCR plus offline QR (#28), and trusted standalone Add-on code (#29) are merged with green PR CI. Physical mixed-DPI, Spaces, Screen Recording TCC, native clipboard/pins and performance acceptance remain **unverified**.
+> **Progress truth:** [Current status](docs/STATUS.md) · [Remaining work / active Issue ledger](docs/REMAINING.md) · [Original 20-task tracker](docs/TASKS.md) · [Open Issues](https://github.com/wuhunyu/pic-paste/issues). This README describes the code on `main`, not work in an unmerged PR. As of 2026-10-28, manual screenshot preview (#18), self-window exclusion (#20), trusted-prefix trimming (#21), pin OCR line picking (#22), slow-scroll recovery (#23), fixed-band exclusion (#24), rounded long PNG (#25), bounded review annotation/copy/pin (#26), animation-tolerant overlap / trusted middle retake (#27), Vision word/character OCR plus offline QR (#28), trusted standalone Add-on code (#29), and experimental native annotation persistence (#45) are merged with green PR CI. Physical mixed-DPI, Spaces, Screen Recording TCC, native clipboard/pins and performance acceptance remain **unverified**.
 
 ## Implemented macOS development workflow
 
@@ -177,3 +177,16 @@ cargo run --locked -p shot-macos --features native-panel-probe --bin shot-macos
 使用 `cargo build --locked -p shot-macos --features native-panel-probe --bins`，再执行 `cargo run --locked -p shot-macos --features native-panel-probe --bin shot-macos`。正常截图后点击 **NSPanel 原生框选（实验）**，用系统材质工具栏绘制画笔、箭头、矩形或文字。只有点击 **确认（Enter）** 后，选区与实际标注才通过私有管道返回当前 eframe 编辑器，出现在预览中，并纳入现有撤销/重做、PNG 保存、复制和贴图链路。Esc/取消不会修改原图或历史标注。
 
 协议仍兼容旧版 `PPSEL001`：没有标注或取消时，保持原来的 33 字节格式；有标注的确认结果使用新的版本化 `PPANN001`。消息有 2,100,000 字节内容上限，最多 128 条标注、每条画笔 2048 个点、文字 256 UTF-8 字节；主程序核对原始物理像素尺寸、显示器、选区、全部标注及**截图与编辑版本**，并在变更用户历史前先完成整幅候选图合成。非法/损坏/过期回复整批拒绝。此实现仅在可选原生实验功能中启用；真实 macOS 14+/26 GUI、混合 Retina、Spaces、TCC、Liquid Glass 和性能仍需真机验收。
+
+### 原生 Mac 真机环境预检与验收证据（PR #46）
+
+在 macOS 14+ 用 `cargo build --locked -p shot-macos --features native-panel-probe --bins` 构建，然后运行：
+
+```bash
+target/debug/ns-panel-probe --preflight > native-preflight.json
+python3 scripts/native_acceptance.py prepare --preflight native-preflight.json --output native-acceptance.json
+# 逐项完成真实 GUI/IME/TCC/Retina/PNG/性能测试，手动填写真实数据和证据
+python3 scripts/native_acceptance.py verify --report native-acceptance.json
+```
+
+`--preflight` **不弹权限请求、不截屏、不创建窗口**，仅输出当前 Mac 的系统版本、逐屏 AppKit 逻辑点/缩放、系统玻璃与权限状态。报告默认所有物理测试 `not_run`，且 `release_ready=false`。完整分步骤说明、P95 目标与跨 macOS 版本限制参见 [真机验收规程](docs/native-macos-acceptance.md)。GitHub Runner 的无 GUI 预检通过不能代替真实 Mac 测试。

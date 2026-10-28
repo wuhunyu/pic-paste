@@ -59,6 +59,20 @@ jobs:
           cargo build -p shot-macos --features native-panel-probe --bin ns-panel-probe --locked
           cargo run --quiet -p shot-macos --features native-panel-probe --bin ns-panel-probe --locked -- --check
           cargo clippy -p shot-macos --features native-panel-probe --bin ns-panel-probe --locked -- -D warnings
+      - name: Collect native Mac preflight without UI or permissions prompt
+        run: |
+          mkdir -p target/native-acceptance
+          target/debug/ns-panel-probe --preflight > target/native-acceptance/preflight.json
+          python3 scripts/native_acceptance.py prepare \
+            --preflight target/native-acceptance/preflight.json \
+            --output target/native-acceptance/REPORT-NOT-TESTED.json
+          python3 -c 'import json; from pathlib import Path; p=json.loads(Path("target/native-acceptance/REPORT-NOT-TESTED.json").read_text()); assert p["release_ready"] is False; assert all(c["status"]=="not_run" for c in p["physical_cases"])'
+      - name: Upload no-GUI acceptance preflight metadata
+        uses: actions/upload-artifact@v4
+        with:
+          name: picpaste-native-preflight-${{ runner.arch }}
+          path: target/native-acceptance/*.json
+          if-no-files-found: error
       - name: Test workspace
         run: cargo test --workspace --locked
       - name: Lint workspace

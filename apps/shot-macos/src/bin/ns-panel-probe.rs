@@ -17,9 +17,14 @@ mod glass_toolbar;
 #[path = "ns-panel-probe/ime.rs"]
 mod ime;
 
+#[cfg(target_os = "macos")]
+#[path = "ns-panel-probe/preflight.rs"]
+mod preflight;
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum ProbeCommand {
     Check,
+    Preflight,
     Show,
     Snapshot,
     Select,
@@ -29,10 +34,13 @@ impl ProbeCommand {
     fn parse(args: &[&str]) -> Result<Self, &'static str> {
         match args {
             ["--check"] => Ok(Self::Check),
+            ["--preflight"] => Ok(Self::Preflight),
             ["--show"] => Ok(Self::Show),
             ["--snapshot"] => Ok(Self::Snapshot),
             ["--select"] => Ok(Self::Select),
-            _ => Err("usage: ns-panel-probe --check | --show | --snapshot | --select"),
+            _ => {
+                Err("usage: ns-panel-probe --check | --preflight | --show | --snapshot | --select")
+            }
         }
     }
 }
@@ -52,6 +60,7 @@ fn run() -> Result<(), String> {
             );
             Ok(())
         }
+        ProbeCommand::Preflight => run_preflight(),
         ProbeCommand::Show => native::show(None, false),
         ProbeCommand::Snapshot => {
             // Bound and verify the complete one-shot stdin frame before
@@ -68,6 +77,16 @@ fn run() -> Result<(), String> {
             native::show(Some(snapshot), true)
         }
     }
+}
+
+#[cfg(target_os = "macos")]
+fn run_preflight() -> Result<(), String> {
+    preflight::run()
+}
+
+#[cfg(not(target_os = "macos"))]
+fn run_preflight() -> Result<(), String> {
+    Err(String::from("native preflight requires macOS 14+"))
 }
 
 fn main() {
@@ -535,6 +554,10 @@ mod tests {
     #[test]
     fn cli_accepts_only_explicit_safe_and_interactive_modes() {
         assert_eq!(ProbeCommand::parse(&["--check"]), Ok(ProbeCommand::Check));
+        assert_eq!(
+            ProbeCommand::parse(&["--preflight"]),
+            Ok(ProbeCommand::Preflight)
+        );
         assert_eq!(ProbeCommand::parse(&["--show"]), Ok(ProbeCommand::Show));
         assert_eq!(
             ProbeCommand::parse(&["--snapshot"]),
@@ -542,6 +565,7 @@ mod tests {
         );
         assert_eq!(ProbeCommand::parse(&["--select"]), Ok(ProbeCommand::Select));
         assert!(ProbeCommand::parse(&["--select", "--snapshot"]).is_err());
+        assert!(ProbeCommand::parse(&["--preflight", "--select"]).is_err());
         assert!(ProbeCommand::parse(&[]).is_err());
         assert!(ProbeCommand::parse(&["--show", "--check"]).is_err());
         assert!(ProbeCommand::parse(&["--unknown"]).is_err());

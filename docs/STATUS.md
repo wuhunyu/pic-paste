@@ -1,11 +1,11 @@
 # PicPaste 开发与验收状态
 
-> **记录时点：2026-10-27。** 此文件以 [`main`](https://github.com/wuhunyu/pic-paste/tree/main) 中已合并的代码为依据；[REMAINING.md](REMAINING.md) 汇总当前七个未关闭 Issue，原始 v1.2 执行计划的 20 个任务逐项记录在 [TASKS.md](TASKS.md)。**代码完成、自动化测试成功、真机验收通过是三个不同的状态。**
+> **核对日期：2026-10-28。** 此文件以 [`main`](https://github.com/wuhunyu/pic-paste/tree/main) 中已合并的代码为依据；[REMAINING.md](REMAINING.md) 汇总当前七个未关闭 Issue，原始 v1.2 执行计划的 20 个任务逐项记录在 [TASKS.md](TASKS.md)。**代码完成、自动化测试成功、真机验收通过是三个不同的状态。**
 
 ## 当前基线
 
-- 已合并：PR [#1](https://github.com/wuhunyu/pic-paste/pull/1)、[#2](https://github.com/wuhunyu/pic-paste/pull/2)、[#3](https://github.com/wuhunyu/pic-paste/pull/3)、[#12](https://github.com/wuhunyu/pic-paste/pull/12)–[#31](https://github.com/wuhunyu/pic-paste/pull/31)。截至本次核验共 **23 个已合并 PR**。
-- 最新功能合并：[#31 macOS 截图局部物理像素及窗口焦点加固](https://github.com/wuhunyu/pic-paste/pull/31)，提交 [`73122e0`](https://github.com/wuhunyu/pic-paste/commit/73122e009c4bef66b39c4ef0f0f60def4680c76e)；完整 [PR CI #40461875462](https://github.com/wuhunyu/pic-paste/actions/runs/40461875462) **success**（Linux/macOS Rust 测试、严格 Clippy、Swift IPC、Release 及 Lite/Full/Add-on 包装）。#30 贴图纹理、#29 Add-on 和 #28 OCR/QR 已合并。**专用 NSPanel、真实多屏/Spaces/TCC/焦点、冷启动/热键 P95 仍未通过真机验收。**
+- 已合并：PR #1–#3、#12–#45；经 GitHub 逐项核对共 **37 个已合并 PR**。[#46](https://github.com/wuhunyu/pic-paste/pull/46) 为原生 Mac 环境预检和真机验收工具开发分支（不能作为 main 已完成功能）。
+- 最新已合并功能：[#45 有界原生标注回传、撤销重做与 PNG 保存](https://github.com/wuhunyu/pic-paste/pull/45)，main [`d33044c`](https://github.com/wuhunyu/pic-paste/commit/d33044cbc4f4801093618b226c33df41cb941e3e)；[main CI #40647009844](https://github.com/wuhunyu/pic-paste/actions/runs/40647009844) **success**。仅实验原生 NSPanel，生产默认仍为 eframe；真实 GUI/Retina/Spaces/TCC/IME/性能必须另行验收。
 - #17 合并提交 `7e492a4bb91f6062c225dfb33f524cc51756e556`；[main CI #40297130672](https://github.com/wuhunyu/pic-paste/actions/runs/40297130672) **success**。
 - 历史增量：[#23 手动失败恢复](https://github.com/wuhunyu/pic-paste/pull/23)、[#24 手动固定栏排除](https://github.com/wuhunyu/pic-paste/pull/24)、[#25 长图圆角](https://github.com/wuhunyu/pic-paste/pull/25)、[#26 长图标注/贴图](https://github.com/wuhunyu/pic-paste/pull/26) 均已合并；对应测试记录详见各 PR。合并后的主分支 CI 已在 #40440845772 覆盖这些功能。
 - 跟踪 Issues：[#5 原生窗口和多屏](https://github.com/wuhunyu/pic-paste/issues/5)、[#6 标注与贴图](https://github.com/wuhunyu/pic-paste/issues/6)、[#7 长截图](https://github.com/wuhunyu/pic-paste/issues/7)、[#8 OCR/二维码/Add-on](https://github.com/wuhunyu/pic-paste/issues/8)、[#10 真机与性能](https://github.com/wuhunyu/pic-paste/issues/10)、[#9 macOS 正式发布](https://github.com/wuhunyu/pic-paste/issues/9)、[#11 Windows](https://github.com/wuhunyu/pic-paste/issues/11)。[#4](https://github.com/wuhunyu/pic-paste/issues/4) 已关闭。
@@ -144,3 +144,9 @@
 - [x] 实验 NSPanel 确认后回传有界 `PPANN001`（源图尺寸、显示器、选区和画笔/箭头/矩形/UTF-8 文字），无标注及取消仍发送兼容的 33 字节 `PPSEL001`。
 - [x] 主程序对截图与编辑版本、源图物理像素、标注数据进行完整校验；在克隆历史中导入并预合成成功后才原子更新 `AnnotationDocument` 和图片预览。沿用原撤销/重做及 PNG 保存/剪贴板/贴图代码，不改变原始 RGBA。
 - [ ] 真实 Mac 14–26、Retina 多屏/负原点、Spaces、权限、Liquid Glass、中文输入法和性能验收仍未完成；默认生产 UI 不变，Issue #5/#10 保持开放。
+
+## 2026-10-28 — PR #46：只读 Mac 环境预检与真实设备验收证据
+
+- [x] 已开发 `ns-panel-probe --preflight`：只采集 macOS 版本、NSScreen AppKit 逻辑点/缩放、系统玻璃策略、降低透明度与**不弹窗**的 Screen Recording 当前权限状态；不捕获画面、不创建原生窗口或 GPU。
+- [x] [真机验收规程](native-macos-acceptance.md)及 `scripts/native_acceptance.py` 默认生成全部 `not_run`，要求逐项实际证据、30 次冷启动/100 次热键样本及 P95/CPU/RSS/贴图帧指标；Linux/macOS CI 仅验证工具自身，不把预检当作交互通过。
+- [ ] 仍无真实 Mac 14/26 的系统玻璃、中文输入法、TCC/Spaces/混合 Retina/实际性能数据；Issue #5/#10 保持开放，默认生产浮层不切换。
