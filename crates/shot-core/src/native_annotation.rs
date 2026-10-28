@@ -79,8 +79,12 @@ pub fn validate_marks(marks: &[NativeMark], pixels: (u32, u32)) -> Result<(), St
             } => {
                 let valid = *width > 0
                     && *height > 0
-                    && left.checked_add(*width).is_some_and(|right| right <= pixels.0)
-                    && top.checked_add(*height).is_some_and(|bottom| bottom <= pixels.1)
+                    && left
+                        .checked_add(*width)
+                        .is_some_and(|right| right <= pixels.0)
+                    && top
+                        .checked_add(*height)
+                        .is_some_and(|bottom| bottom <= pixels.1)
                     && u64::from(*width) * u64::from(*height) <= MAX_NATIVE_EFFECT_PIXELS;
                 if !valid {
                     return Err(String::from("invalid native redaction region"));
