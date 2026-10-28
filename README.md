@@ -163,3 +163,10 @@ Build both native binaries with `cargo build --locked -p shot-macos --features n
 cargo build --locked -p shot-macos --features native-panel-probe --bins
 cargo run --locked -p shot-macos --features native-panel-probe --bin shot-macos
 ```
+
+
+### 原生 Liquid Glass 标注工具栏（开发实验，PR #44）
+
+通过 `cargo build --locked -p shot-macos --features native-panel-probe --bins` 构建，再执行 `cargo run --locked -p shot-macos --features native-panel-probe --bin shot-macos`。普通截图后选择 **NSPanel 原生框选（实验）**，底部将出现真正的 AppKit 原生工具栏：**选区、画笔、箭头、矩形、文字、撤销、取消**。选中画笔/箭头/矩形后在冻结截图上拖动，文字使用独立输入框（可使用系统输入法）然后在画面中单击放置；撤销只撤销最后一条标注，选区仍可八方向调整并用 Enter/确认返回现有编辑器。
+
+**重要：本阶段标注只是原生 NSPanel 进程的本地预览，点击确认后不会同步到 eframe，也不会保存进 PNG。** 只有原有选区的 `PPSEL001` 结果会返回。需要保存带标注的截图，请继续使用现有 eframe 标注工具，等待下一阶段为标注建立有界、可验证的跨进程传输。macOS 26 使用系统 `NSGlassEffectView`；macOS 14–25 使用 `NSVisualEffectView`；辅助功能“降低透明度”优先使用不透明系统控件。所有路径都不改变截图原始像素。
