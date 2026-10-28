@@ -6,10 +6,10 @@
 | --- | --- | --- | --- | --- |
 | P0-T1 | Rust Cargo workspace 与 CI | **代码基本完成** | `Cargo.lock`、macOS/Linux fmt/test/Clippy/Release、Swift IPC、Lite/Full 构建；缺真机基准 | [#5](https://github.com/wuhunyu/pic-paste/issues/5)、[#10](https://github.com/wuhunyu/pic-paste/issues/10) |
 | P0-T2 | AppKit 菜单栏、全局快捷键 | **部分实现** | 菜单栏、四功能快捷键、Ctrl+Option+1–9 自定义及失败回滚（PR #14）；真机冲突/恢复/权限未验收 | [#5](https://github.com/wuhunyu/pic-paste/issues/5) |
-| P0-T3 | ScreenCaptureKit、多屏与选区浮层 | **部分实现** | 选显示器、八手柄、窗口候选、放大镜；#31 局部像素/逻辑点隔离；[#32](https://github.com/wuhunyu/pic-paste/pull/32) 提供独立 AppKit NSPanel/WGPU Metal 单帧验证程序（不替换正式 UI） | [#5](https://github.com/wuhunyu/pic-paste/issues/5) |
+| P0-T3 | ScreenCaptureKit、多屏与选区浮层 | **部分实现** | 选显示器、八手柄、窗口候选、放大镜；#31 局部像素/逻辑点隔离；#32–#48 已形成独立 AppKit NSPanel/WGPU Metal/egui 实验选区、标注、椭圆与 Undo/Redo 回传（不替换正式 UI；缺真机验收） | [#5](https://github.com/wuhunyu/pic-paste/issues/5) |
 | P0-T4 | 原生贴图、鼠标穿透与性能 | **部分实现** | 多贴图/穿透/恢复与 #30 纹理预算；#31 独立 Pin 初始不激活/无阴影、仅穿透模式透传鼠标；真实跨 Spaces、焦点/拖动与性能未验收 | [#5](https://github.com/wuhunyu/pic-paste/issues/5) |
 | P1-T1 | 选区、窗口识别、取色/放大镜 | **代码基本完成** | 窗口点击选择 #15、9×9 放大镜/HEX；真实重叠窗口和负坐标验证未完成 | [#5](https://github.com/wuhunyu/pic-paste/issues/5) |
-| P1-T2 | 标注、撤销重做 | **代码基本完成** | 线/箭头/画笔/几何/模糊/马赛克、文字 #17、Undo/Redo；CJK 系统字体实际覆盖需验证 | [#6](https://github.com/wuhunyu/pic-paste/issues/6) |
+| P1-T2 | 标注、撤销重做 | **代码基本完成** | 线/箭头/画笔/几何/模糊/马赛克、文字 #17、Undo/Redo；原生实验 NSPanel #47/#48 补椭圆和本地重做；CJK 系统字体实际覆盖需验证 | [#6](https://github.com/wuhunyu/pic-paste/issues/6) |
 | P1-T3 | PNG-only、透明圆角、剪贴板 | **代码基本完成** | PNG-only 原子保存、⌘S、圆角预览 #16；原生应用剪贴板/色彩/Alpha 未验收 | [#6](https://github.com/wuhunyu/pic-paste/issues/6) |
 | P2-T1 | 多贴图缩放、透明度与资源 | **部分实现** | Pin 视口/缩放/透明度；[#30](https://github.com/wuhunyu/pic-paste/pull/30) 新增硬性纹理容量、像素/Pin 数限制、精确同图复用、关闭回收及单测；五张 HD 真实 P95/CPU/RSS 未验收 | [#6](https://github.com/wuhunyu/pic-paste/issues/6) |
 | P2-T2 | 贴图模式状态机/异常恢复 | **部分实现** | 穿透恢复和 #22 贴图行级选字/复制及移动/选字/穿透互斥代码已实现；仍需真机拖动/焦点/重启恢复验收 | [#6](https://github.com/wuhunyu/pic-paste/issues/6) |
@@ -144,3 +144,9 @@ PR #38 (CJK marked-text) and PR #39 (native-consumed key routing) are merged wit
 - [x] 增加可选 `--preflight` 只读系统环境检查（Mac 版本、显示器逻辑点/逐屏 Retina、Liquid Glass 回退、录屏 TCC 授权状态，不请求权限）。
 - [x] 建立 [真机验收流程](native-macos-acceptance.md)、非伪造的 `not_run` 报表和数值门槛校验工具；CI 生成的报告只用来检查格式和平台接口。
 - [ ] 真实 macOS 14/26、不同显示器布局和物理性能/截图质量数据未提交前，原 20 项状态数量保持不变，不能据此宣称发行验收已通过。
+
+## 2026-10-28 — 原生 NSPanel 测试边界增量
+
+- [x] #47 实验椭圆标注跨源像素、受限 IPC 与既有 PNG 编辑器，完整 CI #40655168318 success。
+- [x] #48 实验原生 Undo/Redo 历史、撤销后新建分支清空重做队列、无效手势不污染历史与原生工具栏重做动作。
+- [ ] 真实 macOS 14+/26、Retina 多显示器、IME、Spaces/TCC、CPU/GPU/RSS、PNG 色彩/Alpha 和生产 NSPanel 等价迁移仍待验收；20 项状态数量不因此改变。

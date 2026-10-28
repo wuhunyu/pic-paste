@@ -4,8 +4,8 @@
 
 ## 当前基线
 
-- 已合并：PR #1–#3、#12–#45；经 GitHub 逐项核对共 **37 个已合并 PR**。[#46](https://github.com/wuhunyu/pic-paste/pull/46) 为原生 Mac 环境预检和真机验收工具开发分支（不能作为 main 已完成功能）。
-- 最新已合并功能：[#45 有界原生标注回传、撤销重做与 PNG 保存](https://github.com/wuhunyu/pic-paste/pull/45)，main [`d33044c`](https://github.com/wuhunyu/pic-paste/commit/d33044cbc4f4801093618b226c33df41cb941e3e)；[main CI #40647009844](https://github.com/wuhunyu/pic-paste/actions/runs/40647009844) **success**。仅实验原生 NSPanel，生产默认仍为 eframe；真实 GUI/Retina/Spaces/TCC/IME/性能必须另行验收。
+- 已合并基线更新至 PR #48（#1–#3、#12–#48，共 **40 个 PR**）。#46 只读真机预检工具、#47 实验原生椭圆标注与 #48 原生撤销/重做都属于代码里程碑，不能替代实际 Mac GUI 验收。
+- 最新原生实验功能：[#47 椭圆标注](https://github.com/wuhunyu/pic-paste/pull/47)已通过[全量 CI #40655168318](https://github.com/wuhunyu/pic-paste/actions/runs/40655168318)，[#48 原生撤销/重做](https://github.com/wuhunyu/pic-paste/pull/48)新增独立的本地重做历史及工具栏操作。默认生产截图/贴图仍用 eframe；真实 GUI/Retina/Spaces/TCC/IME/性能必须另行验收。
 - #17 合并提交 `7e492a4bb91f6062c225dfb33f524cc51756e556`；[main CI #40297130672](https://github.com/wuhunyu/pic-paste/actions/runs/40297130672) **success**。
 - 历史增量：[#23 手动失败恢复](https://github.com/wuhunyu/pic-paste/pull/23)、[#24 手动固定栏排除](https://github.com/wuhunyu/pic-paste/pull/24)、[#25 长图圆角](https://github.com/wuhunyu/pic-paste/pull/25)、[#26 长图标注/贴图](https://github.com/wuhunyu/pic-paste/pull/26) 均已合并；对应测试记录详见各 PR。合并后的主分支 CI 已在 #40440845772 覆盖这些功能。
 - 跟踪 Issues：[#5 原生窗口和多屏](https://github.com/wuhunyu/pic-paste/issues/5)、[#6 标注与贴图](https://github.com/wuhunyu/pic-paste/issues/6)、[#7 长截图](https://github.com/wuhunyu/pic-paste/issues/7)、[#8 OCR/二维码/Add-on](https://github.com/wuhunyu/pic-paste/issues/8)、[#10 真机与性能](https://github.com/wuhunyu/pic-paste/issues/10)、[#9 macOS 正式发布](https://github.com/wuhunyu/pic-paste/issues/9)、[#11 Windows](https://github.com/wuhunyu/pic-paste/issues/11)。[#4](https://github.com/wuhunyu/pic-paste/issues/4) 已关闭。
@@ -150,3 +150,9 @@
 - [x] 已开发 `ns-panel-probe --preflight`：只采集 macOS 版本、NSScreen AppKit 逻辑点/缩放、系统玻璃策略、降低透明度与**不弹窗**的 Screen Recording 当前权限状态；不捕获画面、不创建原生窗口或 GPU。
 - [x] [真机验收规程](native-macos-acceptance.md)及 `scripts/native_acceptance.py` 默认生成全部 `not_run`，要求逐项实际证据、30 次冷启动/100 次热键样本及 P95/CPU/RSS/贴图帧指标；Linux/macOS CI 仅验证工具自身，不把预检当作交互通过。
 - [ ] 仍无真实 Mac 14/26 的系统玻璃、中文输入法、TCC/Spaces/混合 Retina/实际性能数据；Issue #5/#10 保持开放，默认生产浮层不切换。
+
+## 2026-10-28 — PR #47/#48：原生椭圆与本地 Undo/Redo
+
+- [x] #47 在可选 NSPanel 追加原生椭圆工具，沿源物理像素绘制并通过 `PPANN001` 新类型 tag 5 进入既有 `AnnotationDocument`、撤销/重做与 PNG 合成；保持 `PPSEL001` 及旧 tag 1–4 兼容。PR 全量 CI #40655168318 success。
+- [x] #48 为独立原生面板标注增加真正的 Redo：先撤销后重做恢复已提交标注；新成功标注分支清理重做栈；无效拖拽保留重做历史；重做和撤销都清除未提交草稿。系统材质工具栏新增“重做”按钮；协议仍只传输当前可见的已提交标注，且原始截图像素始终不可变。
+- [ ] macOS 14+/26 真机界面、Retina 多屏、中文 IME、焦点/Spaces/TCC、渲染结果和性能指标仍未验证；#5/#10 不关闭，正式生产后端不切换。

@@ -421,6 +421,9 @@ mod native {
                             GlassToolbarAction::UndoMarkup => {
                                 egui_ui.undo_markup();
                             }
+                            GlassToolbarAction::RedoMarkup => {
+                                egui_ui.redo_markup();
+                            }
                             GlassToolbarAction::CancelSelection => {
                                 egui_ui.cancel_selection();
                                 panel.orderOut(None);
@@ -759,6 +762,7 @@ mod tests {
             glass_toolbar::ProbeGlassToolbar::set_markup_tool;
 
         let placement = OverlayPlacement::new(DisplayId(4), (-200.0, 0.0), (100.0, 80.0)).unwrap();
+        let _redo: fn(&mut panel_egui::ProbeEgui) -> bool = panel_egui::ProbeEgui::redo_markup;
         let mut markup = NativeMarkup::new(placement, (200, 160)).unwrap();
         markup.set_tool(NativeMarkupTool::Ellipse);
         assert!(markup.begin((10.0, 20.0)));
