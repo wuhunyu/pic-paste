@@ -35,7 +35,8 @@ pub fn validate_marks(marks: &[NativeMark], pixels: (u32, u32)) -> Result<(), St
     for mark in marks {
         match mark {
             NativeMark::Brush { points } => {
-                if points.len() < 2 || points.len() > MAX_BRUSH_POINTS
+                if points.len() < 2
+                    || points.len() > MAX_BRUSH_POINTS
                     || !points.iter().all(&inside)
                 {
                     return Err(String::from("invalid native brush points"));
@@ -59,10 +60,7 @@ pub fn validate_marks(marks: &[NativeMark], pixels: (u32, u32)) -> Result<(), St
                 }
             }
             NativeMark::Text { at, content } => {
-                if !inside(at)
-                    || content.trim().is_empty()
-                    || content.len() > MAX_TEXT_BYTES
-                {
+                if !inside(at) || content.trim().is_empty() || content.len() > MAX_TEXT_BYTES {
                     return Err(String::from("invalid native text"));
                 }
             }
@@ -77,14 +75,15 @@ impl NativeEditReply {
         expected_display: DisplayId,
         pixels: (u32, u32),
     ) -> Result<Option<(RectPx, &[NativeMark])>, String> {
-        let (selection, source_pixels, marks): (&NativeSelectionReply, _, &[NativeMark]) = match self {
-            Self::Legacy(selection) => (selection, pixels, &[]),
-            Self::Annotated {
-                selection,
-                pixels,
-                marks,
-            } => (selection, *pixels, marks.as_slice()),
-        };
+        let (selection, source_pixels, marks): (&NativeSelectionReply, _, &[NativeMark]) =
+            match self {
+                Self::Legacy(selection) => (selection, pixels, &[]),
+                Self::Annotated {
+                    selection,
+                    pixels,
+                    marks,
+                } => (selection, *pixels, marks.as_slice()),
+            };
         if source_pixels != pixels {
             return Err(String::from("native annotation source dimensions mismatch"));
         }
@@ -100,7 +99,11 @@ impl NativeEditReply {
     pub fn write_to<W: Write>(&self, sink: &mut W) -> Result<(), String> {
         match self {
             Self::Legacy(selection) => selection.write_to(sink),
-            Self::Annotated { selection, pixels, marks } => {
+            Self::Annotated {
+                selection,
+                pixels,
+                marks,
+            } => {
                 if marks.is_empty() {
                     return selection.write_to(sink);
                 }
@@ -110,7 +113,8 @@ impl NativeEditReply {
                         | NativeSelectionReply::Cancelled { display } => *display,
                     },
                     *pixels,
-                )? else {
+                )?
+                else {
                     return Err(String::from("native cancellation cannot transport marks"));
                 };
                 let display = match selection {
@@ -142,7 +146,10 @@ impl NativeEditReply {
                             write_point(&mut body, *from);
                             write_point(&mut body, *to);
                         }
-                        NativeMark::Rectangle { top_left, bottom_right } => {
+                        NativeMark::Rectangle {
+                            top_left,
+                            bottom_right,
+                        } => {
                             body.push(3);
                             write_point(&mut body, *top_left);
                             write_point(&mut body, *bottom_right);
@@ -170,22 +177,32 @@ impl NativeEditReply {
 
     pub fn read_from<R: Read>(source: &mut R) -> Result<Self, String> {
         let mut magic = [0u8; 8];
-        source.read_exact(&mut magic).map_err(|error| error.to_string())?;
+        source
+            .read_exact(&mut magic)
+            .map_err(|error| error.to_string())?;
         if &magic == b"PPSEL001" {
             let mut prefix = std::io::Cursor::new(magic).chain(source);
             return NativeSelectionReply::read_from(&mut prefix).map(Self::Legacy);
         }
         if &magic != MAGIC {
-            return Err(String::from("invalid native annotation reply magic/version"));
+            return Err(String::from(
+                "invalid native annotation reply magic/version",
+            ));
         }
         let mut length = [0u8; 4];
-        source.read_exact(&mut length).map_err(|error| error.to_string())?;
+        source
+            .read_exact(&mut length)
+            .map_err(|error| error.to_string())?;
         let length = u32::from_le_bytes(length) as usize;
         if !(MIN_BODY_BYTES..=MAX_ANNOTATION_BODY_BYTES).contains(&length) {
-            return Err(String::from("native annotation reply length outside bounds"));
+            return Err(String::from(
+                "native annotation reply length outside bounds",
+            ));
         }
         let mut body = vec![0u8; length];
-        source.read_exact(&mut body).map_err(|error| error.to_string())?;
+        source
+            .read_exact(&mut body)
+            .map_err(|error| error.to_string())?;
         let mut extra = [0u8; 1];
         if source.read(&mut extra).map_err(|error| error.to_string())? != 0 {
             return Err(String::from("trailing bytes after native annotation reply"));
@@ -249,7 +266,11 @@ impl NativeEditReply {
             return Err(String::from("invalid trailing native annotation payload"));
         }
         validate_marks(&marks, pixels)?;
-        Ok(Self::Annotated { selection, pixels, marks })
+        Ok(Self::Annotated {
+            selection,
+            pixels,
+            marks,
+        })
     }
 }
 
@@ -259,8 +280,11 @@ fn write_point(out: &mut Vec<u8>, (x, y): (u32, u32)) {
 }
 
 fn take_slice<'a>(bytes: &'a [u8], cursor: &mut usize, len: usize) -> Result<&'a [u8], String> {
-    let end = cursor.checked_add(len).ok_or("native annotation offset overflow")?;
-    let result = bytes.get(*cursor..end)
+    let end = cursor
+        .checked_add(len)
+        .ok_or("native annotation offset overflow")?;
+    let result = bytes
+        .get(*cursor..end)
         .ok_or("truncated native annotation reply")?;
     *cursor = end;
     Ok(result)

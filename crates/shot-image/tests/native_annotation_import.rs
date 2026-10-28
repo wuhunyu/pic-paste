@@ -14,10 +14,21 @@ fn document() -> AnnotationDocument {
 
 fn sample_marks() -> Vec<NativeMark> {
     vec![
-        NativeMark::Brush { points: vec![(2, 3), (4, 5), (6, 7)] },
-        NativeMark::Arrow { from: (8, 9), to: (20, 11) },
-        NativeMark::Rectangle { top_left: (5, 7), bottom_right: (30, 25) },
-        NativeMark::Text { at: (12, 17), content: String::from("Hello 世界") },
+        NativeMark::Brush {
+            points: vec![(2, 3), (4, 5), (6, 7)],
+        },
+        NativeMark::Arrow {
+            from: (8, 9),
+            to: (20, 11),
+        },
+        NativeMark::Rectangle {
+            top_left: (5, 7),
+            bottom_right: (30, 25),
+        },
+        NativeMark::Text {
+            at: (12, 17),
+            content: String::from("Hello 世界"),
+        },
     ]
 }
 
@@ -27,8 +38,12 @@ fn imported_native_marks_are_undoable_redoable_and_preserve_original_pixels() {
     let original = doc.source.rgba.clone();
     assert_eq!(import_native_marks(&mut doc, &sample_marks()).unwrap(), 4);
     assert_eq!(doc.visible().len(), 4);
-    assert!(matches!(&doc.visible()[0], Annotation::Brush { points, width, rgba } if points.len()==3 && *width==3.0 && *rgba==[39,178,231,255]));
-    assert!(matches!(&doc.visible()[3], Annotation::Text { content, size, .. } if content=="Hello 世界" && *size==26.0));
+    assert!(
+        matches!(&doc.visible()[0], Annotation::Brush { points, width, rgba } if points.len()==3 && *width==3.0 && *rgba==[39,178,231,255])
+    );
+    assert!(
+        matches!(&doc.visible()[3], Annotation::Text { content, size, .. } if content=="Hello 世界" && *size==26.0)
+    );
     assert_eq!(doc.source.rgba, original);
 
     assert!(doc.undo());
@@ -45,8 +60,14 @@ fn real_composite_and_png_come_from_imported_annotation_history() {
     shot_image::encode_png(&doc.source, &mut before_png).unwrap();
 
     let marks = vec![
-        NativeMark::Rectangle { top_left: (5, 5), bottom_right: (25, 24) },
-        NativeMark::Arrow { from: (10, 12), to: (30, 20) },
+        NativeMark::Rectangle {
+            top_left: (5, 5),
+            bottom_right: (25, 24),
+        },
+        NativeMark::Arrow {
+            from: (10, 12),
+            to: (30, 20),
+        },
     ];
     import_native_marks(&mut doc, &marks).unwrap();
     let rendered = composite(&doc.source, doc.visible()).unwrap();
@@ -60,23 +81,34 @@ fn real_composite_and_png_come_from_imported_annotation_history() {
     assert_ne!(before_png, after_png);
     assert!(doc.undo());
     assert!(doc.undo());
-    assert_eq!(composite(&doc.source, doc.visible()).unwrap().rgba, doc.source.rgba);
+    assert_eq!(
+        composite(&doc.source, doc.visible()).unwrap().rgba,
+        doc.source.rgba
+    );
 }
 
 #[test]
 fn corrupted_second_mark_never_partially_changes_existing_history() {
     let mut doc = document();
     doc.apply(Annotation::Line {
-        from: (2.0, 2.0), to: (3.0, 3.0),
-        rgba: [100, 0, 0, 255], width: 2.0,
+        from: (2.0, 2.0),
+        to: (3.0, 3.0),
+        rgba: [100, 0, 0, 255],
+        width: 2.0,
     });
     let original = doc.visible().to_vec();
     let mut marks = sample_marks();
-    marks[1] = NativeMark::Arrow { from: (63, 47), to: (64, 47) };
+    marks[1] = NativeMark::Arrow {
+        from: (63, 47),
+        to: (64, 47),
+    };
     assert!(import_native_marks(&mut doc, &marks).is_err());
     assert_eq!(doc.visible(), original.as_slice());
     let mut invalid_text = sample_marks();
-    invalid_text[3] = NativeMark::Text { at: (1, 1), content: String::from(" ") };
+    invalid_text[3] = NativeMark::Text {
+        at: (1, 1),
+        content: String::from(" "),
+    };
     assert!(import_native_marks(&mut doc, &invalid_text).is_err());
     assert_eq!(doc.visible(), original.as_slice());
 }
