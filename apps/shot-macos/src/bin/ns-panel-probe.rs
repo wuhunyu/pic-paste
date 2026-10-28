@@ -571,6 +571,45 @@ mod tests {
 
     #[cfg(target_os = "macos")]
     #[test]
+    fn native_selection_action_requires_committed_region_and_explicit_confirm() {
+        use panel_egui::{SelectionAction, SelectionDecision, resolve_selection_action};
+        use shot_core::RectPx;
+        use shot_core::display::OverlayPlacement;
+        use shot_core::native_selection_edit::NativeSelectionEdit;
+        use shot_core::platform::DisplayId;
+
+        let placement =
+            OverlayPlacement::new(DisplayId(6), (-1440.0, -60.0), (100.0, 80.0)).unwrap();
+        let mut selection = NativeSelectionEdit::new(placement, (200, 160)).unwrap();
+        assert_eq!(
+            resolve_selection_action(&selection, SelectionAction::Confirm),
+            None
+        );
+        assert_eq!(
+            resolve_selection_action(&selection, SelectionAction::Cancel),
+            Some(SelectionDecision::Cancelled)
+        );
+        selection.begin((10.0, 20.0));
+        selection.update((35.0, 50.0));
+        assert_eq!(
+            resolve_selection_action(&selection, SelectionAction::Confirm),
+            None,
+            "must not confirm a live/uncommitted drag"
+        );
+        selection.end((35.0, 50.0));
+        assert_eq!(
+            resolve_selection_action(&selection, SelectionAction::Confirm),
+            Some(SelectionDecision::Confirmed(RectPx {
+                x: 20,
+                y: 40,
+                width: 50,
+                height: 60,
+            }))
+        );
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
     fn native_ime_changes_map_to_single_egui_events() {
         use shot_core::ime::ImeChange;
         let preedit = panel_egui::egui_event_for_ime_change(ImeChange::Preedit {
