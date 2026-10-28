@@ -768,11 +768,8 @@ impl ProbeEgui {
         // A prior AppKit toolbar undo/redo may have changed the history.
         // Discard stale GPU patches *before* this frame is painted.
         if let Some(markup) = self.markup.as_ref() {
-            self.effect_previews.sync(
-                &self.ctx,
-                self.preview_source.as_ref(),
-                markup.visible(),
-            );
+            self.effect_previews
+                .sync(&self.ctx, self.preview_source.as_ref(), markup.visible());
         }
         let controls = &mut self.controls;
         let snapshot = self.snapshot.as_ref();
@@ -806,11 +803,8 @@ impl ProbeEgui {
         // Gestures commit during run_ui. Prepare the changed preview only
         // once and paint it on the next frame, never on every drag event.
         let preview_changed = self.markup.as_ref().is_some_and(|markup| {
-            self.effect_previews.sync(
-                &self.ctx,
-                self.preview_source.as_ref(),
-                markup.visible(),
-            )
+            self.effect_previews
+                .sync(&self.ctx, self.preview_source.as_ref(), markup.visible())
         });
         // egui reports the actual text caret in logical points. The native
         // NSTextInputClient converts it to AppKit screen coordinates.
