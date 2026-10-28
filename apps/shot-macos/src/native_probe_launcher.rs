@@ -97,7 +97,8 @@ impl NativeProbeLauncher {
                 {
                     return Err(format!("无法关闭原生实验窗口：{error}"));
                 }
-                child.wait()
+                child
+                    .wait()
                     .map_err(|error| format!("无法等待原生实验窗口关闭：{error}"))?;
             }
             Err(error) => return Err(format!("无法检查原生实验窗口进程：{error}")),
