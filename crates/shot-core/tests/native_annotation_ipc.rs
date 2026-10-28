@@ -99,7 +99,7 @@ fn malformed_prefix_length_truncation_and_trailing_bytes_are_rejected() {
     sample().write_to(&mut bytes).unwrap();
     for position in [0usize, 1, 8, 11, 12, 29, bytes.len() - 1] {
         assert!(
-            NativeEditReply::read_from(&mut bytes[..position]).is_err(),
+            NativeEditReply::read_from(&mut &bytes[..position]).is_err(),
             "{position}"
         );
     }
