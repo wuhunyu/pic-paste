@@ -6,7 +6,9 @@
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
-use std::process::{Child, Command};
+use std::process::{Child, Command, Stdio};
+use std::thread;
+use shot_core::native_snapshot::NativeSnapshot;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum ProbeLaunchResult {
@@ -76,6 +78,54 @@ impl NativeProbeLauncher {
         self.child = Some(child);
         // Spawn does not guarantee the Cocoa window actually appeared;
         // physical macOS GUI acceptance is a separate test gate.
+        Ok(ProbeLaunchResult::Started)
+    }
+
+    /// Stream already-captured immutable RGBA bytes through an anonymous
+    /// pipe. Nothing is written into a temporary file, shell or command line.
+    /// A worker owns the write side so a multi-megabyte frame cannot block
+    /// the egui event loop while the NSPanel creates its Metal surface.
+    pub(crate) fn launch_snapshot(
+        &mut self,
+        snapshot: NativeSnapshot,
+    ) -> Result<ProbeLaunchResult, String> {
+        let executable =
+            std::env::current_exe().map_err(|error| format!("无法定位 PicPaste：{error}"))?;
+        self.launch_snapshot_from(&executable, snapshot)
+    }
+
+    pub(crate) fn launch_snapshot_from(
+        &mut self,
+        executable: &Path,
+        snapshot: NativeSnapshot,
+    ) -> Result<ProbeLaunchResult, String> {
+        if let Some(child) = self.child.as_mut() {
+            match child.try_wait() {
+                Ok(None) => return Ok(ProbeLaunchResult::AlreadyRunning),
+                Ok(Some(_)) => self.child = None,
+                Err(error) => return Err(format!("无法检查原生实验窗口进程：{error}")),
+            }
+        }
+        let path = sibling_probe_path(executable)?;
+        validate_probe_path(&path)?;
+        let mut child = Command::new(&path)
+            .arg("--snapshot")
+            .stdin(Stdio::piped())
+            .spawn()
+            .map_err(|error| format!("无法启动原生截图预览：{error}"))?;
+        let Some(mut pipe) = child.stdin.take() else {
+            let _ = child.kill();
+            let _ = child.wait();
+            return Err(String::from("无法建立原生截图预览的私有输入管道"));
+        };
+        thread::spawn(move || {
+            if let Err(error) = snapshot.write_to(&mut pipe) {
+                eprintln!("PicPaste native snapshot IPC failed: {error}");
+            }
+        });
+        self.child = Some(child);
+        // Process creation is not a claim of an actual on-screen frame;
+        // native GUI and Retina validation remain device-only.
         Ok(ProbeLaunchResult::Started)
     }
 
