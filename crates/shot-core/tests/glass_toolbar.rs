@@ -123,6 +123,7 @@ fn native_toolbar_annotation_actions_preserve_select_and_demo_commands() {
         assert_eq!(GlassToolbarAction::ChooseTool(tool).tool(), Some(tool));
     }
     assert_eq!(GlassToolbarAction::UndoMarkup.tool(), None);
+    assert_eq!(GlassToolbarAction::RedoMarkup.tool(), None);
     assert_eq!(GlassToolbarAction::CancelSelection.tool(), None);
     assert_eq!(GlassToolbarAction::ToggleTheme.tool(), None);
     assert_eq!(GlassToolbarAction::CloseProbe.tool(), None);
