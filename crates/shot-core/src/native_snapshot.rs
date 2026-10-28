@@ -5,9 +5,9 @@
 //! never be conflated. The frozen image is read-only in the companion.
 use std::io::{Read, Write};
 
+use crate::RgbaFrame;
 use crate::display::OverlayPlacement;
 use crate::platform::DisplayId;
-use crate::RgbaFrame;
 
 pub const MAX_SNAPSHOT_BYTES: usize = 128 * 1024 * 1024;
 const MAX_IMAGE_EDGE: u32 = 8192;
@@ -33,7 +33,9 @@ impl NativeSnapshot {
             .ok_or("native snapshot pixel length overflow")?;
         let length = usize::try_from(length).map_err(|error| error.to_string())?;
         if length > MAX_SNAPSHOT_BYTES {
-            return Err(String::from("native snapshot exceeds the 128 MiB RGBA limit"));
+            return Err(String::from(
+                "native snapshot exceeds the 128 MiB RGBA limit",
+            ));
         }
         Ok(length)
     }
@@ -86,7 +88,9 @@ impl NativeSnapshot {
 
     pub fn read_from<R: Read>(source: &mut R) -> Result<Self, String> {
         let mut header = [0u8; HEADER_SIZE];
-        source.read_exact(&mut header).map_err(|error| error.to_string())?;
+        source
+            .read_exact(&mut header)
+            .map_err(|error| error.to_string())?;
         if &header[..8] != MAGIC {
             return Err(String::from("invalid native snapshot magic/version"));
         }
@@ -116,7 +120,9 @@ impl NativeSnapshot {
         )
         .map_err(|error| format!("invalid native snapshot placement: {error:?}"))?;
         let mut rgba = vec![0u8; expected];
-        source.read_exact(&mut rgba).map_err(|error| error.to_string())?;
+        source
+            .read_exact(&mut rgba)
+            .map_err(|error| error.to_string())?;
         // The companion receives one frame only. After the sender closes its
         // pipe, extra bytes are an error, not a second untrusted frame.
         let mut extra = [0u8; 1];
