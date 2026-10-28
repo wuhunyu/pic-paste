@@ -7,8 +7,7 @@ use shot_core::platform::DisplayId;
 
 #[test]
 fn ellipse_gesture_projects_retina_pixels_and_supports_reverse_drag_and_undo() {
-    let placement =
-        OverlayPlacement::new(DisplayId(7), (-1440.0, -100.0), (100.0, 80.0)).unwrap();
+    let placement = OverlayPlacement::new(DisplayId(7), (-1440.0, -100.0), (100.0, 80.0)).unwrap();
     let mut markup = NativeMarkup::new(placement, (200, 160)).unwrap();
     markup.set_tool(NativeMarkupTool::Ellipse);
     assert!(markup.begin((30.0, 20.0)));
