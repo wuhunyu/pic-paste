@@ -50,6 +50,10 @@ pub fn validate_marks(marks: &[NativeMark], pixels: (u32, u32)) -> Result<(), St
             NativeMark::Rectangle {
                 top_left,
                 bottom_right,
+            }
+            | NativeMark::Ellipse {
+                top_left,
+                bottom_right,
             } => {
                 if !inside(top_left)
                     || !inside(bottom_right)
@@ -154,6 +158,14 @@ impl NativeEditReply {
                             write_point(&mut body, *top_left);
                             write_point(&mut body, *bottom_right);
                         }
+                        NativeMark::Ellipse {
+                            top_left,
+                            bottom_right,
+                        } => {
+                            body.push(5);
+                            write_point(&mut body, *top_left);
+                            write_point(&mut body, *bottom_right);
+                        }
                         NativeMark::Text { at, content } => {
                             body.push(4);
                             write_point(&mut body, *at);
@@ -243,6 +255,10 @@ impl NativeEditReply {
                     to: read_point(&body, &mut cursor)?,
                 },
                 3 => NativeMark::Rectangle {
+                    top_left: read_point(&body, &mut cursor)?,
+                    bottom_right: read_point(&body, &mut cursor)?,
+                },
+                5 => NativeMark::Ellipse {
                     top_left: read_point(&body, &mut cursor)?,
                     bottom_right: read_point(&body, &mut cursor)?,
                 },
