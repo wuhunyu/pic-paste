@@ -42,7 +42,10 @@ fn expect_patch_matches_parent(mark: NativeMark, annotation: Annotation) {
         crop(&composed, left, top, image.width, image.height),
         "ROI preview must match byte-for-byte the parent PNG compositor"
     );
-    assert_ne!(image.rgba, crop(&original, left, top, image.width, image.height));
+    assert_ne!(
+        image.rgba,
+        crop(&original, left, top, image.width, image.height)
+    );
     assert_eq!(original.rgba, immutable, "source RGBA must be immutable");
 }
 
@@ -98,8 +101,14 @@ fn disjoint_effects_preview_exactly_but_overlapping_or_mixed_annotations_fall_ba
         width: 26,
         height: 19,
     };
-    assert!(can_preview_native_effects(&[a.clone(), b.clone()], (96, 72)));
-    assert!(can_preview_native_effects(&[b.clone(), a.clone()], (96, 72)));
+    assert!(can_preview_native_effects(
+        &[a.clone(), b.clone()],
+        (96, 72)
+    ));
+    assert!(can_preview_native_effects(
+        &[b.clone(), a.clone()],
+        (96, 72)
+    ));
 
     let overlapping = NativeMark::Blur {
         left: 23,
@@ -172,32 +181,38 @@ fn preview_memory_budget_distinguishes_four_k_five_k_and_many_effects() {
 #[test]
 fn invalid_or_unsupported_patch_fails_before_any_image_allocation() {
     let img = source();
-    assert!(render_native_effect_patch(
-        &img,
-        &NativeMark::Blur {
-            left: u32::MAX,
-            top: 0,
-            width: 20,
-            height: 20,
-        }
-    )
-    .is_err());
-    assert!(render_native_effect_patch(
-        &img,
-        &NativeMark::Pixelate {
-            left: 4,
-            top: 4,
-            width: 0,
-            height: 16,
-        }
-    )
-    .is_err());
-    assert!(render_native_effect_patch(
-        &img,
-        &NativeMark::Line {
-            from: (0, 0),
-            to: (10, 10),
-        }
-    )
-    .is_err());
+    assert!(
+        render_native_effect_patch(
+            &img,
+            &NativeMark::Blur {
+                left: u32::MAX,
+                top: 0,
+                width: 20,
+                height: 20,
+            }
+        )
+        .is_err()
+    );
+    assert!(
+        render_native_effect_patch(
+            &img,
+            &NativeMark::Pixelate {
+                left: 4,
+                top: 4,
+                width: 0,
+                height: 16,
+            }
+        )
+        .is_err()
+    );
+    assert!(
+        render_native_effect_patch(
+            &img,
+            &NativeMark::Line {
+                from: (0, 0),
+                to: (10, 10),
+            }
+        )
+        .is_err()
+    );
 }
