@@ -72,6 +72,7 @@ mod native {
     };
     use objc2_foundation::{NSDate, NSDefaultRunLoopMode, NSPoint, NSRect, NSSize, ns_string};
     use raw_window_handle::{AppKitWindowHandle, RawWindowHandle};
+    use shot_core::glass_toolbar::{GlassToolbarAction, PreviewTheme};
     use shot_core::native_panel::{PanelSurfaceLifecycle, PanelSurfaceUpdate};
     use std::ptr::NonNull;
 
@@ -166,6 +167,7 @@ mod native {
         // still the WGPU Surface owner; screenshot pixels remain untouched.
         let glass_toolbar = ProbeGlassToolbar::new(mtm, &content_view);
         println!("Experimental native toolbar: {:?}", glass_toolbar.material);
+        let mut preview_theme = PreviewTheme::Dark;
 
         let mut lifecycle = PanelSurfaceLifecycle::new(size);
         println!(
@@ -198,6 +200,16 @@ mod native {
                         egui_ui.on_event(&event, &panel, &content_view);
                     }
                     application.sendEvent(&event);
+                    if let Some(action) = glass_toolbar.take_action() {
+                        match action {
+                            GlassToolbarAction::ToggleTheme => {
+                                preview_theme = preview_theme.toggle();
+                                glass_toolbar.set_preview_theme(preview_theme);
+                                egui_ui.set_preview_theme(preview_theme);
+                            }
+                            GlassToolbarAction::CloseProbe => panel.orderOut(None),
+                        }
+                    }
                     if escape {
                         panel.orderOut(None);
                     }
@@ -299,5 +311,24 @@ mod tests {
         // This test deliberately has no GPU renderer; explicitly discard
         // the generated font texture updates rather than leaking them.
         output.drop_without_applying_deltas();
+    }
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn preview_theme_switches_headless_egui_visuals() {
+        use shot_core::glass_toolbar::PreviewTheme;
+        let ctx = egui::Context::default();
+        panel_egui::apply_preview_theme(&ctx, PreviewTheme::Light);
+        assert_eq!(ctx.theme(), egui::Theme::Light);
+        panel_egui::apply_preview_theme(&ctx, PreviewTheme::Dark);
+        assert_eq!(ctx.theme(), egui::Theme::Dark);
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn native_glass_controls_provide_action_queue_contract() {
+        let _callback: fn(
+            &glass_toolbar::ProbeGlassToolbar,
+        ) -> Option<shot_core::glass_toolbar::GlassToolbarAction> =
+            glass_toolbar::ProbeGlassToolbar::take_action;
     }
 }

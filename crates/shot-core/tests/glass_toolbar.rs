@@ -1,4 +1,6 @@
-use shot_core::glass_toolbar::{FloatingBarFrame, GlassMaterial, select_glass_material};
+use shot_core::glass_toolbar::{
+    FloatingBarFrame, GlassMaterial, PreviewTheme, select_glass_material,
+};
 
 #[test]
 fn liquid_glass_is_only_selected_when_macos26_and_runtime_class_are_available() {
@@ -76,4 +78,14 @@ fn device_scale_never_changes_logical_toolbar_bounds() {
     assert_eq!(frame.width, 236.0);
     assert_eq!(frame.height, 44.0);
     assert_eq!(frame.x, 282.0);
+}
+
+#[test]
+fn preview_theme_toggle_keeps_label_as_next_action() {
+    let theme = PreviewTheme::Dark;
+    assert_eq!(theme.toggle_label(), "浅色预览");
+    let theme = theme.toggle();
+    assert_eq!(theme, PreviewTheme::Light);
+    assert_eq!(theme.toggle_label(), "深色预览");
+    assert_eq!(theme.toggle(), PreviewTheme::Dark);
 }

@@ -75,3 +75,8 @@
 - [ ] Record the latest **complete** Linux/macOS CI run (including native probe, default workspace, Release and Lite/Full/Add-on) before marking PR code as verified or merging.
 - [ ] Real macOS **26** visual/interaction tests: glass material and label content; light/dark; Reduce Transparency; Retina 1x/2x; resize/minimize/restore/close; keyboard/mouse/Spaces/focus; check CPU and memory. macOS 14–25 fallback also needs a real host. Live accessibility preference change is not watched (reopen probe).
 - [ ] Create actual functional screenshot and pin toolbars, with native actions and accessibility and an explicit rollback switch; do not confuse this material status badge with completed production UI.
+
+## 2026-10-28 — Interactive native glass preview controls (#37)
+
+- [ ] [PR #37](https://github.com/wuhunyu/pic-paste/pull/37) adds two native AppKit `NSButton` controls to the existing opt-in glass/vibrancy/opaque capsule: theme toggle of the **demo only** and safe window close. Confirm full Linux/macOS CI and merge separately.
+- [ ] Real macOS 26/14+ visual and mouse/keyboard/VoiceOver/Retina/Spaces/Reduce Transparency acceptance, actual screenshot toolbar actions, clipboard/save/annotate and production rollout switch remain **open**.

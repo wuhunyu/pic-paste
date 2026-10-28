@@ -76,3 +76,9 @@ A new `native-panel-probe`-only egui-wgpu renderer draws an interactive button a
 **Explicit limits:** This is a **noninteractive status-label demonstration** in `native-panel-probe`, not the final action toolbar, not a finished style of the production app and not a tested macOS 26 GUI screenshot. No Retina, Spaces, accessibility preference switching, real Material composition or idle/performance claim can be derived from headless CI. Complete real macOS 26 and macOS 14+ GUI/dark/light/reduce-transparency tests and native IME before any opt-in production integration.
 
 References: https://developer.apple.com/videos/play/wwdc2025/310/ and https://developer.apple.com/documentation/appkit/nsglasseffectview
+
+## PR #37 — Interactive native glass controls (2026-10-28)
+
+The optional `ns-panel-probe` now uses two actual native `NSButton` controls inside a **single** existing AppKit material capsule. “浅色预览/深色预览” switches only the egui demo canvas via `Context::set_theme`, and “关闭” exits the probe through the existing WGPU-before-NSView teardown. Button target/action selectors queue commands using a main-thread-only retained target (AppKit controls hold their target weakly). The same controls live in `NSGlassEffectView.contentView` on macOS 26, `NSVisualEffectView` on 14–25 and opaque `NSBox` for Reduce Transparency; no production screenshots or saved pixels are modified.
+
+**Automated boundary:** Pure Rust toggle-label tests and macOS compile, headless egui style transitions, `--check`, workspace/release/package gates can be validated by CI. CI does **not** execute a mouse click, keyboard activation, VoiceOver action, focus transition, actual translucency, live Reduce Transparency switching or Retina/Spaces/Metal presentation. Test the two actions and macOS 14/26 fallback on a real Mac before integrating a real screenshot “复制/保存/标注” toolbar. Keep Issue #5 open.
