@@ -535,6 +535,7 @@ mod tests {
     #[test]
     fn cli_accepts_only_explicit_safe_and_interactive_modes() {
         assert_eq!(ProbeCommand::parse(&["--check"]), Ok(ProbeCommand::Check));
+        assert_eq!(ProbeCommand::parse(&["--preflight"]), Ok(ProbeCommand::Preflight));
         assert_eq!(ProbeCommand::parse(&["--show"]), Ok(ProbeCommand::Show));
         assert_eq!(
             ProbeCommand::parse(&["--snapshot"]),
@@ -542,6 +543,7 @@ mod tests {
         );
         assert_eq!(ProbeCommand::parse(&["--select"]), Ok(ProbeCommand::Select));
         assert!(ProbeCommand::parse(&["--select", "--snapshot"]).is_err());
+        assert!(ProbeCommand::parse(&["--preflight", "--select"]).is_err());
         assert!(ProbeCommand::parse(&[]).is_err());
         assert!(ProbeCommand::parse(&["--show", "--check"]).is_err());
         assert!(ProbeCommand::parse(&["--unknown"]).is_err());
