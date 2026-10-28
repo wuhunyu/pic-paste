@@ -8,15 +8,20 @@ use crate::native_snapshot::NativeSnapshot;
 pub const MAX_MARKS: usize = 128;
 pub const MAX_BRUSH_POINTS: usize = 2048;
 pub const MAX_TEXT_BYTES: usize = 256;
+/// Maximum physical pixels changed by one native redaction operation.
+pub const MAX_NATIVE_EFFECT_PIXELS: u64 = 4_000_000;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum NativeMarkupTool {
     #[default]
     Select,
     Brush,
+    Line,
     Arrow,
     Rectangle,
     Ellipse,
+    Pixelate,
+    Blur,
     Text,
 }
 
@@ -28,6 +33,22 @@ pub enum NativeMark {
     Arrow {
         from: (u32, u32),
         to: (u32, u32),
+    },
+    Line {
+        from: (u32, u32),
+        to: (u32, u32),
+    },
+    Pixelate {
+        left: u32,
+        top: u32,
+        width: u32,
+        height: u32,
+    },
+    Blur {
+        left: u32,
+        top: u32,
+        width: u32,
+        height: u32,
     },
     Rectangle {
         top_left: (u32, u32),
@@ -186,30 +207,64 @@ impl NativeMarkup {
             NativeMarkupTool::Brush => (gesture.points.len() >= 2).then(|| NativeMark::Brush {
                 points: gesture.points.clone(),
             }),
-            NativeMarkupTool::Arrow => {
-                (gesture.start != gesture.end).then_some(NativeMark::Arrow {
-                    from: gesture.start,
-                    to: gesture.end,
-                })
+            NativeMarkupTool::Arrow | NativeMarkupTool::Line => {
+                if gesture.start == gesture.end {
+                    None
+                } else if gesture.tool == NativeMarkupTool::Line {
+                    Some(NativeMark::Line {
+                        from: gesture.start,
+                        to: gesture.end,
+                    })
+                } else {
+                    Some(NativeMark::Arrow {
+                        from: gesture.start,
+                        to: gesture.end,
+                    })
+                }
             }
-            NativeMarkupTool::Rectangle | NativeMarkupTool::Ellipse => {
+            NativeMarkupTool::Rectangle
+            | NativeMarkupTool::Ellipse
+            | NativeMarkupTool::Pixelate
+            | NativeMarkupTool::Blur => {
                 let (a, b) = (gesture.start, gesture.end);
                 if a.0 == b.0 || a.1 == b.1 {
                     None
                 } else {
                     let top_left = (a.0.min(b.0), a.1.min(b.1));
                     let bottom_right = (a.0.max(b.0), a.1.max(b.1));
-                    Some(if gesture.tool == NativeMarkupTool::Ellipse {
-                        NativeMark::Ellipse {
+                    match gesture.tool {
+                        NativeMarkupTool::Ellipse => Some(NativeMark::Ellipse {
                             top_left,
                             bottom_right,
+                        }),
+                        NativeMarkupTool::Pixelate | NativeMarkupTool::Blur => {
+                            // Drag endpoints are inclusive source pixels, while
+                            // Pixelate/Blur use half-open width and height.
+                            let width = bottom_right.0 - top_left.0 + 1;
+                            let height = bottom_right.1 - top_left.1 + 1;
+                            if u64::from(width) * u64::from(height) > MAX_NATIVE_EFFECT_PIXELS {
+                                None
+                            } else if gesture.tool == NativeMarkupTool::Pixelate {
+                                Some(NativeMark::Pixelate {
+                                    left: top_left.0,
+                                    top: top_left.1,
+                                    width,
+                                    height,
+                                })
+                            } else {
+                                Some(NativeMark::Blur {
+                                    left: top_left.0,
+                                    top: top_left.1,
+                                    width,
+                                    height,
+                                })
+                            }
                         }
-                    } else {
-                        NativeMark::Rectangle {
+                        _ => Some(NativeMark::Rectangle {
                             top_left,
                             bottom_right,
-                        }
-                    })
+                        }),
+                    }
                 }
             }
             NativeMarkupTool::Text | NativeMarkupTool::Select => None,

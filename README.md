@@ -1,10 +1,10 @@
 # PicPaste
 
-> **原生 NSPanel（仅实验 Feature）：** PR #45–#48 已在独立原生浮层实现八手柄选区、系统 Liquid Glass 控件、画笔/箭头/矩形/椭圆/Unicode 文字与本地 Undo/Redo；确认后通过有界 `PPANN001` 进入既有 eframe 标注历史及 PNG 保存/撤销/贴图链路。使用 `--features native-panel-probe` 才可访问；正式 Lite/Full 默认仍用 eframe/winit，不代表 macOS GUI、Retina、Spaces、TCC、IME 或性能已经真机验收。
+> **原生 NSPanel（仅实验 Feature）：** PR #45–#49 已在独立原生浮层实现八手柄选区、系统 Liquid Glass 控件、画笔/直线/箭头/矩形/椭圆/马赛克/模糊/Unicode 文字与本地 Undo/Redo；确认后通过有界 `PPANN001` 进入既有 eframe 标注历史及 PNG 保存/撤销/贴图链路。使用 `--features native-panel-probe` 才可访问；正式 Lite/Full 默认仍用 eframe/winit，不代表 macOS GUI、Retina、Spaces、TCC、IME 或性能已经真机验收。
 
 An offline, macOS-first screenshot and pinned-image utility written in Rust 2024, egui/eframe + wgpu and native ScreenCaptureKit. No Electron or WebView. **Development preview, not a signed/notarized public release.** Windows integration is planned after the macOS acceptance gates.
 
-> **Progress truth:** [Current status](docs/STATUS.md) · [Remaining work / active Issue ledger](docs/REMAINING.md) · [Original 20-task tracker](docs/TASKS.md) · [Open Issues](https://github.com/wuhunyu/pic-paste/issues). This README describes the code on `main`, not work in an unmerged PR. As of 2026-10-28, manual screenshot preview (#18), self-window exclusion (#20), trusted-prefix trimming (#21), pin OCR line picking (#22), slow-scroll recovery (#23), fixed-band exclusion (#24), rounded long PNG (#25), bounded review annotation/copy/pin (#26), animation-tolerant overlap / trusted middle retake (#27), Vision word/character OCR plus offline QR (#28), trusted standalone Add-on code (#29), and experimental native annotation persistence (#45), offline Mac preflight (#46), native ellipse (#47) and local Undo/Redo (#48) are integrated. Physical mixed-DPI, Spaces, Screen Recording TCC, native clipboard/pins and performance acceptance remain **unverified**.
+> **Progress truth:** [Current status](docs/STATUS.md) · [Remaining work / active Issue ledger](docs/REMAINING.md) · [Original 20-task tracker](docs/TASKS.md) · [Open Issues](https://github.com/wuhunyu/pic-paste/issues). This README describes the code on `main`, not work in an unmerged PR. As of 2026-10-28, manual screenshot preview (#18), self-window exclusion (#20), trusted-prefix trimming (#21), pin OCR line picking (#22), slow-scroll recovery (#23), fixed-band exclusion (#24), rounded long PNG (#25), bounded review annotation/copy/pin (#26), animation-tolerant overlap / trusted middle retake (#27), Vision word/character OCR plus offline QR (#28), trusted standalone Add-on code (#29), and experimental native annotation persistence (#45), offline Mac preflight (#46), native ellipse (#47), local Undo/Redo (#48) and bounded line/pixelate/blur (#49) are integrated. Physical mixed-DPI, Spaces, Screen Recording TCC, native clipboard/pins and performance acceptance remain **unverified**.
 
 ## Implemented macOS development workflow
 
@@ -190,3 +190,7 @@ python3 scripts/native_acceptance.py verify --report native-acceptance.json
 ```
 
 `--preflight` **不弹权限请求、不截屏、不创建窗口**，仅输出当前 Mac 的系统版本、逐屏 AppKit 逻辑点/缩放、系统玻璃与权限状态。报告默认所有物理测试 `not_run`，且 `release_ready=false`。完整分步骤说明、P95 目标与跨 macOS 版本限制参见 [真机验收规程](docs/native-macos-acceptance.md)。GitHub Runner 的无 GUI 预检通过不能代替真实 Mac 测试。
+
+### 实验原生直线/马赛克/模糊（PR #49）
+
+开启 `native-panel-probe` 功能后，NSPanel 工具栏在原有 560pt 宽的系统材质胶囊内采用双排按钮，增加直线、马赛克和模糊操作；源 RGBA 始终不可变。马赛克、模糊的**原生层仅框选并标记作用区域，并非像素级效果预览**。确认后经 `PPANN001` tag 6/7/8 到原 eframe 编辑器，通过原有 `AnnotationDocument` 使用 12px 块马赛克、6px 半径模糊或 3px 直线精确合成，再保存 PNG；可以在编辑器撤销/重做。每项区域效果最多 4,000,000 物理像素，不允许越界、0 面积或整数溢出。保持旧版 tag 1–5、`PPSEL001`、PNG-only、离线和默认 eframe 路由不变。仍需真实 macOS 14+/26 操作与像素结果验收。

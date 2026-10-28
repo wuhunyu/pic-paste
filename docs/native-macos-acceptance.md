@@ -34,7 +34,7 @@ cargo run --locked -p shot-macos --features native-panel-probe --bin shot-macos
 | `window_lifecycle` | 开启/关闭、最小化/恢复、尺寸变化、焦点恢复；反复截屏检查不残留旧浮层 |
 | `material_accessibility` | macOS 26 系统 Liquid Glass、macOS 14–25 振动材质；明暗模式及降低透明度（切换后重新启动实验窗） |
 | `retina_multiscreen` | 左侧或上方负原点外屏、1×/2×混合缩放，八个选区手柄和源像素尺寸、监视器插拔 |
-| `native_markup_png` | 画笔/箭头/矩形/中文文字→确认→主编辑器撤销/重做→输出 PNG，检查裁剪尺寸、像素/alpha 与取消时零修改 |
+| `native_markup_png` | 画笔/直线/箭头/矩形/椭圆/马赛克/模糊/中文文字→确认→主编辑器撤销/重做→输出 PNG，检查裁剪尺寸、像素/alpha 与取消时零修改 |
 | `chinese_ime` | 中文预编辑、候选窗口位置、提交文字、Enter/Escape、聚焦与失焦恢复 |
 | `spaces_fullscreen` | Spaces、全屏应用、Stage Manager、切回前台以及再次截图不混入实验窗口 |
 | `tcc_recovery` | Screen Recording 未授权/允许/撤销与重启，检查应用提示、功能恢复；只通过系统设置手动操作 |
@@ -64,3 +64,7 @@ python3 scripts/native_acceptance.py verify --report native-acceptance.json
 ## 四、CI 能与不能证明什么
 
 GitHub macOS runner 执行 `ns-panel-probe --preflight`，并上传只读 JSON 和全部 `not_run` 的模板作为 artifact；Linux 运行纯 geometry/material 测试，macOS 执行原生无 GUI 测试和完整 Release/打包。即使这些全部成功，Issue #5/#10 的真实 Mac GUI、TCC、Retina、IME 和性能打勾**仍须用户在真机上完成**。当前默认截图、PNG、OCR、贴图与长截图继续走原有 eframe/winit 后端，实验 NSPanel 不自动取代生产实现。
+
+## 五、PR #49 原生直线/区域效果补充验收（不能伪造 CI 证据）
+
+在真实 Mac 双屏混合 1×/2× 上，用原生面板分别绘制反向直线、400 万物理像素区域马赛克、带 Alpha 边缘的模糊，以及越界和超限操作。原生模糊/马赛克阶段应只出现*作用区域*标框；确认后检查现有编辑器中的准确像素效果、PNG 逐像素差异和撤销重做。重点记录 4MP 临界值、非法区域不提交、不丢弃重做历史、源 RGBA/透明角保留、不同缩放和取消不修改。此项实际操作未完成前不得将 `native_markup_png` 填为 `passed`。

@@ -4,7 +4,7 @@
 
 ## 当前基线
 
-- 已合并基线更新至 PR #48（#1–#3、#12–#48，共 **40 个 PR**）。#46 只读真机预检工具、#47 实验原生椭圆标注与 #48 原生撤销/重做都属于代码里程碑，不能替代实际 Mac GUI 验收。
+- 已合并基线更新至 PR #49（#1–#3、#12–#49，共 **41 个 PR**）。#46 只读真机预检工具、#47 实验原生椭圆标注与 #48 原生撤销/重做都属于代码里程碑，不能替代实际 Mac GUI 验收。
 - 最新原生实验功能：[#47 椭圆标注](https://github.com/wuhunyu/pic-paste/pull/47)已通过[全量 CI #40655168318](https://github.com/wuhunyu/pic-paste/actions/runs/40655168318)，[#48 原生撤销/重做](https://github.com/wuhunyu/pic-paste/pull/48)新增独立的本地重做历史及工具栏操作。默认生产截图/贴图仍用 eframe；真实 GUI/Retina/Spaces/TCC/IME/性能必须另行验收。
 - #17 合并提交 `7e492a4bb91f6062c225dfb33f524cc51756e556`；[main CI #40297130672](https://github.com/wuhunyu/pic-paste/actions/runs/40297130672) **success**。
 - 历史增量：[#23 手动失败恢复](https://github.com/wuhunyu/pic-paste/pull/23)、[#24 手动固定栏排除](https://github.com/wuhunyu/pic-paste/pull/24)、[#25 长图圆角](https://github.com/wuhunyu/pic-paste/pull/25)、[#26 长图标注/贴图](https://github.com/wuhunyu/pic-paste/pull/26) 均已合并；对应测试记录详见各 PR。合并后的主分支 CI 已在 #40440845772 覆盖这些功能。
@@ -156,3 +156,10 @@
 - [x] #47 在可选 NSPanel 追加原生椭圆工具，沿源物理像素绘制并通过 `PPANN001` 新类型 tag 5 进入既有 `AnnotationDocument`、撤销/重做与 PNG 合成；保持 `PPSEL001` 及旧 tag 1–4 兼容。PR 全量 CI #40655168318 success。
 - [x] #48 为独立原生面板标注增加真正的 Redo：先撤销后重做恢复已提交标注；新成功标注分支清理重做栈；无效拖拽保留重做历史；重做和撤销都清除未提交草稿。系统材质工具栏新增“重做”按钮；协议仍只传输当前可见的已提交标注，且原始截图像素始终不可变。
 - [ ] macOS 14+/26 真机界面、Retina 多屏、中文 IME、焦点/Spaces/TCC、渲染结果和性能指标仍未验证；#5/#10 不关闭，正式生产后端不切换。
+
+## 2026-10-28 — PR #49 实验原生直线、马赛克与模糊
+
+- [x] 在 `native-panel-probe` 内新增源局部物理像素直线、马赛克和模糊，受限 `PPANN001` tags 6–8；旧 `PPSEL001` 和已用 tags 1–5 兼容。
+- [x] 单次效果区域 ≤400 万物理像素；无效、越界、超限和损坏协议拒绝，未提交草稿不跨进程，编辑器的 PNG 与撤销/重做复用 `shot-image` 原生绘制、固定 12px 马赛克块和 6px 模糊半径。源 RGBA 不改变。
+- [x] macOS 26 系统 Glass、14–25 Vibrancy 与降低透明度回退继续适用；工具栏改两排六列，宽度 560pt。**马赛克、模糊 NSPanel 内仅框选范围，不是最终像素预览**，需确认后看原编辑器合成效果。
+- [ ] CI 编译验证和真实 macOS GUI 是两种不同证据；混合 Retina/Spaces/TCC/中文 IME/色彩/性能与生产 NSPanel 迁移仍未验收，#5/#6/#10 不关闭。

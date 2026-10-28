@@ -779,6 +779,33 @@ mod tests {
 
     #[cfg(target_os = "macos")]
     #[test]
+    fn native_line_and_redaction_regions_have_headless_overlay_shapes() {
+        use shot_core::display::OverlayPlacement;
+        use shot_core::native_markup::{NativeMarkup, NativeMarkupTool};
+        use shot_core::platform::DisplayId;
+
+        let placement = OverlayPlacement::new(DisplayId(3), (-100.0, 0.0), (100.0, 80.0)).unwrap();
+        let mut marks = NativeMarkup::new(placement, (200, 160)).unwrap();
+        for tool in [
+            NativeMarkupTool::Line,
+            NativeMarkupTool::Pixelate,
+            NativeMarkupTool::Blur,
+        ] {
+            marks.set_tool(tool);
+            assert!(marks.begin((5.0, 5.0)));
+            assert!(marks.end((20.0, 30.0)));
+        }
+        let ctx = egui::Context::default();
+        let output = ctx.run_ui(egui::RawInput::default(), |ui| {
+            panel_egui::paint_native_marks(ui, egui::Pos2::ZERO, &marks);
+        });
+        assert!(output.shapes.len() >= 7);
+        output.drop_without_applying_deltas();
+        assert_eq!(marks.visible().len(), 3);
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
     fn native_glass_controls_provide_action_queue_contract() {
         let _callback: fn(
             &glass_toolbar::ProbeGlassToolbar,

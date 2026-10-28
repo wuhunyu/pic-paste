@@ -60,7 +60,7 @@ impl FloatingBarFrame {
         })
     }
 
-    /// The seven-button selection/annotation capsule, also in logical points.
+    /// Two rows of six native action buttons, in host-local logical points.
     /// Width is independent of Retina density; tiny hosts hide the capsule.
     pub fn for_annotation_size(width_pt: f64, height_pt: f64) -> Option<Self> {
         if !width_pt.is_finite() || !height_pt.is_finite() || width_pt < 580.0 || height_pt < 140.0
@@ -71,7 +71,7 @@ impl FloatingBarFrame {
             x: (width_pt - 560.0) / 2.0,
             y: 20.0,
             width: 560.0,
-            height: 48.0,
+            height: 88.0,
         })
     }
 

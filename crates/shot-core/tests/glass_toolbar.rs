@@ -100,7 +100,7 @@ fn annotation_capsule_centered_but_never_clips_into_small_displays() {
             x: 320.0,
             y: 20.0,
             width: 560.0,
-            height: 48.0,
+            height: 88.0,
         }
     );
     assert!(frame.contains(320.0, 20.0));
@@ -115,6 +115,9 @@ fn native_toolbar_annotation_actions_preserve_select_and_demo_commands() {
     for tool in [
         NativeMarkupTool::Select,
         NativeMarkupTool::Brush,
+        NativeMarkupTool::Line,
+        NativeMarkupTool::Pixelate,
+        NativeMarkupTool::Blur,
         NativeMarkupTool::Arrow,
         NativeMarkupTool::Rectangle,
         NativeMarkupTool::Ellipse,
