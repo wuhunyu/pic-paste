@@ -1,8 +1,7 @@
-//! Source-local non-destructive annotation preview for the opt-in NSPanel.
+//! Source-local non-destructive markup for the opt-in native NSPanel.
 //!
-//! This is deliberately NOT a persisted screenshot edit. Until a separate
-//! bounded parent IPC protocol is implemented, native marks must not be
-//! included in the existing PPSEL001 selection-only reply.
+//! Committed marks are transported only after explicit confirmation, via
+//! bounded PPANN001; the legacy PPSEL001 selection-only wire stays intact.
 use crate::display::OverlayPlacement;
 use crate::native_snapshot::NativeSnapshot;
 
@@ -48,7 +47,7 @@ struct MarkGesture {
     points: Vec<(u32, u32)>,
 }
 
-/// In-memory commands are never applied to screenshot RGBA bytes.
+/// Drawing commands never modify the immutable screenshot RGBA bytes.
 #[derive(Clone, Debug)]
 pub struct NativeMarkup {
     logical_points: (f32, f32),
