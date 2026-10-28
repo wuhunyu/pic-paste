@@ -87,3 +87,10 @@
 - [x] [#39](https://github.com/wuhunyu/pic-paste/pull/39): native-consumed key-down/key-up suppression, other keys and Command/Control shortcuts preserved, focus-loss reset; merged after [full CI #40615197102](https://github.com/wuhunyu/pic-paste/actions/runs/40615197102) success.
 - [ ] [#40](https://github.com/wuhunyu/pic-paste/pull/40): optional main-app button launching a same-directory, out-of-process NSPanel experiment. This is a **developer-only manual test entry**, not an actual native screenshot/editor backend. Test-only feature, single child, no PATH fallback, errors leave normal capture untouched. Latest CI and physical Mac GUI remain independent gates.
 - [ ] Dedicated production screenshot/pin NSPanel with complete capture/editor/clipboard/annotation parity, real macOS 14+/26 GUI/IME/Retina/Spaces/VoiceOver/TCC tests and rollback acceptance. **Issue #5 stays open.**
+
+
+## 2026-10-28 — PR #41 有界真实截图到 NSPanel 的桥接
+
+- [x] 单次版式化帧协议 `PPSNAP01`：有界 RGBA 原图、显示器逻辑点元数据、匿名 stdin、不落盘；Linux 纯逻辑测试与 macOS 原生无 GUI 集成测试。
+- [x] 仅开发 Feature 启用真实截图冻结画面的只读 AppKit NSPanel/Metal 预览；默认正式选区和标注仍为 eframe，PNG-only 输出不变。
+- [ ] PR #41 全量 CI、真机 macOS 14+/26 显示和多个屏幕/缩放/Spaces、内存峰值验收；真实原生选区拖拽、选区结果返回主进程、标注和回退仍是后续工作，不能在 PR #41 中宣称完成。

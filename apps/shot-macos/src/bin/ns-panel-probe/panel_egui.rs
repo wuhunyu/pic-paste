@@ -38,6 +38,47 @@ pub(crate) fn apply_preview_theme(ctx: &egui::Context, theme: PreviewTheme) {
     });
 }
 
+/// The native renderer receives the source RGBA bytes verbatim and only
+/// scales the *presentation* to fit the experimental panel. Source geometry
+/// and PNG/Alpha output remain in the normal screenshot editor.
+pub(crate) fn snapshot_texture(
+    ctx: &egui::Context,
+    frame: &shot_core::RgbaFrame,
+) -> egui::TextureHandle {
+    ctx.load_texture(
+        "native-frozen-snapshot",
+        egui::ColorImage::from_rgba_unmultiplied(
+            [frame.width as usize, frame.height as usize],
+            &frame.rgba,
+        ),
+        egui::TextureOptions::LINEAR,
+    )
+}
+
+/// Paint a read-only image with no selection/annotation side effects.
+pub(crate) fn show_snapshot(root: &mut egui::Ui, texture: &egui::TextureHandle) {
+    egui::CentralPanel::default()
+        .frame(egui::Frame::NONE)
+        .show(root, |ui| {
+            let bounds = ui.max_rect();
+            let source = texture.size_vec2();
+            if source.x <= 0.0 || source.y <= 0.0 {
+                return;
+            }
+            let scale = (bounds.width() / source.x).min(bounds.height() / source.y);
+            if !scale.is_finite() || scale <= 0.0 {
+                return;
+            }
+            let target = egui::Rect::from_center_size(bounds.center(), source * scale);
+            ui.painter().image(
+                texture.id(),
+                target,
+                egui::Rect::from_min_max(egui::Pos2::ZERO, egui::pos2(1.0, 1.0)),
+                egui::Color32::WHITE,
+            );
+        });
+}
+
 pub(crate) struct ProbeViewport {
     pub size: PanelSurfaceSize,
     pub width_points: f64,
@@ -76,6 +117,7 @@ pub(crate) struct ProbeEgui {
     ctx: egui::Context,
     renderer: egui_wgpu::Renderer,
     controls: ProbeControls,
+    snapshot: Option<egui::TextureHandle>,
     events: Vec<egui::Event>,
     modifiers: egui::Modifiers,
     focused: bool,
@@ -84,9 +126,14 @@ pub(crate) struct ProbeEgui {
 }
 
 impl ProbeEgui {
-    pub(crate) fn new(device: &wgpu::Device, format: wgpu::TextureFormat) -> Self {
+    pub(crate) fn new(
+        device: &wgpu::Device,
+        format: wgpu::TextureFormat,
+        image: Option<shot_core::RgbaFrame>,
+    ) -> Self {
         let ctx = egui::Context::default();
         apply_preview_theme(&ctx, PreviewTheme::Dark);
+        let snapshot = image.as_ref().map(|frame| snapshot_texture(&ctx, frame));
         Self {
             ctx,
             renderer: egui_wgpu::Renderer::new(
@@ -95,6 +142,7 @@ impl ProbeEgui {
                 egui_wgpu::RendererOptions::default(),
             ),
             controls: ProbeControls::default(),
+            snapshot,
             events: Vec::new(),
             modifiers: egui::Modifiers::default(),
             focused: false,
@@ -347,7 +395,14 @@ impl ProbeEgui {
             viewport.focused = Some(self.focused);
         }
         let controls = &mut self.controls;
-        let output = self.ctx.run_ui(raw, |ui| controls.ui(ui));
+        let snapshot = self.snapshot.as_ref();
+        let output = self.ctx.run_ui(raw, |ui| {
+            if let Some(texture) = snapshot {
+                show_snapshot(ui, texture);
+            } else {
+                controls.ui(ui);
+            }
+        });
         // egui reports the actual text caret in logical points. The native
         // NSTextInputClient converts it to AppKit screen coordinates.
         self.ime_cursor = output
