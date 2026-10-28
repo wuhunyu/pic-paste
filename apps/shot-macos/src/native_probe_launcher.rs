@@ -56,10 +56,7 @@ impl NativeProbeLauncher {
         self.launch_from(&executable)
     }
 
-    pub(crate) fn launch_from(
-        &mut self,
-        executable: &Path,
-    ) -> Result<ProbeLaunchResult, String> {
+    pub(crate) fn launch_from(&mut self, executable: &Path) -> Result<ProbeLaunchResult, String> {
         if let Some(child) = self.child.as_mut() {
             match child.try_wait() {
                 Ok(None) => return Ok(ProbeLaunchResult::AlreadyRunning),
