@@ -23,10 +23,7 @@ impl AppKitSelectionFrame {
     /// Convert a CoreGraphics top-left desktop origin to AppKit bottom-left.
     /// `primary_top_y` is the global maxY of the screen with the menu bar.
     /// No per-screen Retina multiplier is applied to a global origin.
-    pub fn from_quartz(
-        placement: OverlayPlacement,
-        primary_top_y: f64,
-    ) -> Result<Self, String> {
+    pub fn from_quartz(placement: OverlayPlacement, primary_top_y: f64) -> Result<Self, String> {
         let (x, y) = placement.origin_pt();
         let (width, height) = placement.size_pt();
         let frame = Self {
@@ -107,12 +104,7 @@ impl NativeSelection {
     pub fn preview_rect_points(&self) -> Option<(f32, f32, f32, f32)> {
         let (ax, ay) = self.anchor?;
         let (cx, cy) = self.current?;
-        Some((
-            ax.min(cx),
-            ay.min(cy),
-            (ax - cx).abs(),
-            (ay - cy).abs(),
-        ))
+        Some((ax.min(cx), ay.min(cy), (ax - cx).abs(), (ay - cy).abs()))
     }
 
     pub fn release(&mut self, point_pt: (f32, f32)) -> Option<RectPx> {
@@ -168,13 +160,17 @@ impl NativeSelectionReply {
             Self::Selected { display, .. } | Self::Cancelled { display } => *display,
         };
         if display != expected_display {
-            return Err(String::from("native selection reply display does not match capture"));
+            return Err(String::from(
+                "native selection reply display does not match capture",
+            ));
         }
         let Self::Selected { rect, .. } = self else {
             return Ok(None);
         };
         if rect.x < 0 || rect.y < 0 || rect.width == 0 || rect.height == 0 {
-            return Err(String::from("native selection rectangle is empty or negative"));
+            return Err(String::from(
+                "native selection rectangle is empty or negative",
+            ));
         }
         let right = (rect.x as u32)
             .checked_add(rect.width)
@@ -183,7 +179,9 @@ impl NativeSelectionReply {
             .checked_add(rect.height)
             .ok_or("native selection rectangle y overflow")?;
         if right > pixels.0 || bottom > pixels.1 {
-            return Err(String::from("native selection rectangle exceeds capture bounds"));
+            return Err(String::from(
+                "native selection rectangle exceeds capture bounds",
+            ));
         }
         Ok(Some(*rect))
     }
@@ -194,7 +192,9 @@ impl NativeSelectionReply {
         let (display, rectangle) = match *self {
             Self::Selected { display, rect } => {
                 if rect.x < 0 || rect.y < 0 || rect.width == 0 || rect.height == 0 {
-                    return Err(String::from("invalid native selection before writing reply"));
+                    return Err(String::from(
+                        "invalid native selection before writing reply",
+                    ));
                 }
                 buffer[8] = 1;
                 (display, Some(rect))
@@ -213,7 +213,9 @@ impl NativeSelectionReply {
 
     pub fn read_from<R: Read>(source: &mut R) -> Result<Self, String> {
         let mut data = [0u8; REPLY_BYTES];
-        source.read_exact(&mut data).map_err(|error| error.to_string())?;
+        source
+            .read_exact(&mut data)
+            .map_err(|error| error.to_string())?;
         if &data[..8] != REPLY_MAGIC {
             return Err(String::from("invalid native selection reply magic/version"));
         }
@@ -223,7 +225,9 @@ impl NativeSelectionReply {
         let reply = match data[8] {
             0 => {
                 if data[17..33].iter().any(|value| *value != 0) {
-                    return Err(String::from("cancelled native selection carried unexpected rect"));
+                    return Err(String::from(
+                        "cancelled native selection carried unexpected rect",
+                    ));
                 }
                 Self::Cancelled { display }
             }
@@ -232,7 +236,9 @@ impl NativeSelectionReply {
                     x: i32::from_le_bytes(data[17..21].try_into().expect("fixed x field")),
                     y: i32::from_le_bytes(data[21..25].try_into().expect("fixed y field")),
                     width: u32::from_le_bytes(data[25..29].try_into().expect("fixed width field")),
-                    height: u32::from_le_bytes(data[29..33].try_into().expect("fixed height field")),
+                    height: u32::from_le_bytes(
+                        data[29..33].try_into().expect("fixed height field"),
+                    ),
                 };
                 if rect.x < 0 || rect.y < 0 || rect.width == 0 || rect.height == 0 {
                     return Err(String::from("invalid native selection rectangle"));
@@ -242,7 +248,11 @@ impl NativeSelectionReply {
             _ => return Err(String::from("unknown native selection reply status")),
         };
         let mut trailing = [0u8; 1];
-        if source.read(&mut trailing).map_err(|error| error.to_string())? != 0 {
+        if source
+            .read(&mut trailing)
+            .map_err(|error| error.to_string())?
+            != 0
+        {
             return Err(String::from("trailing bytes after native selection reply"));
         }
         Ok(reply)
