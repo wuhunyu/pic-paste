@@ -2,8 +2,6 @@ use crate::hotkey::{HotkeyAction, HotkeyController};
 use crate::menu::{MenuAction, MenuBar};
 #[cfg(feature = "native-panel-probe")]
 use crate::native_probe_launcher::{NativeProbeLauncher, ProbeLaunchResult};
-#[cfg(feature = "native-panel-probe")]
-use shot_core::native_snapshot::NativeSnapshot;
 use crate::ocr;
 use crate::overlay;
 use crate::pin::{PinEvent, PinnedImage};
@@ -12,6 +10,8 @@ use arboard::{Clipboard, ImageData};
 use eframe::egui;
 use shot_core::async_ticket::OcrTicket;
 use shot_core::display::{DisplaySelection, OverlayPlacement};
+#[cfg(feature = "native-panel-probe")]
+use shot_core::native_snapshot::NativeSnapshot;
 use shot_core::overlay::OverlayState;
 use shot_core::pin_texture_budget::{MAX_PIN_COUNT, MAX_TEXTURE_BYTES, PinTextureBudget};
 use shot_core::pins::PinMode;

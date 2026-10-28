@@ -57,7 +57,7 @@ fn run() -> Result<(), String> {
             let stdin = std::io::stdin();
             let snapshot = NativeSnapshot::read_from(&mut stdin.lock())?;
             native::show(Some(snapshot))
-        },
+        }
     }
 }
 
@@ -79,10 +79,10 @@ mod native {
 
 #[cfg(target_os = "macos")]
 mod native {
-    use super::{NativeSnapshot, PanelSurfaceSize};
     use super::glass_toolbar::ProbeGlassToolbar;
     use super::ime::ProbeImeBridge;
     use super::panel_egui::{ProbeEgui, ProbeViewport};
+    use super::{NativeSnapshot, PanelSurfaceSize};
     use objc2::{MainThreadMarker, MainThreadOnly};
     use objc2_app_kit::{
         NSApplication, NSBackingStoreType, NSEventMask, NSEventModifierFlags, NSEventType, NSPanel,

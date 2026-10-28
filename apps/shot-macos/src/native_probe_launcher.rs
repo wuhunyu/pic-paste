@@ -3,12 +3,12 @@
 //! The production eframe event loop must never host this companion's native
 //! NSApplication event loop or own its Metal surface. This process boundary
 //! leaves capture, pins, and PNG output on the established backend.
+use shot_core::native_snapshot::NativeSnapshot;
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::thread;
-use shot_core::native_snapshot::NativeSnapshot;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum ProbeLaunchResult {

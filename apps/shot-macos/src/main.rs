@@ -121,16 +121,16 @@ mod native_probe_launcher_tests {
         fs::create_dir_all(&dir).unwrap();
         let path = dir.join("ns-panel-probe");
         let output = dir.join("received-snapshot.bin");
-        fs::write(&path, format!("#!/bin/sh\n/bin/cat > '{}'\n", output.display())).unwrap();
-        fs::set_permissions(&path, fs::Permissions::from_mode(0o700)).unwrap();
-        let placement = OverlayPlacement::new(DisplayId(9), (-100.0, 20.0), (100.0, 70.0))
-            .unwrap();
-        let pixels = vec![23, 31, 47, 255, 255, 0, 0, 255];
-        let snapshot = NativeSnapshot::new(
-            placement,
-            RgbaFrame::new(2, 1, pixels.clone()).unwrap(),
+        fs::write(
+            &path,
+            format!("#!/bin/sh\n/bin/cat > '{}'\n", output.display()),
         )
         .unwrap();
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o700)).unwrap();
+        let placement = OverlayPlacement::new(DisplayId(9), (-100.0, 20.0), (100.0, 70.0)).unwrap();
+        let pixels = vec![23, 31, 47, 255, 255, 0, 0, 255];
+        let snapshot =
+            NativeSnapshot::new(placement, RgbaFrame::new(2, 1, pixels.clone()).unwrap()).unwrap();
         let app = dir.join("PicPaste");
         let mut launcher = NativeProbeLauncher::default();
         assert_eq!(

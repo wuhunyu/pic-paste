@@ -41,7 +41,10 @@ pub(crate) fn apply_preview_theme(ctx: &egui::Context, theme: PreviewTheme) {
 /// The native renderer receives the source RGBA bytes verbatim and only
 /// scales the *presentation* to fit the experimental panel. Source geometry
 /// and PNG/Alpha output remain in the normal screenshot editor.
-pub(crate) fn snapshot_texture(ctx: &egui::Context, frame: &shot_core::RgbaFrame) -> egui::TextureHandle {
+pub(crate) fn snapshot_texture(
+    ctx: &egui::Context,
+    frame: &shot_core::RgbaFrame,
+) -> egui::TextureHandle {
     ctx.load_texture(
         "native-frozen-snapshot",
         egui::ColorImage::from_rgba_unmultiplied(
