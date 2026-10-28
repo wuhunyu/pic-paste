@@ -22,6 +22,7 @@ enum ProbeCommand {
     Check,
     Show,
     Snapshot,
+    Select,
 }
 
 impl ProbeCommand {
@@ -30,7 +31,8 @@ impl ProbeCommand {
             ["--check"] => Ok(Self::Check),
             ["--show"] => Ok(Self::Show),
             ["--snapshot"] => Ok(Self::Snapshot),
-            _ => Err("usage: ns-panel-probe --check | --show | --snapshot"),
+            ["--select"] => Ok(Self::Select),
+            _ => Err("usage: ns-panel-probe --check | --show | --snapshot | --select"),
         }
     }
 }
@@ -50,13 +52,20 @@ fn run() -> Result<(), String> {
             );
             Ok(())
         }
-        ProbeCommand::Show => native::show(None),
+        ProbeCommand::Show => native::show(None, false),
         ProbeCommand::Snapshot => {
             // Bound and verify the complete one-shot stdin frame before
             // initializing AppKit or allocating a Metal surface.
             let stdin = std::io::stdin();
             let snapshot = NativeSnapshot::read_from(&mut stdin.lock())?;
-            native::show(Some(snapshot))
+            native::show(Some(snapshot), false)
+        }
+        ProbeCommand::Select => {
+            // Reserve stdout for one PPSEL001 reply; diagnostics use stderr.
+            // Decode the complete bounded screenshot before initializing AppKit.
+            let stdin = std::io::stdin();
+            let snapshot = NativeSnapshot::read_from(&mut stdin.lock())?;
+            native::show(Some(snapshot), true)
         }
     }
 }
@@ -72,7 +81,7 @@ fn main() {
 mod native {
     use super::NativeSnapshot;
 
-    pub fn show(_snapshot: Option<NativeSnapshot>) -> Result<(), String> {
+    pub fn show(_snapshot: Option<NativeSnapshot>, _selection_mode: bool) -> Result<(), String> {
         Err(String::from("interactive NSPanel requires macOS 14+"))
     }
 }
@@ -86,28 +95,64 @@ mod native {
     use objc2::{MainThreadMarker, MainThreadOnly};
     use objc2_app_kit::{
         NSApplication, NSBackingStoreType, NSEventMask, NSEventModifierFlags, NSEventType, NSPanel,
-        NSWindowStyleMask,
+        NSScreen, NSWindowCollectionBehavior, NSWindowStyleMask,
     };
     use objc2_foundation::{NSDate, NSDefaultRunLoopMode, NSPoint, NSRect, NSSize, ns_string};
     use raw_window_handle::{AppKitWindowHandle, RawWindowHandle};
     use shot_core::glass_toolbar::{GlassToolbarAction, PreviewTheme};
     use shot_core::ime::{ImeKeyRoute, ImeKeyRouting};
     use shot_core::native_panel::{PanelSurfaceLifecycle, PanelSurfaceUpdate};
+    use shot_core::native_selection::{AppKitSelectionFrame, NativeSelection, NativeSelectionReply};
     use std::ptr::NonNull;
 
     /// This opt-in probe must run on AppKit's main thread. It pumps native
     /// events itself so that a close event can return control to Rust and
     /// release the Metal surface before AppKit's retained view and panel.
-    pub fn show(snapshot: Option<NativeSnapshot>) -> Result<(), String> {
+    pub fn show(snapshot: Option<NativeSnapshot>, selection_mode: bool) -> Result<(), String> {
         let frozen_preview = snapshot.is_some();
+        let selection_placement = if selection_mode {
+            Some(snapshot.as_ref().ok_or("native selection requires screenshot")?.placement())
+        } else {
+            None
+        };
+        let selected_display = selection_placement.map(|placement| placement.display_id());
         let mtm =
             MainThreadMarker::new().ok_or("AppKit NSPanel must be created on the main thread")?;
         let application = NSApplication::sharedApplication(mtm);
-        let rect = NSRect::new(NSPoint::new(160.0, 160.0), NSSize::new(640.0, 360.0));
+        let default_rect = NSRect::new(NSPoint::new(160.0, 160.0), NSSize::new(640.0, 360.0));
+        let selection_rect = if let Some(placement) = selection_placement {
+            let screens = NSScreen::screens(mtm);
+            let primary = screens.firstObject().ok_or("no active AppKit screen")?;
+            let primary_bounds = primary.frame();
+            let primary_top_y = primary_bounds.origin.y + primary_bounds.size.height;
+            let target = AppKitSelectionFrame::from_quartz(placement, primary_top_y)?;
+            let known_display = screens.iter().any(|screen| {
+                let bounds = screen.frame();
+                (bounds.origin.x - target.x).abs() <= 1.0
+                    && (bounds.origin.y - target.y).abs() <= 1.0
+                    && (bounds.size.width - target.width).abs() <= 1.0
+                    && (bounds.size.height - target.height).abs() <= 1.0
+            });
+            if !known_display {
+                return Err(String::from("capture display no longer matches an AppKit screen"));
+            }
+            Some(NSRect::new(
+                NSPoint::new(target.x, target.y),
+                NSSize::new(target.width, target.height),
+            ))
+        } else {
+            None
+        };
+        let rect = selection_rect.unwrap_or(default_rect);
+        let style = if selection_mode {
+            NSWindowStyleMask::Borderless
+        } else {
+            NSWindowStyleMask::Titled | NSWindowStyleMask::Closable | NSWindowStyleMask::Resizable
+        };
         let panel = NSPanel::initWithContentRect_styleMask_backing_defer(
             NSPanel::alloc(mtm),
             rect,
-            NSWindowStyleMask::Titled | NSWindowStyleMask::Closable | NSWindowStyleMask::Resizable,
+            style,
             NSBackingStoreType::Buffered,
             false,
         );
@@ -116,7 +161,15 @@ mod native {
         unsafe { panel.setReleasedWhenClosed(false) };
         panel.setFloatingPanel(true);
         panel.setBecomesKeyOnlyIfNeeded(false);
-        if frozen_preview {
+        if selection_mode {
+            panel.setCollectionBehavior(
+                NSWindowCollectionBehavior::CanJoinAllSpaces
+                    | NSWindowCollectionBehavior::FullScreenAuxiliary,
+            );
+        }
+        if selection_mode {
+            panel.setTitle(ns_string!("PicPaste · 原生截图框选（实验）"));
+        } else if frozen_preview {
             panel.setTitle(ns_string!("PicPaste · 冻结截图原生预览（实验）"));
         } else {
             panel.setTitle(ns_string!("PicPaste · NSPanel + WGPU Metal 实验"));
@@ -129,12 +182,25 @@ mod native {
             .ok_or("AppKit NSPanel has no content NSView")?;
         content_view.setWantsLayer(true);
 
-        panel.center();
+        if !selection_mode {
+            panel.center();
+        }
         application.finishLaunching();
         panel.makeKeyAndOrderFront(None);
         application.activate();
+        if selection_mode {
+            panel.orderFrontRegardless();
+        }
 
         let bounds = content_view.bounds();
+        if let Some(placement) = selection_placement {
+            let (width, height) = placement.size_pt();
+            if (bounds.size.width - f64::from(width)).abs() > 1.0
+                || (bounds.size.height - f64::from(height)).abs() > 1.0
+            {
+                return Err(String::from("AppKit native selection content geometry changed"));
+            }
+        }
         let scale = panel.backingScaleFactor();
         let size = PanelSurfaceSize::from_points(bounds.size.width, bounds.size.height, scale)
             .map_err(|error| format!("invalid initial Metal size: {error:?}"))?;
@@ -174,10 +240,17 @@ mod native {
             .get_default_config(&adapter, size.width, size.height)
             .ok_or("Metal adapter does not support NSPanel surface")?;
         surface.configure(&device, &config);
+        let native_selection = if let Some(placement) = selection_placement {
+            let frame = snapshot.as_ref().ok_or("selection frame unavailable")?.image();
+            Some(NativeSelection::new(placement, (frame.width, frame.height))?)
+        } else {
+            None
+        };
         let mut egui_ui = ProbeEgui::new(
             &device,
             config.format,
             snapshot.map(NativeSnapshot::into_image),
+            native_selection,
         );
         egui_ui.set_focus(panel.isKeyWindow());
         egui_ui.paint(
@@ -193,8 +266,10 @@ mod native {
         )?;
         // Native AppKit overlay floats over Metal. The existing NSView is
         // still the WGPU Surface owner; screenshot pixels remain untouched.
-        let glass_toolbar = ProbeGlassToolbar::new(mtm, &content_view);
-        println!("Experimental native toolbar: {:?}", glass_toolbar.material);
+        let glass_toolbar = (!selection_mode).then(|| ProbeGlassToolbar::new(mtm, &content_view));
+        if let Some(toolbar) = glass_toolbar.as_ref() {
+            println!("Experimental native toolbar: {:?}", toolbar.material);
+        }
         let mut ime_bridge = ProbeImeBridge::new(mtm, &content_view);
         let mut key_routing = ImeKeyRouting::default();
         ime_bridge.set_cursor(egui_ui.ime_cursor_rect());
@@ -202,9 +277,13 @@ mod native {
         let mut preview_theme = PreviewTheme::Dark;
 
         let mut lifecycle = PanelSurfaceLifecycle::new(size);
-        println!(
-            "NSPanel Metal frame presented. Resize or move between Retina displays; close with X."
-        );
+        if selection_mode {
+            eprintln!("Native display selection panel running; drag a region or press Escape.");
+        } else {
+            println!(
+                "NSPanel Metal frame presented. Resize or move between Retina displays; close with X."
+            );
+        }
         // Time-bounded native event wait. Do not busy-spin or enter AppKit
         // run() forever: the window close button must exit the probe.
         let result = (|| -> Result<(), String> {
@@ -246,7 +325,10 @@ mod native {
                         _ => ImeKeyRoute::Egui,
                     };
                     if route == ImeKeyRoute::Egui
-                        && (!pointer_down || !glass_toolbar.contains_pointer(&event, &content_view))
+                        && (!pointer_down
+                            || glass_toolbar
+                                .as_ref()
+                                .is_none_or(|toolbar| !toolbar.contains_pointer(&event, &content_view)))
                     {
                         // This key was not consumed by the native context; allow
                         // the original ASCII fallback for this event.
@@ -256,11 +338,13 @@ mod native {
                     for change in ime_bridge.drain() {
                         egui_ui.push_ime_change(change);
                     }
-                    if let Some(action) = glass_toolbar.take_action() {
+                    if let Some(action) = glass_toolbar.as_ref().and_then(|bar| bar.take_action()) {
                         match action {
                             GlassToolbarAction::ToggleTheme => {
                                 preview_theme = preview_theme.toggle();
-                                glass_toolbar.set_preview_theme(preview_theme);
+                                if let Some(bar) = glass_toolbar.as_ref() {
+                                    bar.set_preview_theme(preview_theme);
+                                }
                                 egui_ui.set_preview_theme(preview_theme);
                             }
                             GlassToolbarAction::CloseProbe => panel.orderOut(None),
@@ -289,7 +373,9 @@ mod native {
                     continue;
                 }
                 let view_bounds = content_view.bounds();
-                glass_toolbar.relayout(view_bounds);
+                if let Some(bar) = glass_toolbar.as_ref() {
+                    bar.relayout(view_bounds);
+                }
                 let change = lifecycle
                     .observe(
                         view_bounds.size.width,
@@ -326,6 +412,9 @@ mod native {
                     )?;
                     ime_bridge.set_cursor(egui_ui.ime_cursor_rect());
                     ime_bridge.set_active(panel.isKeyWindow() && egui_ui.wants_text_input());
+                    if selection_mode && egui_ui.selection_result().is_some() {
+                        panel.orderOut(None);
+                    }
                 }
             }
             Ok(())
@@ -333,19 +422,34 @@ mod native {
         lifecycle.close();
         // A normal close or a rendering error both reach the same cleanup.
         panel.orderOut(None);
-        glass_toolbar.detach();
+        if let Some(bar) = glass_toolbar.as_ref() {
+            bar.detach();
+        }
         drop(glass_toolbar);
         // Release the Cocoa input context before its retained NSView and
         // before the WGPU Surface is destroyed.
         ime_bridge.set_active(false);
         drop(ime_bridge);
+        let selection_reply = selected_display.map(|display| {
+            if let Some(rect) = egui_ui.selection_result() {
+                NativeSelectionReply::Selected { display, rect }
+            } else {
+                NativeSelectionReply::Cancelled { display }
+            }
+        });
         drop(egui_ui);
         drop(queue);
         drop(device);
         drop(surface);
         drop(content_view);
         drop(panel);
-        result
+        result?;
+        if let Some(reply) = selection_reply {
+            // stdout is an exclusive binary response channel for --select.
+            // Never print diagnostics or native toolbar logs to stdout here.
+            reply.write_to(&mut std::io::stdout().lock())?;
+        }
+        Ok(())
     }
 }
 
