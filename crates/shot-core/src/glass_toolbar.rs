@@ -69,7 +69,6 @@ impl FloatingBarFrame {
     }
 }
 
-
 /// Preview background choice for the opt-in NSPanel demo. It is deliberately
 /// independent from screenshot/crop pixels and from the system's appearance.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
