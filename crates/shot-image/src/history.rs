@@ -54,6 +54,7 @@ pub enum Annotation {
         radius: u32,
     },
 }
+#[derive(Clone)]
 pub struct AnnotationDocument {
     pub source: Arc<RgbaFrame>,
     history: Vec<Annotation>,

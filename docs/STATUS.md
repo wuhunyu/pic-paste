@@ -137,3 +137,10 @@
 - [x] 仅开发 Feature 的 NSPanel 中使用系统 AppKit 原生按钮和保持引用的 Cocoa action target，工具选择包含选区、画笔、箭头、矩形、文字、撤销、取消。macOS 26 采用 `NSGlassEffectView`，macOS 14–25 回退 `NSVisualEffectView`，降低透明度优先使用不透明系统背景；不模拟玻璃、不改变截图纹理。
 - [x] `shot-core::native_markup` 实现限定规模的物理像素标注命令（≤128 条、≤2048 画笔点、≤256 UTF-8 文字字节）、草稿预览与撤销。NSPanel egui/WGPU 渲染覆盖层接入画笔、箭头、矩形和文字输入框。源 RGBA/PNG-only 保持不变。
 - [ ] **标注暂不跨进程回传，也不保存到 PNG**；已有 `PPSEL001` 仅返回选区。下一阶段须另行设计受限的标注 IPC 与主程序 AnnotationDocument 持久化。macOS 真机、Liquid Glass 实物、IME、Retina、Spaces、TCC、性能验收仍未完成。
+
+
+## 2026-10-28 — PR #45：原生标注进入原有 PNG 保存链路
+
+- [x] 实验 NSPanel 确认后回传有界 `PPANN001`（源图尺寸、显示器、选区和画笔/箭头/矩形/UTF-8 文字），无标注及取消仍发送兼容的 33 字节 `PPSEL001`。
+- [x] 主程序对截图与编辑版本、源图物理像素、标注数据进行完整校验；在克隆历史中导入并预合成成功后才原子更新 `AnnotationDocument` 和图片预览。沿用原撤销/重做及 PNG 保存/剪贴板/贴图代码，不改变原始 RGBA。
+- [ ] 真实 Mac 14–26、Retina 多屏/负原点、Spaces、权限、Liquid Glass、中文输入法和性能验收仍未完成；默认生产 UI 不变，Issue #5/#10 保持开放。

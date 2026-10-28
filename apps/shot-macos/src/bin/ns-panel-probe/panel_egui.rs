@@ -385,6 +385,12 @@ impl ProbeEgui {
         changed
     }
 
+    /// Only committed marks can cross the IPC boundary; in-flight drafts are
+    /// excluded. The caller copies them after explicit selection confirmation.
+    pub(crate) fn committed_native_marks(&self) -> &[shot_core::native_markup::NativeMark] {
+        self.markup.as_ref().map_or(&[], NativeMarkup::visible)
+    }
+
     pub(crate) fn selection_result(&self) -> Option<shot_core::RectPx> {
         self.selection_result
     }

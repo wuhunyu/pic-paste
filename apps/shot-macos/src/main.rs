@@ -46,6 +46,8 @@ mod native_probe_launcher_tests {
     };
     use shot_core::RgbaFrame;
     use shot_core::display::OverlayPlacement;
+    use shot_core::native_annotation::NativeEditReply;
+    use shot_core::native_markup::NativeMark;
     use shot_core::native_selection::NativeSelectionReply;
     use shot_core::native_snapshot::NativeSnapshot;
     use shot_core::platform::DisplayId;
@@ -194,17 +196,93 @@ mod native_probe_launcher_tests {
                 .launch_select_from(
                     &dir.join("PicPaste"),
                     snapshot,
+                    101,
                     tx,
                     eframe::egui::Context::default(),
                 )
                 .unwrap(),
             ProbeLaunchResult::Started
         );
-        let observed = rx
-            .recv_timeout(std::time::Duration::from_secs(5))
-            .unwrap()
-            .unwrap();
-        assert_eq!(observed, reply);
+        let (session, observed) = rx.recv_timeout(std::time::Duration::from_secs(5)).unwrap();
+        assert_eq!(session, 101);
+        let observed = observed.unwrap();
+        assert_eq!(observed, NativeEditReply::Legacy(reply));
+        launcher.stop_for_capture().unwrap();
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn annotated_stdout_from_sibling_preserves_native_marks_and_source_dimensions() {
+        let dir = unique_dir();
+        fs::create_dir_all(&dir).unwrap();
+        let helper = dir.join("ns-panel-probe");
+        let reply_file = dir.join("annotation-result.bin");
+        let annotated = NativeEditReply::Annotated {
+            selection: NativeSelectionReply::Selected {
+                display: DisplayId(9),
+                rect: shot_core::RectPx {
+                    x: 1,
+                    y: 1,
+                    width: 8,
+                    height: 4,
+                },
+            },
+            pixels: (10, 5),
+            marks: vec![
+                NativeMark::Rectangle {
+                    top_left: (1, 1),
+                    bottom_right: (8, 4),
+                },
+                NativeMark::Text {
+                    at: (2, 2),
+                    content: String::from("中文"),
+                },
+            ],
+        };
+        let mut bytes = Vec::new();
+        annotated.write_to(&mut bytes).unwrap();
+        fs::write(&reply_file, bytes).unwrap();
+        fs::write(
+            &helper,
+            format!(
+                "#!/bin/sh\n/bin/cat >/dev/null\n/bin/cat '{}'\n",
+                reply_file.display()
+            ),
+        )
+        .unwrap();
+        fs::set_permissions(&helper, fs::Permissions::from_mode(0o700)).unwrap();
+        let snapshot = NativeSnapshot::new(
+            OverlayPlacement::new(DisplayId(9), (-100.0, 20.0), (100.0, 70.0)).unwrap(),
+            RgbaFrame::new(10, 5, vec![28; 10 * 5 * 4]).unwrap(),
+        )
+        .unwrap();
+        let (tx, rx) = std::sync::mpsc::channel();
+        let mut launcher = NativeProbeLauncher::default();
+        assert_eq!(
+            launcher
+                .launch_select_from(
+                    &dir.join("PicPaste"),
+                    snapshot,
+                    202,
+                    tx,
+                    eframe::egui::Context::default(),
+                )
+                .unwrap(),
+            ProbeLaunchResult::Started
+        );
+        let (session, observed) = rx.recv_timeout(std::time::Duration::from_secs(5)).unwrap();
+        assert_eq!(session, 202);
+        let observed = observed.unwrap();
+        assert_eq!(observed, annotated);
+        assert_eq!(
+            observed
+                .validated_in(DisplayId(9), (10, 5))
+                .unwrap()
+                .unwrap()
+                .1
+                .len(),
+            2
+        );
         launcher.stop_for_capture().unwrap();
         fs::remove_dir_all(dir).unwrap();
     }
@@ -228,17 +306,16 @@ mod native_probe_launcher_tests {
                 .launch_select_from(
                     &dir.join("PicPaste"),
                     snapshot,
+                    303,
                     tx,
                     eframe::egui::Context::default()
                 )
                 .unwrap(),
             ProbeLaunchResult::Started
         );
-        assert!(
-            rx.recv_timeout(std::time::Duration::from_secs(5))
-                .unwrap()
-                .is_err()
-        );
+        let (session, result) = rx.recv_timeout(std::time::Duration::from_secs(5)).unwrap();
+        assert_eq!(session, 303);
+        assert!(result.is_err());
         launcher.stop_for_capture().unwrap();
         fs::remove_dir_all(dir).unwrap();
     }

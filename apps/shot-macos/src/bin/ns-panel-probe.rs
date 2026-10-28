@@ -61,7 +61,7 @@ fn run() -> Result<(), String> {
             native::show(Some(snapshot), false)
         }
         ProbeCommand::Select => {
-            // Reserve stdout for one PPSEL001 reply; diagnostics use stderr.
+            // Reserve stdout for one PPANN001 or PPSEL001 reply; diagnostics use stderr.
             // Decode the complete bounded screenshot before initializing AppKit.
             let stdin = std::io::stdin();
             let snapshot = NativeSnapshot::read_from(&mut stdin.lock())?;
@@ -101,6 +101,7 @@ mod native {
     use raw_window_handle::{AppKitWindowHandle, RawWindowHandle};
     use shot_core::glass_toolbar::{GlassToolbarAction, PreviewTheme};
     use shot_core::ime::{ImeKeyRoute, ImeKeyRouting};
+    use shot_core::native_annotation::NativeEditReply;
     use shot_core::native_markup::NativeMarkup;
     use shot_core::native_panel::{PanelSurfaceLifecycle, PanelSurfaceUpdate};
     use shot_core::native_selection::{AppKitSelectionFrame, NativeSelectionReply};
@@ -112,6 +113,10 @@ mod native {
     /// release the Metal surface before AppKit's retained view and panel.
     pub fn show(snapshot: Option<NativeSnapshot>, selection_mode: bool) -> Result<(), String> {
         let frozen_preview = snapshot.is_some();
+        let source_pixels = snapshot.as_ref().map(|snapshot| {
+            let source = snapshot.image();
+            (source.width, source.height)
+        });
         let selection_placement = if selection_mode {
             Some(
                 snapshot
@@ -490,10 +495,21 @@ mod native {
         ime_bridge.set_active(false);
         drop(ime_bridge);
         let selection_reply = selected_display.map(|display| {
-            if let Some(rect) = egui_ui.selection_result() {
+            let selection = if let Some(rect) = egui_ui.selection_result() {
                 NativeSelectionReply::Selected { display, rect }
             } else {
                 NativeSelectionReply::Cancelled { display }
+            };
+            if matches!(selection, NativeSelectionReply::Selected { .. })
+                && !egui_ui.committed_native_marks().is_empty()
+            {
+                NativeEditReply::Annotated {
+                    selection,
+                    pixels: source_pixels.expect("selection always has source pixels"),
+                    marks: egui_ui.committed_native_marks().to_vec(),
+                }
+            } else {
+                NativeEditReply::Legacy(selection)
             }
         });
         drop(egui_ui);
@@ -504,8 +520,8 @@ mod native {
         drop(panel);
         result?;
         if let Some(reply) = selection_reply {
-            // stdout is an exclusive binary response channel for --select.
-            // Never print diagnostics or native toolbar logs to stdout here.
+            // stdout is exclusively PPANN001 or legacy PPSEL001; diagnostic
+            // output must never contaminate this one-shot child reply.
             reply.write_to(&mut std::io::stdout().lock())?;
         }
         Ok(())
