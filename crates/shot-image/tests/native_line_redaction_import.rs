@@ -41,7 +41,9 @@ fn line_pixelate_and_blur_import_to_existing_non_destructive_png_history() {
         },
     ];
     assert_eq!(import_native_marks(&mut doc, &marks).unwrap(), 3);
-    assert!(matches!(&doc.visible()[0], Annotation::Line {from, to, width, ..} if *from == (2.0,3.0) && *to == (25.0,20.0) && *width == 3.0));
+    assert!(
+        matches!(&doc.visible()[0], Annotation::Line {from, to, width, ..} if *from == (2.0,3.0) && *to == (25.0,20.0) && *width == 3.0)
+    );
     assert_eq!(
         doc.visible()[1],
         Annotation::Pixelate {
