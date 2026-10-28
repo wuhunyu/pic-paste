@@ -93,7 +93,7 @@ mod native_probe_launcher_tests {
         let dir = unique_dir();
         fs::create_dir_all(&dir).unwrap();
         let path = dir.join("ns-panel-probe");
-        fs::write(&path, "#!/bin/sh\\nexec /bin/sleep 15\\n").unwrap();
+        fs::write(&path, "#!/bin/sh\nexec /bin/sleep 15\n").unwrap();
         fs::set_permissions(&path, fs::Permissions::from_mode(0o700)).unwrap();
         let app = dir.join("PicPaste");
         let mut launcher = NativeProbeLauncher::default();
