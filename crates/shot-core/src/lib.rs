@@ -5,6 +5,7 @@ pub mod glass_toolbar;
 pub mod ime;
 pub mod input;
 pub mod native_panel;
+pub mod native_snapshot;
 pub mod overlay;
 pub mod pin_texture_budget;
 pub mod pin_view;
