@@ -692,6 +692,7 @@ mod tests {
                 &texture,
                 &mut selection,
                 &mut markup,
+                &effect_preview::NativeEffectTextureCache::default(),
                 &mut text,
                 &mut selected,
             );
