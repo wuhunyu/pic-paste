@@ -203,9 +203,7 @@ mod native_probe_launcher_tests {
                 .unwrap(),
             ProbeLaunchResult::Started
         );
-        let (session, observed) = rx
-            .recv_timeout(std::time::Duration::from_secs(5))
-            .unwrap();
+        let (session, observed) = rx.recv_timeout(std::time::Duration::from_secs(5)).unwrap();
         assert_eq!(session, 101);
         let observed = observed.unwrap();
         assert_eq!(observed, NativeEditReply::Legacy(reply));
@@ -272,9 +270,7 @@ mod native_probe_launcher_tests {
                 .unwrap(),
             ProbeLaunchResult::Started
         );
-        let (session, observed) = rx
-            .recv_timeout(std::time::Duration::from_secs(5))
-            .unwrap();
+        let (session, observed) = rx.recv_timeout(std::time::Duration::from_secs(5)).unwrap();
         assert_eq!(session, 202);
         let observed = observed.unwrap();
         assert_eq!(observed, annotated);
@@ -317,9 +313,7 @@ mod native_probe_launcher_tests {
                 .unwrap(),
             ProbeLaunchResult::Started
         );
-        let (session, result) = rx
-            .recv_timeout(std::time::Duration::from_secs(5))
-            .unwrap();
+        let (session, result) = rx.recv_timeout(std::time::Duration::from_secs(5)).unwrap();
         assert_eq!(session, 303);
         assert!(result.is_err());
         launcher.stop_for_capture().unwrap();
