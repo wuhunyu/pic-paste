@@ -421,6 +421,9 @@ mod native {
                             GlassToolbarAction::UndoMarkup => {
                                 egui_ui.undo_markup();
                             }
+                            GlassToolbarAction::RedoMarkup => {
+                                egui_ui.redo_markup();
+                            }
                             GlassToolbarAction::CancelSelection => {
                                 egui_ui.cancel_selection();
                                 panel.orderOut(None);
