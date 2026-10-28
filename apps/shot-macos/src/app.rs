@@ -1674,7 +1674,9 @@ impl PicPasteApp {
                         self.native_selection_revision = None;
                         self.status = match self.native_probe.stop_for_capture() {
                             Ok(()) => String::from("已停止原生试运行窗口，恢复稳定截图编辑器"),
-                            Err(error) => format!("原生试运行窗口关闭失败：{error}；已恢复稳定编辑器"),
+                            Err(error) => {
+                                format!("原生试运行窗口关闭失败：{error}；已恢复稳定编辑器")
+                            }
                         };
                     }
                     ctx.send_viewport_cmd(egui::ViewportCommand::Visible(true));
@@ -2033,13 +2035,12 @@ impl PicPasteApp {
                     }
                     Ok(ProbeLaunchResult::AlreadyRunning) => {
                         self.native_canary_phase.reset();
-                        self.status = String::from(
-                            "原生框选窗口忙，已自动回退到稳定截图编辑器",
-                        );
+                        self.status = String::from("原生框选窗口忙，已自动回退到稳定截图编辑器");
                     }
                     Err(error) => {
                         self.native_canary_phase.reset();
-                        self.status = format!("原生试运行不可用，已自动回退到稳定截图编辑器：{error}");
+                        self.status =
+                            format!("原生试运行不可用，已自动回退到稳定截图编辑器：{error}");
                     }
                 }
             }
