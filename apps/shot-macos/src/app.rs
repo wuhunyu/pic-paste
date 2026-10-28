@@ -1,5 +1,7 @@
 use crate::hotkey::{HotkeyAction, HotkeyController};
 use crate::menu::{MenuAction, MenuBar};
+#[cfg(feature = "native-panel-probe")]
+use crate::native_probe_launcher::{NativeProbeLauncher, ProbeLaunchResult};
 use crate::ocr;
 use crate::overlay;
 use crate::pin::{PinEvent, PinnedImage};
@@ -635,6 +637,8 @@ pub struct PicPasteApp {
     _menu: Option<MenuBar>,
     quit_requested: bool,
     _hotkeys: Option<HotkeyController>,
+    #[cfg(feature = "native-panel-probe")]
+    native_probe: NativeProbeLauncher,
 }
 
 impl PicPasteApp {
@@ -711,6 +715,8 @@ impl PicPasteApp {
             _menu: menu,
             quit_requested: false,
             _hotkeys: hotkeys,
+            #[cfg(feature = "native-panel-probe")]
+            native_probe: NativeProbeLauncher::default(),
         }
     }
 
@@ -2044,6 +2050,26 @@ impl PicPasteApp {
                             self.apply_shortcuts(ui.ctx());
                         }
                     });
+                });
+                // Only compiled in explicitly opted-in developer builds.
+                // The normal capture path below remains an eframe viewport.
+                #[cfg(feature = "native-panel-probe")]
+                ui.collapsing("原生 NSPanel 实验（不替换截图）", |ui| {
+                    ui.label("独立的 AppKit / Metal / Liquid Glass 实验窗口，仅供界面与输入测试。");
+                    ui.label("须先编译同目录的 ns-panel-probe；正式截图、选区和贴图仍使用稳定窗口。");
+                    if ui.button("启动独立 NSPanel 实验窗口").clicked() {
+                        self.status = match self.native_probe.launch() {
+                            Ok(ProbeLaunchResult::Started) => String::from(
+                                "原生实验进程已启动；请在桌面确认是否正常显示（不代表真机验收通过）",
+                            ),
+                            Ok(ProbeLaunchResult::AlreadyRunning) => {
+                                String::from("原生实验窗口进程正在运行；不会重复创建")
+                            }
+                            Err(error) => format!(
+                                "原生实验窗口未启动：{error}；正式截图仍使用稳定窗口"
+                            ),
+                        };
+                    }
                 });
             }
             ui.horizontal(|ui| {
