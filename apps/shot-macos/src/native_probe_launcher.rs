@@ -4,7 +4,7 @@
 //! NSApplication event loop or own its Metal surface. This process boundary
 //! leaves capture, pins, and PNG output on the established backend.
 use eframe::egui;
-use shot_core::native_selection::NativeSelectionReply;
+use shot_core::native_annotation::NativeEditReply;
 use shot_core::native_snapshot::NativeSnapshot;
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
@@ -133,13 +133,13 @@ impl NativeProbeLauncher {
     }
 
     /// Start an explicit full-display native drag selector and wait for one
-    /// authenticated fixed-width PPSEL001 reply from the sibling's stdout.
+    /// a bounded PPANN001 edit reply or legacy fixed-width PPSEL001 reply from stdout.
     /// Both IPC directions run off the eframe event thread. A reader error is
     /// delivered instead of a fabricated rectangle on crash/truncation.
     pub(crate) fn launch_select(
         &mut self,
         snapshot: NativeSnapshot,
-        replies: Sender<Result<NativeSelectionReply, String>>,
+        replies: Sender<Result<NativeEditReply, String>>,
         wake: egui::Context,
     ) -> Result<ProbeLaunchResult, String> {
         let executable =
@@ -151,7 +151,7 @@ impl NativeProbeLauncher {
         &mut self,
         executable: &Path,
         snapshot: NativeSnapshot,
-        replies: Sender<Result<NativeSelectionReply, String>>,
+        replies: Sender<Result<NativeEditReply, String>>,
         wake: egui::Context,
     ) -> Result<ProbeLaunchResult, String> {
         if let Some(child) = self.child.as_mut() {
@@ -185,7 +185,7 @@ impl NativeProbeLauncher {
             }
         });
         thread::spawn(move || {
-            let result = NativeSelectionReply::read_from(&mut stdout);
+            let result = NativeEditReply::read_from(&mut stdout);
             let _ = replies.send(result);
             wake.request_repaint();
         });
