@@ -175,7 +175,7 @@ pub(crate) fn show_native_selection(
             }
         });
 
-    egui::Area::new(egui::Id::new("native-selection-actions"))
+    egui::Area::new(egui::Id::unique("native-selection-actions"))
         .order(egui::Order::Foreground)
         .anchor(egui::Align2::RIGHT_BOTTOM, egui::vec2(-18.0, -18.0))
         .show(root.ctx(), |ui| {
