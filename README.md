@@ -141,3 +141,6 @@ cargo run --locked -p shot-macos --features native-panel-probe --bin ns-panel-pr
 ```
 
 `--check` does not create AppKit windows or access the GPU. Hosted macOS CI does not run `--show` and **cannot prove** material appearance or real click/focus/Spaces/Retina behavior. Reopen the probe after changing Reduce Transparency (live preference observation is not implemented). Original screenshot/pin windows, scrolling, OCR/QR, PNG-only Alpha output and packaging remain unaffected. See [Issue #5](https://github.com/wuhunyu/pic-paste/issues/5) and [window strategy](docs/macos-window-strategy.md).
+
+> **2026-10-28 native macOS progress:** PR [#38](https://github.com/wuhunyu/pic-paste/pull/38) added opt-in NSPanel CJK text composition, and PR [#39](https://github.com/wuhunyu/pic-paste/pull/39) fixed AppKit-consumed key routing; both are merged. [#40](https://github.com/wuhunyu/pic-paste/pull/40) adds an **explicitly feature-gated** option in the main settings window to launch the separate NSPanel/Liquid Glass test program. It does **not** switch actual screenshot/editor or pin windows to NSPanel. Real macOS GUI, CJK candidate placement, Retina/Spaces, TCC, performance and accessibility acceptance remain open.
+

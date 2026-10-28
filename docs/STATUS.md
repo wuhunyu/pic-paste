@@ -101,3 +101,10 @@
 
 - [x] Theme/next-action label TDD RED [CI #40606391694](https://github.com/wuhunyu/pic-paste/actions/runs/40606391694) (missing `PreviewTheme`); pure theme contract GREEN with Linux core tests/Clippy.
 - [ ] Add native NSButton target/actions for preview theme and safe close, retain target lifetime and preserve fallback; latest complete PR CI and real Mac GUI still pending. Do **not** claim production glass toolbar completion.
+
+## 2026-10-28 — native input and staged NSPanel access
+
+- [x] [PR #38](https://github.com/wuhunyu/pic-paste/pull/38) native NSTextInputClient marked-text/IME into the independent NSPanel probe, CI #40613304167 success, merged as `1156961`.
+- [x] [PR #39](https://github.com/wuhunyu/pic-paste/pull/39) prevents duplicate AppKit-consumed key events in the probe, CI #40615197102 success, merged as `2760542`.
+- [ ] [PR #40](https://github.com/wuhunyu/pic-paste/pull/40) adds a manual native-probe launch entry from the regular settings window **only when compiled with the optional `native-panel-probe` feature**. The separate helper binary must already exist next to the app executable, and the settings page reports failure without changing screenshot routing. Headless CI and actual Mac GUI acceptance are distinct.
+- [ ] **Not completed:** a production NSPanel capture/editor replacement; normal capture, selection and pins remain eframe/winit. No claim of actual Liquid Glass appearance, IME, Retina, Spaces, Accessibility, TCC or latency verification without device evidence.

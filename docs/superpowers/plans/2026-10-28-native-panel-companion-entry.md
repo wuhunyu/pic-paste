@@ -30,9 +30,9 @@
 - `pub(crate) struct NativeProbeLauncher { child: Option<Child> }`
 - `NativeProbeLauncher::launch(&mut self) -> Result<ProbeLaunchResult, String>`; `launch_from(&mut self, executable: &Path)` for real filesystem regression tests.
 
-- [ ] RED: add feature-gated tests asserting absolute sibling path resolution, refusal of relative paths, absent/nonexecutable/symlink helpers and no duplicate child on a repeated click.
-- [ ] Run: `cargo test -p shot-macos --features native-panel-probe --bin shot-macos --locked` on macOS CI. Expected initial missing module or missing symbol compilation failure.
-- [ ] GREEN: implement `native_probe_launcher.rs`; derive the binary name from `current_exe`, reject symlinks, verify the execute bit, use `Command::new(...).arg("--show").spawn()` (never `sh -c`); retain the `Child` while the demo runs and kill/wait on Drop.
+- [x] RED: add feature-gated tests asserting absolute sibling path resolution, refusal of relative paths, absent/nonexecutable/symlink helpers and no duplicate child on a repeated click.
+- [x] Run: `cargo test -p shot-macos --features native-panel-probe --bin shot-macos --locked` on macOS CI. Expected initial missing module or missing symbol compilation failure.
+- [x] GREEN: implement `native_probe_launcher.rs`; derive the binary name from `current_exe`, reject symlinks, verify the execute bit, use `Command::new(...).arg("--show").spawn()` (never `sh -c`); retain the `Child` while the demo runs and kill/wait on Drop.
 - [ ] Verify original tests, new launch tests and strict Clippy on macOS; no global hotkey or capture code changes.
 
 ### Task 2 — Feature-gated settings button and CI
@@ -43,9 +43,9 @@
 - New `PicPasteApp.native_probe: NativeProbeLauncher` field compiled only with `native-panel-probe`.
 - A collapsed `原生 NSPanel 实验（不替换截图）` section on the normal settings screen. The only button starts the companion and reports Started/AlreadyRunning/missing executable without claiming presentation success.
 
-- [ ] Add `#[cfg(feature = "native-panel-probe")]` field/default and settings-only button; preserve `overlay::capture_builder` and its capture hotkeys unchanged.
-- [ ] Extend macOS CI with `cargo test -p shot-macos --features native-panel-probe --bin shot-macos --locked` and `cargo clippy -p shot-macos --features native-panel-probe --bin shot-macos --locked -- -D warnings`. Existing probe binary and default bundle build gates remain.
-- [ ] Record precise manual use without representing a dev preview as a signed release.
+- [x] Add `#[cfg(feature = "native-panel-probe")]` field/default and settings-only button; preserve `overlay::capture_builder` and its capture hotkeys unchanged.
+- [x] Extend macOS CI with `cargo test -p shot-macos --features native-panel-probe --bin shot-macos --locked` and `cargo clippy -p shot-macos --features native-panel-probe --bin shot-macos --locked -- -D warnings`. Existing probe binary and default bundle build gates remain.
+- [x] Record precise manual use without representing a dev preview as a signed release.
 
 ### Task 3 — Acceptance and rollback
 

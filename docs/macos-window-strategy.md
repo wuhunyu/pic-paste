@@ -82,3 +82,18 @@ References: https://developer.apple.com/videos/play/wwdc2025/310/ and https://de
 The optional `ns-panel-probe` now uses two actual native `NSButton` controls inside a **single** existing AppKit material capsule. “浅色预览/深色预览” switches only the egui demo canvas via `Context::set_theme`, and “关闭” exits the probe through the existing WGPU-before-NSView teardown. Button target/action selectors queue commands using a main-thread-only retained target (AppKit controls hold their target weakly). The same controls live in `NSGlassEffectView.contentView` on macOS 26, `NSVisualEffectView` on 14–25 and opaque `NSBox` for Reduce Transparency; no production screenshots or saved pixels are modified.
 
 **Automated boundary:** Pure Rust toggle-label tests and macOS compile, headless egui style transitions, `--check`, workspace/release/package gates can be validated by CI. CI does **not** execute a mouse click, keyboard activation, VoiceOver action, focus transition, actual translucency, live Reduce Transparency switching or Retina/Spaces/Metal presentation. Test the two actions and macOS 14/26 fallback on a real Mac before integrating a real screenshot “复制/保存/标注” toolbar. Keep Issue #5 open.
+
+## 2026-10-28 — native IME and safe opt-in companion bridge (#38–#40)
+
+PR #38 implements `NSTextInputClient` / `NSTextInputContext` for marked CJK text and candidate caret rectangles in the independent Metal/egui NSPanel, and PR #39 adds balanced native-consumed key routing. Both changes have passing Linux/macOS CI; neither is physical GUI acceptance.
+
+PR #40 adds a developer-only entry in the existing PicPaste settings screen (compiled with `--features native-panel-probe`). The entry launches the **separate process** `ns-panel-probe --show`, only from a verified same-directory, non-symlink, executable file. Multiple clicks reuse a live child; parent exit cleans it up. Missing/invalid helpers return a visible error and **do not affect ScreenCaptureKit, the real screenshot editor, pins, OCR, PNG or production eframe windows**.
+
+Manual opt-in development verification (not part of normal Lite/Full builds):
+
+```sh
+cargo build --locked -p shot-macos --features native-panel-probe --bins
+cargo run --locked -p shot-macos --features native-panel-probe --bin shot-macos
+```
+
+In the main settings UI expand **原生 NSPanel 实验（不替换截图）** and click **启动独立 NSPanel 实验窗口**. Check macOS 14+/26 display presentation, Liquid Glass/vibrancy/Reduce Transparency, CJK candidate placement, keyboard/mouse, 1x/2x, Spaces/focus and teardown. The helper is not bundled by default; without it the UI must show an error and regular screenshot features must still work. This is a **test access seam** rather than native screenshot UI migration. Gate any actual capture/pin NSPanel rollout on GUI acceptance and editor-feature parity.
