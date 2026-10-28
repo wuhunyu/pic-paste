@@ -2880,6 +2880,68 @@ mod tests {
         SelectionView::new(&ctx, DisplayId(1), capture_id, image, Vec::new())
     }
 
+    #[cfg(feature = "native-panel-probe")]
+    #[test]
+    fn native_marks_import_into_screenshot_png_preview_and_undo_redo() {
+        use shot_core::native_markup::NativeMark;
+        let mut screen = test_screen(77);
+        let original = screen.source.rgba.clone();
+        let packet = NativeEditReply::Annotated {
+            selection: NativeSelectionReply::Selected {
+                display: DisplayId(1),
+                rect: RectPx { x: 2, y: 3, width: 50, height: 40 },
+            },
+            pixels: (80, 60),
+            marks: vec![
+                NativeMark::Rectangle {
+                    top_left: (5, 5), bottom_right: (25, 20),
+                },
+                NativeMark::Arrow { from: (3, 4), to: (30, 15) },
+            ],
+        };
+        assert_eq!(screen.import_native_reply(&packet).unwrap(), Some(2));
+        assert_eq!(screen.annotations.visible().len(), 2);
+        assert_ne!(screen.rendered.rgba, original);
+        assert_eq!(screen.selection.unwrap().width, 50);
+        assert_eq!(screen.tool, Tool::Select);
+        screen.undo();
+        assert_eq!(screen.annotations.visible().len(), 1);
+        screen.undo();
+        assert_eq!(screen.annotations.visible().len(), 0);
+        assert_eq!(screen.rendered.rgba, original);
+        screen.redo();
+        assert_ne!(screen.rendered.rgba, original);
+    }
+
+    #[cfg(feature = "native-panel-probe")]
+    #[test]
+    fn native_reply_rejects_invalid_second_mark_without_partial_import_or_selection() {
+        use shot_core::native_markup::NativeMark;
+        let mut screen = test_screen(77);
+        let original = screen.source.rgba.clone();
+        let packet = NativeEditReply::Annotated {
+            selection: NativeSelectionReply::Selected {
+                display: DisplayId(1),
+                rect: RectPx { x: 2, y: 3, width: 50, height: 40 },
+            },
+            pixels: (80, 60),
+            marks: vec![
+                NativeMark::Arrow { from: (3, 4), to: (30, 15) },
+                NativeMark::Text { at: (80, 10), content: String::from("bad") },
+            ],
+        };
+        assert!(screen.import_native_reply(&packet).is_err());
+        assert!(screen.annotations.visible().is_empty());
+        assert_eq!(screen.rendered.rgba, original);
+        assert!(screen.selection.is_none());
+
+        let expected = (screen.capture_revision, screen.edit_revision);
+        assert!(screen.accepts_native_revision(expected));
+        screen.invalidate_ocr();
+        assert!(!screen.accepts_native_revision(expected));
+        assert!(!screen.accepts_native_revision((76, screen.edit_revision)));
+    }
+
     #[test]
     fn ocr_reply_is_bound_to_original_capture_and_selected_region() {
         let mut screen = test_screen(10);
