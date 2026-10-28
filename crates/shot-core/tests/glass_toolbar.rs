@@ -117,6 +117,7 @@ fn native_toolbar_annotation_actions_preserve_select_and_demo_commands() {
         NativeMarkupTool::Brush,
         NativeMarkupTool::Arrow,
         NativeMarkupTool::Rectangle,
+        NativeMarkupTool::Ellipse,
         NativeMarkupTool::Text,
     ] {
         assert_eq!(GlassToolbarAction::ChooseTool(tool).tool(), Some(tool));
