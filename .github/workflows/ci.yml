@@ -48,6 +48,10 @@ jobs:
         run: python3 -m unittest discover -s tests -p 'test_*.py'
       - name: Check formatting
         run: cargo fmt --all -- --check
+      - name: Test opt-in production companion launcher (no GUI)
+        run: |
+          cargo test -p shot-macos --features native-panel-probe --bin shot-macos --locked
+          cargo clippy -p shot-macos --features native-panel-probe --bin shot-macos --locked -- -D warnings
       - name: Test opt-in native NSPanel WGPU probe (no GUI)
         run: cargo test -p shot-macos --features native-panel-probe --bin ns-panel-probe --locked
       - name: Build and validate NSPanel WGPU probe CLI without GUI
