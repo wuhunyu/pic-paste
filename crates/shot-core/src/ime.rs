@@ -125,3 +125,42 @@ fn char_offset_for_utf16(text: &str, offset: usize) -> Option<usize> {
     }
     (utf16_offset == offset).then_some(char_offset)
 }
+
+/// Routing outcome after AppKit has had the first chance to interpret a key.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ImeKeyRoute {
+    NativeOnly,
+    Egui,
+    SuppressRelease,
+}
+
+/// A small ledger for physical keys consumed by the native input context.
+/// Suppression is per key; switching focus resets all outstanding entries.
+#[derive(Debug, Default)]
+pub struct ImeKeyRouting {
+    consumed: std::collections::HashSet<u16>,
+}
+
+impl ImeKeyRouting {
+    pub fn key_down(&mut self, key_code: u16, native_eligible: bool, native_handled: bool) -> ImeKeyRoute {
+        if native_eligible && native_handled {
+            self.consumed.insert(key_code);
+            ImeKeyRoute::NativeOnly
+        } else {
+            self.consumed.remove(&key_code);
+            ImeKeyRoute::Egui
+        }
+    }
+
+    pub fn key_up(&mut self, key_code: u16) -> ImeKeyRoute {
+        if self.consumed.remove(&key_code) {
+            ImeKeyRoute::SuppressRelease
+        } else {
+            ImeKeyRoute::Egui
+        }
+    }
+
+    pub fn reset(&mut self) {
+        self.consumed.clear();
+    }
+}
