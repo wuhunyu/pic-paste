@@ -1,6 +1,6 @@
 # PicPaste 未完成任务与 Issue 对账台账
 
-> **核对日期：2026-10-27** · 最新功能基线 [`main@73122e0`](https://github.com/wuhunyu/pic-paste/commit/73122e009c4bef66b39c4ef0f0f60def4680c76e)，[PR #31](https://github.com/wuhunyu/pic-paste/pull/31) 已合并 · 完整 [PR CI #40461875462](https://github.com/wuhunyu/pic-paste/actions/runs/40461875462) 成功。原生 NSPanel、多屏焦点/Spaces/TCC、OCR Add-on 真签名及性能仍需设备验收。
+> **核对日期：2026-10-28** · 已合并基线 [`main@d33044c`](https://github.com/wuhunyu/pic-paste/commit/d33044cbc4f4801093618b226c33df41cb941e3e)（PR #45），[main CI #40647009844](https://github.com/wuhunyu/pic-paste/actions/runs/40647009844) success。实验性原生标注已进入 PNG 保存链路，但 NSPanel/Retina/Spaces/TCC/IME/性能仍无真实设备验收。
 >
 > 此文档与 [TASKS.md](TASKS.md)、[STATUS.md](STATUS.md) 和 [Issues](https://github.com/wuhunyu/pic-paste/issues?q=is%3Aissue+is%3Aopen) 同步。以下任务状态指 **代码与证据**，不能将单元测试、编译成功等同于操作系统真机功能验收。独立的当前 Issue 正文是每项工作的逐条关闭清单。
 
@@ -10,7 +10,7 @@
 | --- | --- |
 | 原始 v1.2 任务 | 20 项：**8 项代码基本完成、9 项部分实现、3 项未开始** |
 | GitHub Issues（非 PR） | **7 个未关闭：#5–#11**；最初 workspace/CI 对应的 #4 已关闭 |
-| GitHub Pull Requests | **23 个已合并**（#1–#3、#12–#31），当前无待合并功能 PR |
+| GitHub Pull Requests | **37 个已合并**（#1–#3、#12–#45）；#46 正进行只读预检/真机验收工具开发 |
 | macOS 开发包 | ARM64 Lite/Full ad-hoc 签名 ZIP、SHA256；**不是正式发行件** |
 | GitHub Releases | **0** |
 | Windows 原生能力 | 未开始；Rust 核心接口存在，不代表 Windows 构建可用 |
@@ -117,3 +117,7 @@ NSPanel 代码已加入真正 AppKit 系统材质工具栏，画笔/箭头/矩�
 ## 2026-10-28 — PR #45 原生标注回传已接入（仍为实验）
 
 此前 PR #44 标注只在独立 NSPanel 中预览。本阶段的版本化有界 `PPANN001` 将已提交标注转为原编辑器 `AnnotationDocument`，可撤销/重做并通过现有 PNG 合成/导出。取消、无效协议、超限/越界或过期截图均不修改历史。仍需 macOS 14–26 真机多屏 Retina、Spaces/TCC/焦点、降低透明度、中文 IME、GPU/CPU/RSS 与真实保存对比验收；不将自动化测试当作 GUI 完成认证。
+
+## 2026-10-28 — PR #46 真机验收工具（不等于验收通过）
+
+[docs/native-macos-acceptance.md](native-macos-acceptance.md) 提供 `ns-panel-probe --preflight` 非侵入环境报告、逐项未执行的真机验收模板及严格 `scripts/native_acceptance.py verify`（记录真实证据和 P95/资源阈值）；CI Runner 的零显示器/无 TCC 权限只算环境观测，**不是 GUI 测试**。真实 Mac 上的混合 DPI/负屏幕原点、NSGlassEffectView/降低透明度、中文 IME、Spaces/TCC、PNG 逐像素确认和资源性能仍须人工操作及真实测量后才能关闭 Issue #5/#10。

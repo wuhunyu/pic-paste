@@ -1,6 +1,6 @@
 # 原始 v1.2 执行计划：20 项任务同步台账
 
-更新于 **2026-10-27**，对应 [STATUS.md](STATUS.md)、[REMAINING.md](REMAINING.md) 与 [GitHub Issues](https://github.com/wuhunyu/pic-paste/issues)。**20 项按任务数：8 项代码基本完成、9 项部分实现、3 项未开始**。`代码基本完成` 指核心实现与自动化测试存在，**不表示功能已通过真实 macOS/Windows 验收**；`部分实现` 指原任务至少有一项实质性缺口；`未开始` 指该目标尚无功能代码。
+核对于 **2026-10-28**，对应 [STATUS.md](STATUS.md)、[REMAINING.md](REMAINING.md) 与 [GitHub Issues](https://github.com/wuhunyu/pic-paste/issues)。**20 项按任务数：8 项代码基本完成、9 项部分实现、3 项未开始**。`代码基本完成` 指核心实现与自动化测试存在，**不表示功能已通过真实 macOS/Windows 验收**；`部分实现` 指原任务至少有一项实质性缺口；`未开始` 指该目标尚无功能代码。
 
 | 序号 | 原计划任务 | 当前状态 | 可核验代码 / 剩余缺口 | 跟踪 |
 | --- | --- | --- | --- | --- |
@@ -138,3 +138,9 @@ PR #38 (CJK marked-text) and PR #39 (native-consumed key routing) are merged wit
 - [x] `PPSEL001` 保留旧 33 字节回复；含标注确认使用 `PPANN001` 并严格验证协议长度、标注数量、物理坐标、显示器和原始图像尺寸。
 - [x] 标注在父进程经截图/编辑 revision 核验并一次性预合成后进入现有 PNG-only、撤销/重做、复制与贴图流程。错误及取消返回均不改变现有历史。
 - [ ] macOS 14–26 真实窗口交互/混合 DPI/Spaces/TCC/Liquid Glass/中文 IME/性能验收与生产切换依然未完成。
+
+## 2026-10-28 — PR #46 原生真机验收可复测工具
+
+- [x] 增加可选 `--preflight` 只读系统环境检查（Mac 版本、显示器逻辑点/逐屏 Retina、Liquid Glass 回退、录屏 TCC 授权状态，不请求权限）。
+- [x] 建立 [真机验收流程](native-macos-acceptance.md)、非伪造的 `not_run` 报表和数值门槛校验工具；CI 生成的报告只用来检查格式和平台接口。
+- [ ] 真实 macOS 14/26、不同显示器布局和物理性能/截图质量数据未提交前，原 20 项状态数量保持不变，不能据此宣称发行验收已通过。
