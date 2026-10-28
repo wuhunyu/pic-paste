@@ -227,7 +227,9 @@ mod native {
                     if route == ImeKeyRoute::Egui
                         && (!pointer_down || !glass_toolbar.contains_pointer(&event, &content_view))
                     {
-                        egui_ui.on_event(&event, &panel, &content_view, native_text_active);
+                        // This key was not consumed by the native context; allow
+                        // the original ASCII fallback for this event.
+                        egui_ui.on_event(&event, &panel, &content_view, false);
                     }
                     application.sendEvent(&event);
                     for change in ime_bridge.drain() {
