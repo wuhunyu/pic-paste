@@ -138,10 +138,15 @@ pub(crate) fn paint_native_marks(ui: &egui::Ui, origin: egui::Pos2, markup: &Nat
                 egui::StrokeKind::Inside,
             );
         }
-        NativeMark::Ellipse { top_left, bottom_right } => {
+        NativeMark::Ellipse {
+            top_left,
+            bottom_right,
+        } => {
             let rect = egui::Rect::from_two_pos(at(*top_left), at(*bottom_right));
             painter.add(egui::Shape::ellipse_stroke(
-                rect.center(), rect.size() / 2.0, stroke,
+                rect.center(),
+                rect.size() / 2.0,
+                stroke,
             ));
         }
         NativeMark::Text { at: point, content } => {
