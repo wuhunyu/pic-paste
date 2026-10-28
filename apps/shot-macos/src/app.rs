@@ -11,6 +11,8 @@ use eframe::egui;
 use shot_core::async_ticket::OcrTicket;
 use shot_core::display::{DisplaySelection, OverlayPlacement};
 #[cfg(feature = "native-panel-probe")]
+use shot_core::native_selection::NativeSelectionReply;
+#[cfg(feature = "native-panel-probe")]
 use shot_core::native_snapshot::NativeSnapshot;
 use shot_core::overlay::OverlayState;
 use shot_core::pin_texture_budget::{MAX_PIN_COUNT, MAX_TEXTURE_BYTES, PinTextureBudget};
@@ -641,11 +643,19 @@ pub struct PicPasteApp {
     _hotkeys: Option<HotkeyController>,
     #[cfg(feature = "native-panel-probe")]
     native_probe: NativeProbeLauncher,
+    #[cfg(feature = "native-panel-probe")]
+    native_selection_tx: Sender<Result<NativeSelectionReply, String>>,
+    #[cfg(feature = "native-panel-probe")]
+    native_selection_rx: Receiver<Result<NativeSelectionReply, String>>,
+    #[cfg(feature = "native-panel-probe")]
+    native_selection_revision: Option<u64>,
 }
 
 impl PicPasteApp {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
         let (work_tx, work_rx) = mpsc::channel();
+        #[cfg(feature = "native-panel-probe")]
+        let (native_selection_tx, native_selection_rx) = mpsc::channel();
         let (hotkey_tx, hotkey_rx) = mpsc::channel();
         let (scroll_tx, scroll_rx) = mpsc::channel();
         let (pin_tx, pin_rx) = mpsc::channel();
@@ -719,6 +729,12 @@ impl PicPasteApp {
             _hotkeys: hotkeys,
             #[cfg(feature = "native-panel-probe")]
             native_probe: NativeProbeLauncher::default(),
+            #[cfg(feature = "native-panel-probe")]
+            native_selection_tx,
+            #[cfg(feature = "native-panel-probe")]
+            native_selection_rx,
+            #[cfg(feature = "native-panel-probe")]
+            native_selection_revision: None,
         }
     }
 
@@ -768,6 +784,11 @@ impl PicPasteApp {
         }
         if !self.overlay.begin_capture() {
             return;
+        }
+        #[cfg(feature = "native-panel-probe")]
+        {
+            // Results from a stopped child must not affect a new capture.
+            self.native_selection_revision = None;
         }
         self.capturing = true;
         self.status = String::from("正在获取屏幕快照…");
@@ -1461,6 +1482,46 @@ impl PicPasteApp {
     }
 
     fn process_events(&mut self, ctx: &egui::Context) {
+        #[cfg(feature = "native-panel-probe")]
+        {
+            let responses: Vec<_> = self.native_selection_rx.try_iter().collect();
+            for response in responses {
+                let Some(revision) = self.native_selection_revision.take() else {
+                    continue; // Stale or killed helper; never change this capture.
+                };
+                if !self.overlay.is_fullscreen() {
+                    continue;
+                }
+                let Some(screen) = self.screen.as_mut() else {
+                    continue;
+                };
+                if screen.capture_revision != revision {
+                    continue;
+                }
+                self.status = match response {
+                    Ok(reply) => {
+                        match reply.validated_in(
+                            screen.display_id,
+                            (screen.source.width, screen.source.height),
+                        ) {
+                            Ok(Some(rect)) => {
+                                screen.tool = Tool::Select;
+                                screen.set_selection(Some(rect));
+                                format!(
+                                    "原生框选已回传并校验：{}×{} 物理像素；可继续标注、复制或保存 PNG",
+                                    rect.width, rect.height
+                                )
+                            }
+                            Ok(None) => String::from("已取消 NSPanel 原生框选，原截图仍可编辑"),
+                            Err(error) => format!("原生框选结果无效，原截图未修改：{error}"),
+                        }
+                    }
+                    Err(error) => format!("原生框选进程未返回有效结果，原截图未修改：{error}"),
+                };
+                let id = egui::ViewportId::from_hash_of(("picpaste-capture", revision));
+                ctx.send_viewport_cmd_to(id, egui::ViewportCommand::Focus);
+            }
+        }
         let menu_actions: Vec<_> = self.menu_rx.try_iter().collect();
         for action in menu_actions {
             match action {
@@ -2117,6 +2178,11 @@ impl PicPasteApp {
             ui.separator();
 
             if ui.ctx().input(|i| i.key_pressed(egui::Key::Escape)) {
+                #[cfg(feature = "native-panel-probe")]
+                {
+                    self.native_selection_revision = None;
+                    let _ = self.native_probe.stop_for_capture();
+                }
                 self.screen = None;
                 if self.overlay.dismiss() {
                     self.overlay_placement = None;
@@ -2130,6 +2196,8 @@ impl PicPasteApp {
             let mut selected_action = None;
             #[cfg(feature = "native-panel-probe")]
             let mut requested_native_preview = false;
+            #[cfg(feature = "native-panel-probe")]
+            let mut requested_native_selection = false;
             let mut start_scroll = None;
             let mut recognize_text = None;
             let mut recognize_qr = false;
@@ -2148,6 +2216,10 @@ impl PicPasteApp {
                     #[cfg(feature = "native-panel-probe")]
                     if ui.button("NSPanel 冻结画面预览（实验）").clicked() {
                         requested_native_preview = true;
+                    }
+                    #[cfg(feature = "native-panel-probe")]
+                    if ui.button("NSPanel 原生框选（实验）").clicked() {
+                        requested_native_selection = true;
                     }
                     if ui.button("重置选区").clicked() {
                         screen.set_selection(None);
@@ -2363,6 +2435,40 @@ impl PicPasteApp {
                     Err(error) => format!("原生冻结画面预览不可用：{error}"),
                 };
             }
+            #[cfg(feature = "native-panel-probe")]
+            if requested_native_selection {
+                let prepared = (|| -> Result<(NativeSnapshot, u64), String> {
+                    let screen = self.screen.as_ref().ok_or("截图尚未就绪")?;
+                    let placement = self.overlay_placement.ok_or("截图显示器位置不可用")?;
+                    if !placement.belongs_to(screen.display_id) {
+                        return Err(String::from("原生框选显示器与截图不一致"));
+                    }
+                    NativeSnapshot::validate_dimensions(
+                        screen.source.width,
+                        screen.source.height,
+                    )?;
+                    let snapshot =
+                        NativeSnapshot::new(placement, screen.source.as_ref().clone())?;
+                    Ok((snapshot, screen.capture_revision))
+                })();
+                self.status = match prepared {
+                    Ok((snapshot, revision)) => match self.native_probe.launch_select(
+                        snapshot,
+                        self.native_selection_tx.clone(),
+                        ui.ctx().clone(),
+                    ) {
+                        Ok(ProbeLaunchResult::Started) => {
+                            self.native_selection_revision = Some(revision);
+                            String::from("已启动 NSPanel 原生框选；拖动鼠标后返回当前编辑器，Esc 取消（待真机验证）")
+                        }
+                        Ok(ProbeLaunchResult::AlreadyRunning) => {
+                            String::from("原生实验窗口仍在运行，请先关闭后再次框选")
+                        }
+                        Err(error) => format!("NSPanel 原生框选未启动：{error}"),
+                    },
+                    Err(error) => format!("NSPanel 原生框选不可用：{error}"),
+                };
+            }
             if let Some(color) = color_to_copy {
                 self.status =
                     match Clipboard::new().and_then(|mut clipboard| clipboard.set_text(color)) {
@@ -2378,6 +2484,11 @@ impl PicPasteApp {
                 selected_action = Some(PrepareAction::Save);
             }
             if let Some(action) = selected_action {
+                #[cfg(feature = "native-panel-probe")]
+                {
+                    self.native_selection_revision = None;
+                    let _ = self.native_probe.stop_for_capture();
+                }
                 self.request_prepared(ui.ctx(), action);
                 if self.overlay.accept() {
                     self.overlay_placement = None;
