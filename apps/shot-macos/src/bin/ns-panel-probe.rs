@@ -12,6 +12,10 @@ mod panel_egui;
 #[path = "ns-panel-probe/glass_toolbar.rs"]
 mod glass_toolbar;
 
+#[cfg(target_os = "macos")]
+#[path = "ns-panel-probe/ime.rs"]
+mod ime;
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum ProbeCommand {
     Check,
@@ -65,10 +69,12 @@ mod native {
 mod native {
     use super::PanelSurfaceSize;
     use super::glass_toolbar::ProbeGlassToolbar;
+    use super::ime::ProbeImeBridge;
     use super::panel_egui::{ProbeEgui, ProbeViewport};
     use objc2::{MainThreadMarker, MainThreadOnly};
     use objc2_app_kit::{
-        NSApplication, NSBackingStoreType, NSEventMask, NSEventType, NSPanel, NSWindowStyleMask,
+        NSApplication, NSBackingStoreType, NSEventMask, NSEventModifierFlags, NSEventType, NSPanel,
+        NSWindowStyleMask,
     };
     use objc2_foundation::{NSDate, NSDefaultRunLoopMode, NSPoint, NSRect, NSSize, ns_string};
     use raw_window_handle::{AppKitWindowHandle, RawWindowHandle};
@@ -167,6 +173,9 @@ mod native {
         // still the WGPU Surface owner; screenshot pixels remain untouched.
         let glass_toolbar = ProbeGlassToolbar::new(mtm, &content_view);
         println!("Experimental native toolbar: {:?}", glass_toolbar.material);
+        let mut ime_bridge = ProbeImeBridge::new(mtm, &content_view);
+        ime_bridge.set_cursor(egui_ui.ime_cursor_rect());
+        ime_bridge.set_active(panel.isKeyWindow() && egui_ui.wants_text_input());
         let mut preview_theme = PreviewTheme::Dark;
 
         let mut lifecycle = PanelSurfaceLifecycle::new(size);
@@ -196,10 +205,26 @@ mod native {
                             | NSEventType::RightMouseDown
                             | NSEventType::OtherMouseDown
                     );
+                    let native_text_active =
+                        ime_bridge.is_active() && event.windowNumber() == panel.windowNumber();
+                    // Cocoa produces the text/preedit callbacks. Do not also
+                    // inject NSEvent.characters() for the same key press.
+                    // Preserve normal Command/Control shortcuts in egui.
+                    if native_text_active
+                        && event.r#type() == NSEventType::KeyDown
+                        && !event.modifierFlags().intersects(
+                            NSEventModifierFlags::Command | NSEventModifierFlags::Control,
+                        )
+                    {
+                        let _handled = ime_bridge.handle_key(&event);
+                    }
                     if !pointer_down || !glass_toolbar.contains_pointer(&event, &content_view) {
-                        egui_ui.on_event(&event, &panel, &content_view);
+                        egui_ui.on_event(&event, &panel, &content_view, native_text_active);
                     }
                     application.sendEvent(&event);
+                    for change in ime_bridge.drain() {
+                        egui_ui.push_ime_change(change);
+                    }
                     if let Some(action) = glass_toolbar.take_action() {
                         match action {
                             GlassToolbarAction::ToggleTheme => {
@@ -215,6 +240,10 @@ mod native {
                     }
                 }
                 egui_ui.set_focus(panel.isKeyWindow());
+                ime_bridge.set_active(panel.isKeyWindow() && egui_ui.wants_text_input());
+                for change in ime_bridge.drain() {
+                    egui_ui.push_ime_change(change);
+                }
                 if !panel.isVisible() {
                     break;
                 }
@@ -260,6 +289,8 @@ mod native {
                             backing_scale: panel.backingScaleFactor(),
                         },
                     )?;
+                    ime_bridge.set_cursor(egui_ui.ime_cursor_rect());
+                    ime_bridge.set_active(panel.isKeyWindow() && egui_ui.wants_text_input());
                 }
             }
             Ok(())
@@ -269,6 +300,10 @@ mod native {
         panel.orderOut(None);
         glass_toolbar.detach();
         drop(glass_toolbar);
+        // Release the Cocoa input context before its retained NSView and
+        // before the WGPU Surface is destroyed.
+        ime_bridge.set_active(false);
+        drop(ime_bridge);
         drop(egui_ui);
         drop(queue);
         drop(device);
@@ -321,6 +356,49 @@ mod tests {
         assert_eq!(ctx.theme(), egui::Theme::Light);
         panel_egui::apply_preview_theme(&ctx, PreviewTheme::Dark);
         assert_eq!(ctx.theme(), egui::Theme::Dark);
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn native_ime_changes_map_to_single_egui_events() {
+        use shot_core::ime::ImeChange;
+        let preedit = panel_egui::egui_event_for_ime_change(ImeChange::Preedit {
+            text: "你".into(),
+            active_range_chars: Some(1..1),
+        });
+        assert!(matches!(
+            preedit,
+            Some(egui::Event::Ime(egui::ImeEvent::Preedit { .. }))
+        ));
+        let commit = panel_egui::egui_event_for_ime_change(ImeChange::Commit {
+            text: "你".into(),
+            was_marked: true,
+        });
+        assert!(matches!(
+            commit,
+            Some(egui::Event::Ime(egui::ImeEvent::Commit(ref text))) if text == "你"
+        ));
+        let ascii = panel_egui::egui_event_for_ime_change(ImeChange::Commit {
+            text: "abc".into(),
+            was_marked: false,
+        });
+        assert!(matches!(ascii, Some(egui::Event::Text(ref text)) if text == "abc"));
+        assert!(
+            panel_egui::egui_event_for_ime_change(ImeChange::Commit {
+                text: String::new(),
+                was_marked: false,
+            })
+            .is_none()
+        );
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn native_text_input_exports_context_and_composition_event_queue() {
+        let _key_handler: fn(&ime::ProbeImeBridge, &objc2_app_kit::NSEvent) -> bool =
+            ime::ProbeImeBridge::handle_key;
+        let _drain: fn(&ime::ProbeImeBridge) -> Vec<shot_core::ime::ImeChange> =
+            ime::ProbeImeBridge::drain;
     }
 
     #[cfg(target_os = "macos")]
