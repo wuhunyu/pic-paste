@@ -46,6 +46,7 @@ mod native_probe_launcher_tests {
     };
     use shot_core::RgbaFrame;
     use shot_core::display::OverlayPlacement;
+    use shot_core::native_selection::NativeSelectionReply;
     use shot_core::native_snapshot::NativeSnapshot;
     use shot_core::platform::DisplayId;
     use std::fs;
@@ -152,6 +153,94 @@ mod native_probe_launcher_tests {
         assert_eq!(received.placement().origin_pt(), (-100.0, 20.0));
         launcher.stop_for_capture().unwrap();
         fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn native_selection_reads_exact_verified_reply_from_companion_stdout() {
+        let dir = unique_dir();
+        fs::create_dir_all(&dir).unwrap();
+        let helper = dir.join("ns-panel-probe");
+        let reply_file = dir.join("selection-result.bin");
+        let reply = NativeSelectionReply::Selected {
+            display: DisplayId(9),
+            rect: shot_core::RectPx {
+                x: 2,
+                y: 1,
+                width: 3,
+                height: 2,
+            },
+        };
+        let mut bytes = Vec::new();
+        reply.write_to(&mut bytes).unwrap();
+        fs::write(&reply_file, bytes).unwrap();
+        fs::write(
+            &helper,
+            format!(
+                "#!/bin/sh\n/bin/cat >/dev/null\n/bin/cat '{}'\n",
+                reply_file.display()
+            ),
+        )
+        .unwrap();
+        fs::set_permissions(&helper, fs::Permissions::from_mode(0o700)).unwrap();
+        let snapshot = NativeSnapshot::new(
+            OverlayPlacement::new(DisplayId(9), (-100.0, 20.0), (100.0, 70.0)).unwrap(),
+            RgbaFrame::new(10, 5, vec![28; 10 * 5 * 4]).unwrap(),
+        )
+        .unwrap();
+        let (tx, rx) = std::sync::mpsc::channel();
+        let mut launcher = NativeProbeLauncher::default();
+        assert_eq!(
+            launcher
+                .launch_select_from(
+                    &dir.join("PicPaste"),
+                    snapshot,
+                    tx,
+                    eframe::egui::Context::default(),
+                )
+                .unwrap(),
+            ProbeLaunchResult::Started
+        );
+        let observed = rx
+            .recv_timeout(std::time::Duration::from_secs(5))
+            .unwrap()
+            .unwrap();
+        assert_eq!(observed, reply);
+        launcher.stop_for_capture().unwrap();
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn corrupt_native_selection_stdout_returns_an_error_not_a_rectangle() {
+        let dir = unique_dir();
+        fs::create_dir_all(&dir).unwrap();
+        let helper = dir.join("ns-panel-probe");
+        fs::write(&helper, "#!/bin/sh\n/bin/cat >/dev/null\nprintf bad\n").unwrap();
+        fs::set_permissions(&helper, fs::Permissions::from_mode(0o700)).unwrap();
+        let snapshot = NativeSnapshot::new(
+            OverlayPlacement::new(DisplayId(9), (0.0, 0.0), (10.0, 10.0)).unwrap(),
+            RgbaFrame::new(10, 10, vec![255; 400]).unwrap(),
+        )
+        .unwrap();
+        let (tx, rx) = std::sync::mpsc::channel();
+        let mut launcher = NativeProbeLauncher::default();
+        assert_eq!(
+            launcher
+                .launch_select_from(
+                    &dir.join("PicPaste"),
+                    snapshot,
+                    tx,
+                    eframe::egui::Context::default()
+                )
+                .unwrap(),
+            ProbeLaunchResult::Started
+        );
+        assert!(
+            rx.recv_timeout(std::time::Duration::from_secs(5))
+                .unwrap()
+                .is_err()
+        );
+        launcher.stop_for_capture().unwrap();
+        fs::remove_dir_all(dir).unwrap();
     }
 
     #[test]

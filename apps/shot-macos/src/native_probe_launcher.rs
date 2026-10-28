@@ -3,11 +3,14 @@
 //! The production eframe event loop must never host this companion's native
 //! NSApplication event loop or own its Metal surface. This process boundary
 //! leaves capture, pins, and PNG output on the established backend.
+use eframe::egui;
+use shot_core::native_selection::NativeSelectionReply;
 use shot_core::native_snapshot::NativeSnapshot;
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
+use std::sync::mpsc::Sender;
 use std::thread;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -126,6 +129,67 @@ impl NativeProbeLauncher {
         self.child = Some(child);
         // Process creation is not a claim of an actual on-screen frame;
         // native GUI and Retina validation remain device-only.
+        Ok(ProbeLaunchResult::Started)
+    }
+
+    /// Start an explicit full-display native drag selector and wait for one
+    /// authenticated fixed-width PPSEL001 reply from the sibling's stdout.
+    /// Both IPC directions run off the eframe event thread. A reader error is
+    /// delivered instead of a fabricated rectangle on crash/truncation.
+    pub(crate) fn launch_select(
+        &mut self,
+        snapshot: NativeSnapshot,
+        replies: Sender<Result<NativeSelectionReply, String>>,
+        wake: egui::Context,
+    ) -> Result<ProbeLaunchResult, String> {
+        let executable =
+            std::env::current_exe().map_err(|error| format!("无法定位 PicPaste：{error}"))?;
+        self.launch_select_from(&executable, snapshot, replies, wake)
+    }
+
+    pub(crate) fn launch_select_from(
+        &mut self,
+        executable: &Path,
+        snapshot: NativeSnapshot,
+        replies: Sender<Result<NativeSelectionReply, String>>,
+        wake: egui::Context,
+    ) -> Result<ProbeLaunchResult, String> {
+        if let Some(child) = self.child.as_mut() {
+            match child.try_wait() {
+                Ok(None) => return Ok(ProbeLaunchResult::AlreadyRunning),
+                Ok(Some(_)) => self.child = None,
+                Err(error) => return Err(format!("无法检查原生实验进程状态：{error}")),
+            }
+        }
+        let path = sibling_probe_path(executable)?;
+        validate_probe_path(&path)?;
+        let mut child = Command::new(&path)
+            .arg("--select")
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .spawn()
+            .map_err(|error| format!("无法启动原生框选进程：{error}"))?;
+        let Some(mut stdin) = child.stdin.take() else {
+            let _ = child.kill();
+            let _ = child.wait();
+            return Err(String::from("原生框选进程没有私有输入管道"));
+        };
+        let Some(mut stdout) = child.stdout.take() else {
+            let _ = child.kill();
+            let _ = child.wait();
+            return Err(String::from("原生框选进程没有结果输出管道"));
+        };
+        thread::spawn(move || {
+            if let Err(error) = snapshot.write_to(&mut stdin) {
+                eprintln!("PicPaste native selection input failed: {error}");
+            }
+        });
+        thread::spawn(move || {
+            let result = NativeSelectionReply::read_from(&mut stdout);
+            let _ = replies.send(result);
+            wake.request_repaint();
+        });
+        self.child = Some(child);
         Ok(ProbeLaunchResult::Started)
     }
 

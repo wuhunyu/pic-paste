@@ -110,3 +110,10 @@ PR #38 (CJK marked-text) and PR #39 (native-consumed key routing) are merged wit
 - [x] `native_snapshot` 有界、带版本号的一次性 RGBA stdin 协议与显示器逻辑点/本地物理像素分离单测。
 - [x] 仅开发功能启用时，截图编辑器显式触发独立 NSPanel/Metal/egui 的真实冻结画面只读预览；启动与失败不影响默认 eframe/PNG/贴图路径。
 - [ ] 不等于完成 P0-T3 的原生截图选区和工具栏迁移；macOS 14+/26 真机 Retina/Spaces/TCC/性能及选区回传尚待开发验证，原有 20 项任务分类暂不变。
+
+
+## 2026-10-28 — NSPanel native selection gate (PR #42)
+
+- [x] Developer-feature-only full-target-display AppKit NSPanel with real RGBA pixels and drag rectangle, reversible to validated physical source pixels via authenticated sibling IPC.
+- [x] Fail-closed cancellation/error and stale-result protections; default eframe editor, PNG-only, OCR, scroll and pin pathways remain intact.
+- [ ] Complete P0-T3 requires physical macOS GUI validation and production native editor parity. PR #42 does not close Issue #5 or update the original 20-task completion count.

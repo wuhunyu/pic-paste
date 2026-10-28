@@ -115,3 +115,11 @@
 - [x] 跨进程原始 RGBA 的 `PPSNAP01` 有界协议（128 MiB、8192 px 边长、明确区分桌面逻辑点和屏幕局部物理像素）；输入非法或截断数据在 AppKit 初始化前拒绝。
 - [x] `native-panel-probe` 功能构建可用 `ns-panel-probe --snapshot` 通过匿名 stdin 管道只读显示真实截图；截图编辑器中需显式点击实验入口，主程序异步写入，关闭/下次截图前回收子进程。既有 eframe 选区/标注/PNG/贴图路径不变。
 - [ ] 必须记录 PR #41 完整 Linux/macOS CI success、真实 macOS 14+/26 GUI 显示/色彩/Retina/Spaces/权限/性能验收；这是只读预览，不具备 NSPanel 原生选区和编辑器等价功能。Issue #5/#10 不关闭。
+
+
+## 2026-10-28 — PR #42: NSPanel 原生拖拽选区 / 安全回传（可选实验）
+
+- [x] `native_selection` 纯 Rust：CG 左上角桌面逻辑坐标→AppKit 左下角窗口定位（不缩放全局原点）；NSPanel 局部点→目标显示器物理像素选区（反向拖动、1×/2×、裁剪、零面积拒绝）。
+- [x] 严格 33 字节 `PPSEL001` 回传协议：固定版本、状态、显示器 ID 和局部物理像素矩形，拒绝乱码、截断、追加字节、越界与跨显示器结果。
+- [x] 仅 `native-panel-probe` Feature 增加 `ns-panel-probe --select` 及编辑器“NSPanel 原生框选（实验）”：原生窗口在所选屏幕上作为独立 AppKit/Metal 浮层，拖动后异步 stdout 回传并由 eframe 编辑器二次校验版本及边界；取消/进程异常均保留编辑器。
+- [ ] 真实 macOS 14+/26、Retina 1x/2x、负原点多屏、Spaces/fullscreen、TCC、焦点、GPU 和 CPU/RSS 验收；完整原生标注工具栏/保存/贴图尚未迁移，默认路径不变。

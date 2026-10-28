@@ -94,3 +94,11 @@
 - [x] 单次版式化帧协议 `PPSNAP01`：有界 RGBA 原图、显示器逻辑点元数据、匿名 stdin、不落盘；Linux 纯逻辑测试与 macOS 原生无 GUI 集成测试。
 - [x] 仅开发 Feature 启用真实截图冻结画面的只读 AppKit NSPanel/Metal 预览；默认正式选区和标注仍为 eframe，PNG-only 输出不变。
 - [ ] PR #41 全量 CI、真机 macOS 14+/26 显示和多个屏幕/缩放/Spaces、内存峰值验收；真实原生选区拖拽、选区结果返回主进程、标注和回退仍是后续工作，不能在 PR #41 中宣称完成。
+
+
+## 2026-10-28 — Native selection handoff milestone (PR #42)
+
+- [x] Experimental NSPanel captures a **single drag rectangle** over immutable full-target-display pixels, transports exactly one validated `PPSEL001` reply, checks display ID, source bounds and capture revision before updating the legacy eframe editor.
+- [x] Core tests reject malformed response or cancelled selection; macOS headless tests exercise CLI, native paint and sibling stdin/stdout process fixtures; the production path remains eframe.
+- [ ] Device-level macOS NSPanel presentation, borderless keyboard focus/Escape, Retina/negative-origin monitor matching, Spaces and screen unplug behavior; no test-automation result substitutes for these.
+- [ ] Native selection handles/resize/move, annotations, hotkeys, OCR interaction and full editor feature parity remain separate later gates; Issues #5/#10 stay open.
