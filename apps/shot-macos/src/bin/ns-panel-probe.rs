@@ -663,6 +663,37 @@ mod tests {
 
     #[cfg(target_os = "macos")]
     #[test]
+    fn native_glass_selection_buttons_and_markup_overlay_have_headless_contracts() {
+        use shot_core::display::OverlayPlacement;
+        use shot_core::native_markup::{NativeMarkup, NativeMarkupTool};
+        use shot_core::platform::DisplayId;
+
+        let _new: fn(
+            objc2::MainThreadMarker,
+            &objc2_app_kit::NSView,
+        ) -> glass_toolbar::ProbeGlassToolbar =
+            glass_toolbar::ProbeGlassToolbar::new_selection;
+        let _choose: fn(&glass_toolbar::ProbeGlassToolbar, NativeMarkupTool) =
+            glass_toolbar::ProbeGlassToolbar::set_markup_tool;
+
+        let placement =
+            OverlayPlacement::new(DisplayId(4), (-200.0, 0.0), (100.0, 80.0)).unwrap();
+        let mut markup = NativeMarkup::new(placement, (200, 160)).unwrap();
+        markup.set_tool(NativeMarkupTool::Arrow);
+        assert!(markup.begin((10.0, 20.0)));
+        assert!(markup.end((30.0, 40.0)));
+        let ctx = egui::Context::default();
+        let output = ctx.run_ui(egui::RawInput::default(), |ui| {
+            panel_egui::paint_native_marks(ui, egui::Pos2::ZERO, &markup);
+        });
+        assert!(!output.shapes.is_empty());
+        output.drop_without_applying_deltas();
+        assert!(markup.undo());
+        assert_eq!(markup.visible().len(), 0);
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
     fn native_glass_controls_provide_action_queue_contract() {
         let _callback: fn(
             &glass_toolbar::ProbeGlassToolbar,
