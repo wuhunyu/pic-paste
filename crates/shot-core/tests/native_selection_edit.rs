@@ -76,14 +76,50 @@ fn all_eight_grips_are_display_local_logical_points() {
 fn all_cardinal_resizes_anchor_the_opposite_edge() {
     let original = seeded().confirmed().unwrap();
     let cases = [
-        (SelectionGrip::West, (100.0, 175.0), (150.0, 175.0),
-            RectPx { x: 300, y: 200, width: 300, height: 300 }),
-        (SelectionGrip::East, (300.0, 175.0), (350.0, 175.0),
-            RectPx { x: 200, y: 200, width: 500, height: 300 }),
-        (SelectionGrip::North, (200.0, 100.0), (200.0, 90.0),
-            RectPx { x: 200, y: 180, width: 400, height: 320 }),
-        (SelectionGrip::South, (200.0, 250.0), (200.0, 300.0),
-            RectPx { x: 200, y: 200, width: 400, height: 400 }),
+        (
+            SelectionGrip::West,
+            (100.0, 175.0),
+            (150.0, 175.0),
+            RectPx {
+                x: 300,
+                y: 200,
+                width: 300,
+                height: 300,
+            },
+        ),
+        (
+            SelectionGrip::East,
+            (300.0, 175.0),
+            (350.0, 175.0),
+            RectPx {
+                x: 200,
+                y: 200,
+                width: 500,
+                height: 300,
+            },
+        ),
+        (
+            SelectionGrip::North,
+            (200.0, 100.0),
+            (200.0, 90.0),
+            RectPx {
+                x: 200,
+                y: 180,
+                width: 400,
+                height: 320,
+            },
+        ),
+        (
+            SelectionGrip::South,
+            (200.0, 250.0),
+            (200.0, 300.0),
+            RectPx {
+                x: 200,
+                y: 200,
+                width: 400,
+                height: 400,
+            },
+        ),
     ];
     for (grip, start, end, expected) in cases {
         let mut editor = seeded();
@@ -100,14 +136,50 @@ fn all_cardinal_resizes_anchor_the_opposite_edge() {
 #[test]
 fn corner_grips_resize_two_edges_without_moving_opposite_corner() {
     let cases = [
-        (SelectionGrip::NorthWest, (100.0, 100.0), (150.0, 125.0),
-            RectPx { x: 300, y: 250, width: 300, height: 250 }),
-        (SelectionGrip::NorthEast, (300.0, 100.0), (350.0, 125.0),
-            RectPx { x: 200, y: 250, width: 500, height: 250 }),
-        (SelectionGrip::SouthWest, (100.0, 250.0), (150.0, 300.0),
-            RectPx { x: 300, y: 200, width: 300, height: 400 }),
-        (SelectionGrip::SouthEast, (300.0, 250.0), (350.0, 300.0),
-            RectPx { x: 200, y: 200, width: 500, height: 400 }),
+        (
+            SelectionGrip::NorthWest,
+            (100.0, 100.0),
+            (150.0, 125.0),
+            RectPx {
+                x: 300,
+                y: 250,
+                width: 300,
+                height: 250,
+            },
+        ),
+        (
+            SelectionGrip::NorthEast,
+            (300.0, 100.0),
+            (350.0, 125.0),
+            RectPx {
+                x: 200,
+                y: 250,
+                width: 500,
+                height: 250,
+            },
+        ),
+        (
+            SelectionGrip::SouthWest,
+            (100.0, 250.0),
+            (150.0, 300.0),
+            RectPx {
+                x: 300,
+                y: 200,
+                width: 300,
+                height: 400,
+            },
+        ),
+        (
+            SelectionGrip::SouthEast,
+            (300.0, 250.0),
+            (350.0, 300.0),
+            RectPx {
+                x: 200,
+                y: 200,
+                width: 500,
+                height: 400,
+            },
+        ),
     ];
     for (grip, start, end, expected) in cases {
         let mut editor = seeded();
@@ -123,7 +195,12 @@ fn crossing_resize_cannot_flip_or_create_zero_area_rectangle() {
     editor.update((9999.0, 9999.0));
     assert_eq!(
         editor.end((9999.0, 9999.0)),
-        Some(RectPx { x: 599, y: 499, width: 1, height: 1 })
+        Some(RectPx {
+            x: 599,
+            y: 499,
+            width: 1,
+            height: 1
+        })
     );
     assert_eq!(editor.confirmed().unwrap().width, 1);
     assert_eq!(editor.confirmed().unwrap().height, 1);
@@ -136,14 +213,24 @@ fn move_clamps_to_display_and_keeps_physical_dimensions_exactly() {
     editor.update((-100.0, -100.0));
     assert_eq!(
         editor.end((-100.0, -100.0)),
-        Some(RectPx { x: 0, y: 0, width: 400, height: 300 })
+        Some(RectPx {
+            x: 0,
+            y: 0,
+            width: 400,
+            height: 300
+        })
     );
 
     let mut editor = seeded();
     assert_eq!(editor.begin((150.0, 150.0)), Some(SelectionGrip::Move));
     assert_eq!(
         editor.end((9999.0, 9999.0)),
-        Some(RectPx { x: 1600, y: 1300, width: 400, height: 300 })
+        Some(RectPx {
+            x: 1600,
+            y: 1300,
+            width: 400,
+            height: 300
+        })
     );
 }
 
@@ -153,7 +240,12 @@ fn tiny_drag_preserves_one_source_pixel_and_click_preserves_previous_region() {
     assert_eq!(editor.begin((1.25, 1.25)), Some(SelectionGrip::Create));
     assert_eq!(
         editor.end((1.5, 1.5)),
-        Some(RectPx { x: 2, y: 2, width: 1, height: 1 })
+        Some(RectPx {
+            x: 2,
+            y: 2,
+            width: 1,
+            height: 1
+        })
     );
     let previous = editor.confirmed();
     assert_eq!(editor.begin((900.0, 700.0)), Some(SelectionGrip::Create));
