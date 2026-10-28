@@ -26,6 +26,36 @@ pub fn import_native_marks(
                 rgba: CYAN,
                 width: STROKE,
             },
+            NativeMark::Line { from, to } => Annotation::Line {
+                from: (from.0 as f32, from.1 as f32),
+                to: (to.0 as f32, to.1 as f32),
+                rgba: CYAN,
+                width: STROKE,
+            },
+            NativeMark::Pixelate {
+                left,
+                top,
+                width,
+                height,
+            } => Annotation::Pixelate {
+                left: *left,
+                top: *top,
+                width: *width,
+                height: *height,
+                block_size: 12,
+            },
+            NativeMark::Blur {
+                left,
+                top,
+                width,
+                height,
+            } => Annotation::Blur {
+                left: *left,
+                top: *top,
+                width: *width,
+                height: *height,
+                radius: 6,
+            },
             NativeMark::Arrow { from, to } => Annotation::Arrow {
                 from: (from.0 as f32, from.1 as f32),
                 to: (to.0 as f32, to.1 as f32),
