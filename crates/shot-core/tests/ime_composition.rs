@@ -88,3 +88,20 @@ fn direct_text_without_marked_session_is_not_misclassified_as_ime() {
         }
     );
 }
+
+#[test]
+fn cocoa_unmark_accepts_marked_text_without_a_duplicate_commit() {
+    let mut ime = ImeComposition::default();
+    ime.preedit("你好", 2, 0);
+    assert_eq!(
+        ime.unmark(),
+        Some(ImeChange::Commit {
+            text: "你好".into(),
+            was_marked: true,
+        })
+    );
+    assert!(!ime.has_marked_text());
+    assert_eq!(ime.unmark(), None);
+    assert_eq!(ime.cancel(), None);
+}
+
