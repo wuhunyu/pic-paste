@@ -1,6 +1,6 @@
 # PicPaste 未完成任务与 Issue 对账台账
 
-> **核对日期：2026-10-28** · 已合并基线扩展至 [PR #48](https://github.com/wuhunyu/pic-paste/pull/48)（#47 椭圆、#48 原生 Undo/Redo；#47 全量 CI #40655168318 success）。实验性原生标注已进入 PNG 保存链路，但 NSPanel/Retina/Spaces/TCC/IME/性能仍无真实设备验收。
+> **核对日期：2026-10-28** · 已合并基线扩展至 [PR #49](https://github.com/wuhunyu/pic-paste/pull/49)（#47 椭圆、#48 原生 Undo/Redo；#47 全量 CI #40655168318 success）。实验性原生标注已进入 PNG 保存链路，但 NSPanel/Retina/Spaces/TCC/IME/性能仍无真实设备验收。
 >
 > 此文档与 [TASKS.md](TASKS.md)、[STATUS.md](STATUS.md) 和 [Issues](https://github.com/wuhunyu/pic-paste/issues?q=is%3Aissue+is%3Aopen) 同步。以下任务状态指 **代码与证据**，不能将单元测试、编译成功等同于操作系统真机功能验收。独立的当前 Issue 正文是每项工作的逐条关闭清单。
 
@@ -10,7 +10,7 @@
 | --- | --- |
 | 原始 v1.2 任务 | 20 项：**8 项代码基本完成、9 项部分实现、3 项未开始** |
 | GitHub Issues（非 PR） | **7 个未关闭：#5–#11**；最初 workspace/CI 对应的 #4 已关闭 |
-| GitHub Pull Requests | **40 个已合并**（#1–#3、#12–#48）；#46 是只读环境预检/真机验收流程，不代表真实设备测试完成 |
+| GitHub Pull Requests | **41 个已合并**（#1–#3、#12–#49）；#46 是只读环境预检/真机验收流程，不代表真实设备测试完成 |
 | macOS 开发包 | ARM64 Lite/Full ad-hoc 签名 ZIP、SHA256；**不是正式发行件** |
 | GitHub Releases | **0** |
 | Windows 原生能力 | 未开始；Rust 核心接口存在，不代表 Windows 构建可用 |
@@ -125,3 +125,7 @@ NSPanel 代码已加入真正 AppKit 系统材质工具栏，画笔/箭头/矩�
 ## 2026-10-28 — 原生标注增量 #47/#48
 
 已添加实验性的原生椭圆拖拽、`PPANN001` tag 5 兼容回传与 Undo/Redo 本地重做栈，新增系统材质“椭圆/重做”按钮并保持生产 eframe 路径不变。下一阶段仍需线条、模糊、马赛克等原生工具对齐与真实 Mac 交互、可访问性、性能验收；不得把代码 CI 当作 #5/#10 的关闭证据。
+
+## 2026-10-28 — PR #49 原生三工具增量
+
+可选 NSPanel 补齐直线、马赛克、模糊的源像素手势、区域边界与有界协议回传；父编辑器复用原有非破坏性 PNG 合成与撤销重做。双排系统材质工具栏不超过 560pt 宽。原生马赛克/模糊是框选范围提示，**真实像素级预览在确认后原编辑器展示**；这不是生产原生后端完成。仍需真实 Mac 14/26、Retina/Spaces/TCC/IME、PNG 对照与资源预算验收。
