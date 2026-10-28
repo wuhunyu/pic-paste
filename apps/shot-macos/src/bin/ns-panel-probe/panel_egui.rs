@@ -8,6 +8,7 @@ use shot_core::glass_toolbar::PreviewTheme;
 use shot_core::ime::ImeChange;
 use shot_core::native_panel::{PanelPointerPoint, PanelSurfaceSize};
 use shot_core::native_selection_edit::NativeSelectionEdit;
+use shot_core::native_markup::{NativeMark, NativeMarkup, NativeMarkupTool};
 
 /// Convert native input-context callbacks to exactly one egui event.
 pub(crate) fn egui_event_for_ime_change(change: ImeChange) -> Option<egui::Event> {
@@ -104,14 +105,67 @@ pub(crate) fn resolve_selection_action(
     }
 }
 
-/// Read-only snapshot, eight resize grips and body drag. This only edits the
-/// capture-local selection geometry; no source bytes, PNG or annotations are
-/// changed. The egui action capsule floats above rather than inside the
-/// screenshot texture.
+/// Marks are drawn in a separate WGPU/egui layer, never composited into
+/// the immutable screenshot texture. Their coordinates are physical source
+/// pixels projected into the panel's local logical-point canvas.
+pub(crate) fn paint_native_marks(ui: &egui::Ui, origin: egui::Pos2, markup: &NativeMarkup) {
+    let painter = ui.painter();
+    let stroke = egui::Stroke::new(3.0, egui::Color32::from_rgb(39, 178, 231));
+    let at = |pixel: (u32, u32)| {
+        let (x, y) = markup.to_logical_point(pixel);
+        origin + egui::vec2(x, y)
+    };
+    let draw = |mark: &NativeMark| {
+        match mark {
+            NativeMark::Brush { points } => {
+                if points.len() >= 2 {
+                    let positions: Vec<_> = points.iter().copied().map(at).collect();
+                    painter.add(egui::Shape::line(positions, stroke));
+                }
+            }
+            NativeMark::Arrow { from, to } => {
+                let a = at(*from);
+                let b = at(*to);
+                painter.arrow(a, b - a, stroke);
+            }
+            NativeMark::Rectangle {
+                top_left,
+                bottom_right,
+            } => {
+                painter.rect_stroke(
+                    egui::Rect::from_two_pos(at(*top_left), at(*bottom_right)),
+                    0.0,
+                    stroke,
+                    egui::StrokeKind::Inside,
+                );
+            }
+            NativeMark::Text { at: point, content } => {
+                painter.text(
+                    at(*point),
+                    egui::Align2::LEFT_TOP,
+                    content,
+                    egui::FontId::proportional(26.0),
+                    stroke.color,
+                );
+            }
+        }
+    };
+    for mark in markup.visible() {
+        draw(mark);
+    }
+    if let Some(draft) = markup.draft() {
+        draw(&draft);
+    }
+}
+
+/// Native selectable screenshot with eight adjustable grips plus local-only
+/// annotation overlay. The annotation buttons do not alter PPSEL001 or PNG.
 pub(crate) fn show_native_selection(
     root: &mut egui::Ui,
     texture: &egui::TextureHandle,
     selection: &mut NativeSelectionEdit,
+    markup: &mut NativeMarkup,
+    text_buffer: &mut String,
     action: &mut Option<SelectionAction>,
 ) {
     egui::CentralPanel::default()
@@ -125,21 +179,38 @@ pub(crate) fn show_native_selection(
                 egui::Rect::from_min_max(egui::Pos2::ZERO, egui::pos2(1.0, 1.0)),
                 egui::Color32::WHITE,
             );
-            let cursor = response
+            let pointer = response
                 .interact_pointer_pos()
                 .or_else(|| ui.ctx().input(|input| input.pointer.latest_pos()));
-            if let Some(cursor) = cursor {
-                let point = (cursor.x - bounds.min.x, cursor.y - bounds.min.y);
-                if response.drag_started() {
-                    selection.begin(point);
-                }
-                if response.dragged() {
-                    selection.update(point);
-                }
-                if response.drag_stopped() {
-                    selection.end(point);
+            if let Some(pointer) = pointer {
+                let point = (pointer.x - bounds.min.x, pointer.y - bounds.min.y);
+                if markup.tool() == NativeMarkupTool::Select {
+                    if response.drag_started() {
+                        selection.begin(point);
+                    }
+                    if response.dragged() {
+                        selection.update(point);
+                    }
+                    if response.drag_stopped() {
+                        selection.end(point);
+                    }
+                } else if markup.tool() == NativeMarkupTool::Text {
+                    if response.clicked() {
+                        markup.place_text(point, text_buffer);
+                    }
+                } else {
+                    if response.drag_started() {
+                        markup.begin(point);
+                    }
+                    if response.dragged() {
+                        markup.drag(point);
+                    }
+                    if response.drag_stopped() {
+                        markup.end(point);
+                    }
                 }
             }
+            paint_native_marks(ui, bounds.min, markup);
             if let Some((x, y, width, height)) = selection.preview_rect_points()
                 && width > 0.0
                 && height > 0.0
@@ -175,13 +246,31 @@ pub(crate) fn show_native_selection(
             }
         });
 
+    if markup.tool() == NativeMarkupTool::Text {
+        egui::Area::new(egui::Id::unique("native-markup-text"))
+            .order(egui::Order::Foreground)
+            .anchor(egui::Align2::RIGHT_TOP, egui::vec2(-18.0, 18.0))
+            .show(root.ctx(), |ui| {
+                egui::Frame::popup(ui.style()).show(ui, |ui| {
+                    ui.horizontal(|ui| {
+                        ui.label("文字内容");
+                        ui.add(
+                            egui::TextEdit::singleline(text_buffer)
+                                .desired_width(200.0),
+                        );
+                        ui.small("在画面中单击放置");
+                    });
+                });
+            });
+    }
+
     egui::Area::new(egui::Id::unique("native-selection-actions"))
         .order(egui::Order::Foreground)
         .anchor(egui::Align2::RIGHT_BOTTOM, egui::vec2(-18.0, -18.0))
         .show(root.ctx(), |ui| {
             egui::Frame::popup(ui.style()).show(ui, |ui| {
                 ui.horizontal(|ui| {
-                    ui.small("拖动绘制 · 内部移动 · 八方向缩放");
+                    ui.small("原生标注仅本地预览，不会保存到 PNG");
                     if let Some(rect) = selection.current_rect() {
                         ui.label(format!("{} × {} px", rect.width, rect.height));
                     }
@@ -242,6 +331,8 @@ pub(crate) struct ProbeEgui {
     controls: ProbeControls,
     snapshot: Option<egui::TextureHandle>,
     selection: Option<NativeSelectionEdit>,
+    markup: Option<NativeMarkup>,
+    text_buffer: String,
     selection_result: Option<shot_core::RectPx>,
     selection_finished: bool,
     events: Vec<egui::Event>,
@@ -257,6 +348,7 @@ impl ProbeEgui {
         format: wgpu::TextureFormat,
         image: Option<shot_core::RgbaFrame>,
         selection: Option<NativeSelectionEdit>,
+        markup: Option<NativeMarkup>,
     ) -> Self {
         let ctx = egui::Context::default();
         apply_preview_theme(&ctx, PreviewTheme::Dark);
@@ -271,6 +363,8 @@ impl ProbeEgui {
             controls: ProbeControls::default(),
             snapshot,
             selection,
+            markup,
+            text_buffer: String::from("文字"),
             selection_result: None,
             selection_finished: false,
             events: Vec::new(),
@@ -279,6 +373,25 @@ impl ProbeEgui {
             repaint: true,
             ime_cursor: None,
         }
+    }
+
+    pub(crate) fn choose_markup_tool(&mut self, tool: NativeMarkupTool) {
+        if let Some(markup) = self.markup.as_mut() {
+            markup.set_tool(tool);
+            self.repaint = true;
+        }
+    }
+
+    pub(crate) fn undo_markup(&mut self) -> bool {
+        let changed = self.markup.as_mut().is_some_and(NativeMarkup::undo);
+        if changed {
+            self.repaint = true;
+        }
+        changed
+    }
+
+    pub(crate) fn markup_count(&self) -> usize {
+        self.markup.as_ref().map_or(0, |markup| markup.visible().len())
     }
 
     pub(crate) fn selection_result(&self) -> Option<shot_core::RectPx> {
@@ -562,11 +675,20 @@ impl ProbeEgui {
         let controls = &mut self.controls;
         let snapshot = self.snapshot.as_ref();
         let selection = &mut self.selection;
+        let markup = &mut self.markup;
+        let text_buffer = &mut self.text_buffer;
         let mut selection_action = None;
         let output = self.ctx.run_ui(raw, |ui| {
             if let Some(texture) = snapshot {
-                if let Some(selection) = selection.as_mut() {
-                    show_native_selection(ui, texture, selection, &mut selection_action);
+                if let (Some(selection), Some(markup)) = (selection.as_mut(), markup.as_mut()) {
+                    show_native_selection(
+                        ui,
+                        texture,
+                        selection,
+                        markup,
+                        text_buffer,
+                        &mut selection_action,
+                    );
                 } else {
                     show_snapshot(ui, texture);
                 }
