@@ -4,7 +4,9 @@
 use std::io::{Read, Write};
 
 use crate::RectPx;
-use crate::native_markup::{MAX_BRUSH_POINTS, MAX_MARKS, MAX_TEXT_BYTES, NativeMark};
+use crate::native_markup::{
+    MAX_BRUSH_POINTS, MAX_MARKS, MAX_NATIVE_EFFECT_PIXELS, MAX_TEXT_BYTES, NativeMark,
+};
 use crate::native_selection::NativeSelectionReply;
 use crate::native_snapshot::NativeSnapshot;
 use crate::platform::DisplayId;
@@ -42,7 +44,7 @@ pub fn validate_marks(marks: &[NativeMark], pixels: (u32, u32)) -> Result<(), St
                     return Err(String::from("invalid native brush points"));
                 }
             }
-            NativeMark::Arrow { from, to } => {
+            NativeMark::Line { from, to } | NativeMark::Arrow { from, to } => {
                 if !inside(from) || !inside(to) || from == to {
                     return Err(String::from("invalid native arrow"));
                 }
@@ -61,6 +63,27 @@ pub fn validate_marks(marks: &[NativeMark], pixels: (u32, u32)) -> Result<(), St
                     || top_left.1 >= bottom_right.1
                 {
                     return Err(String::from("invalid native rectangle"));
+                }
+            }
+            NativeMark::Pixelate {
+                left,
+                top,
+                width,
+                height,
+            }
+            | NativeMark::Blur {
+                left,
+                top,
+                width,
+                height,
+            } => {
+                let valid = *width > 0
+                    && *height > 0
+                    && left.checked_add(*width).is_some_and(|right| right <= pixels.0)
+                    && top.checked_add(*height).is_some_and(|bottom| bottom <= pixels.1)
+                    && u64::from(*width) * u64::from(*height) <= MAX_NATIVE_EFFECT_PIXELS;
+                if !valid {
+                    return Err(String::from("invalid native redaction region"));
                 }
             }
             NativeMark::Text { at, content } => {
@@ -145,10 +168,35 @@ impl NativeEditReply {
                                 write_point(&mut body, (x, y));
                             }
                         }
-                        NativeMark::Arrow { from, to } => {
-                            body.push(2);
+                        NativeMark::Arrow { from, to } | NativeMark::Line { from, to } => {
+                            body.push(if matches!(mark, NativeMark::Line { .. }) {
+                                6
+                            } else {
+                                2
+                            });
                             write_point(&mut body, *from);
                             write_point(&mut body, *to);
+                        }
+                        NativeMark::Pixelate {
+                            left,
+                            top,
+                            width,
+                            height,
+                        }
+                        | NativeMark::Blur {
+                            left,
+                            top,
+                            width,
+                            height,
+                        } => {
+                            body.push(if matches!(mark, NativeMark::Pixelate { .. }) {
+                                7
+                            } else {
+                                8
+                            });
+                            for value in [left, top, width, height] {
+                                body.extend_from_slice(&value.to_le_bytes());
+                            }
                         }
                         NativeMark::Rectangle {
                             top_left,
@@ -253,6 +301,22 @@ impl NativeEditReply {
                 2 => NativeMark::Arrow {
                     from: read_point(&body, &mut cursor)?,
                     to: read_point(&body, &mut cursor)?,
+                },
+                6 => NativeMark::Line {
+                    from: read_point(&body, &mut cursor)?,
+                    to: read_point(&body, &mut cursor)?,
+                },
+                7 => NativeMark::Pixelate {
+                    left: read_u32(&body, &mut cursor)?,
+                    top: read_u32(&body, &mut cursor)?,
+                    width: read_u32(&body, &mut cursor)?,
+                    height: read_u32(&body, &mut cursor)?,
+                },
+                8 => NativeMark::Blur {
+                    left: read_u32(&body, &mut cursor)?,
+                    top: read_u32(&body, &mut cursor)?,
+                    width: read_u32(&body, &mut cursor)?,
+                    height: read_u32(&body, &mut cursor)?,
                 },
                 3 => NativeMark::Rectangle {
                     top_left: read_point(&body, &mut cursor)?,
