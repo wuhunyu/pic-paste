@@ -117,3 +117,10 @@ PR #38 (CJK marked-text) and PR #39 (native-consumed key routing) are merged wit
 - [x] Developer-feature-only full-target-display AppKit NSPanel with real RGBA pixels and drag rectangle, reversible to validated physical source pixels via authenticated sibling IPC.
 - [x] Fail-closed cancellation/error and stale-result protections; default eframe editor, PNG-only, OCR, scroll and pin pathways remain intact.
 - [ ] Complete P0-T3 requires physical macOS GUI validation and production native editor parity. PR #42 does not close Issue #5 or update the original 20-task completion count.
+
+
+## 2026-10-28 — PR #43 原生选区编辑可用性增量（不变更原 20 项完成数量）
+
+- [x] NSPanel（仅 `native-panel-probe` 开发 Feature）新增八方向手柄、移动选区与明确的 Enter/按钮确认/取消。所有矩形仍为截屏显示器的物理像素，不能越界、负数或空区域。
+- [x] 提交点从“拖动松开”延迟到“明确确认”，不改变父进程的 PPSEL001 校验、旧 eframe 编辑器和 PNG/OCR/贴图路径。
+- [ ] P0-T3 仍需真实 macOS GUI、Retina、多屏、Spaces 和性能验收，并继续完成原生标注/系统 Liquid Glass 工具栏后才能认定正式原生编辑器完工。

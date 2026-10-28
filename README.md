@@ -151,3 +151,15 @@ cargo run --locked -p shot-macos --features native-panel-probe --bin ns-panel-pr
 ### Experimental native NSPanel screen selection (developer feature)
 
 Build both native binaries with `cargo build --locked -p shot-macos --features native-panel-probe --bins`, then run `cargo run --locked -p shot-macos --features native-panel-probe --bin shot-macos`. Capture normally and click **NSPanel 原生框选（实验）**. A separate **borderless native AppKit NSPanel** displays an immutable full-display RGBA screenshot on the selected display, lets you drag a region and transfers one validated physical-pixel rectangle back to the existing eframe editor. Escape cancels and leaves the screenshot unchanged. This mode is **opt-in** and needs an interactive macOS desktop; it is not the default production screenshot backend or a complete native annotation editor. macOS 14+/26, Spaces, TCC, mixed Retina scaling, keyboard focus and actual GPU/GUI performance still need real-device acceptance. No temporary screenshot files, PNG changes or new network services are involved.
+
+
+### 八方向原生选区调整（开发实验，PR #43）
+
+仅在通过 `--features native-panel-probe` 编译后，普通截图页面的“NSPanel 原生框选（实验）”按钮才会打开独立的 AppKit NSPanel。拖动鼠标建立选区后，**不会立即返回**：可拖动选区内部移动、拖动八个白色控制点调整大小，显示物理像素尺寸，最后点击“确认 (Enter)”或按回车才通过 `PPSEL001` 将选区安全回传到现有 eframe 编辑器。点“取消 (Esc)”或按 Escape 将保留原截图并取消原生框选。按默认方式启动的截图、PNG、OCR、长图和贴图均不受影响。此工具栏目前是 **egui 实验操作区，不是原生 Liquid Glass 标注工具栏**，macOS 26 真机、Retina/多屏、Spaces、焦点与性能仍须实际验证。
+
+开发运行：
+
+```sh
+cargo build --locked -p shot-macos --features native-panel-probe --bins
+cargo run --locked -p shot-macos --features native-panel-probe --bin shot-macos
+```

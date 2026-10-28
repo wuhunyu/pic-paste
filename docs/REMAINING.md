@@ -102,3 +102,8 @@
 - [x] Core tests reject malformed response or cancelled selection; macOS headless tests exercise CLI, native paint and sibling stdin/stdout process fixtures; the production path remains eframe.
 - [ ] Device-level macOS NSPanel presentation, borderless keyboard focus/Escape, Retina/negative-origin monitor matching, Spaces and screen unplug behavior; no test-automation result substitutes for these.
 - [ ] Native selection handles/resize/move, annotations, hotkeys, OCR interaction and full editor feature parity remain separate later gates; Issues #5/#10 stay open.
+
+
+## 2026-10-28 — PR #43 原生可调整选区
+
+已实现仅开发 Feature 下的 NSPanel 八方向手柄缩放、内部移动、物理像素尺寸反馈，鼠标拖动结束不会提交选区，只有 Enter/确认才回传，Esc/取消一律保留原截图。沿用 PPSEL001 和旧 eframe 编辑器；源 RGBA 和 PNG 保存链路不修改。剩余任务：真实 Mac 图形交互/负坐标与 Retina/Spaces/权限验收、完整原生标注与 Liquid Glass 工具栏、性能测试和正式可回退后端迁移，保持 Issue #5/#10 开放。
