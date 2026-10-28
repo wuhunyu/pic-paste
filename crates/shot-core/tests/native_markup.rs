@@ -3,8 +3,7 @@ use shot_core::native_markup::{NativeMark, NativeMarkup, NativeMarkupTool};
 use shot_core::platform::DisplayId;
 
 fn markup() -> NativeMarkup {
-    let placement =
-        OverlayPlacement::new(DisplayId(7), (-1440.0, -100.0), (100.0, 80.0)).unwrap();
+    let placement = OverlayPlacement::new(DisplayId(7), (-1440.0, -100.0), (100.0, 80.0)).unwrap();
     NativeMarkup::new(placement, (200, 160)).unwrap()
 }
 
@@ -17,7 +16,10 @@ fn brush_is_a_non_destructive_physical_pixel_gesture() {
     assert!(marks.begin((1.0, 2.0)));
     marks.drag((2.0, 3.0));
     marks.drag((3.0, 4.0));
-    assert!(marks.visible().is_empty(), "draft must not commit before release");
+    assert!(
+        marks.visible().is_empty(),
+        "draft must not commit before release"
+    );
     assert!(matches!(marks.draft(), Some(NativeMark::Brush { .. })));
     assert!(marks.end((3.0, 4.0)));
     assert_eq!(
