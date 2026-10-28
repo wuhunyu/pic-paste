@@ -91,7 +91,6 @@ fn preview_theme_toggle_keeps_label_as_next_action() {
     assert_eq!(theme.toggle(), PreviewTheme::Dark);
 }
 
-
 #[test]
 fn annotation_capsule_centered_but_never_clips_into_small_displays() {
     let frame = FloatingBarFrame::for_annotation_size(1200.0, 800.0).unwrap();
@@ -120,10 +119,7 @@ fn native_toolbar_annotation_actions_preserve_select_and_demo_commands() {
         NativeMarkupTool::Rectangle,
         NativeMarkupTool::Text,
     ] {
-        assert_eq!(
-            GlassToolbarAction::ChooseTool(tool).tool(),
-            Some(tool)
-        );
+        assert_eq!(GlassToolbarAction::ChooseTool(tool).tool(), Some(tool));
     }
     assert_eq!(GlassToolbarAction::UndoMarkup.tool(), None);
     assert_eq!(GlassToolbarAction::CancelSelection.tool(), None);

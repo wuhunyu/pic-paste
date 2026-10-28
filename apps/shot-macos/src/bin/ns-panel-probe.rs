@@ -671,13 +671,11 @@ mod tests {
         let _new: fn(
             objc2::MainThreadMarker,
             &objc2_app_kit::NSView,
-        ) -> glass_toolbar::ProbeGlassToolbar =
-            glass_toolbar::ProbeGlassToolbar::new_selection;
+        ) -> glass_toolbar::ProbeGlassToolbar = glass_toolbar::ProbeGlassToolbar::new_selection;
         let _choose: fn(&glass_toolbar::ProbeGlassToolbar, NativeMarkupTool) =
             glass_toolbar::ProbeGlassToolbar::set_markup_tool;
 
-        let placement =
-            OverlayPlacement::new(DisplayId(4), (-200.0, 0.0), (100.0, 80.0)).unwrap();
+        let placement = OverlayPlacement::new(DisplayId(4), (-200.0, 0.0), (100.0, 80.0)).unwrap();
         let mut markup = NativeMarkup::new(placement, (200, 160)).unwrap();
         markup.set_tool(NativeMarkupTool::Arrow);
         assert!(markup.begin((10.0, 20.0)));
