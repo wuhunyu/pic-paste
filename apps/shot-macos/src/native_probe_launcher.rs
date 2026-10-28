@@ -82,11 +82,11 @@ impl NativeProbeLauncher {
 
 impl Drop for NativeProbeLauncher {
     fn drop(&mut self) {
-        if let Some(mut child) = self.child.take() {
-            if matches!(child.try_wait(), Ok(None)) {
-                let _ = child.kill();
-                let _ = child.wait();
-            }
+        if let Some(mut child) = self.child.take()
+            && matches!(child.try_wait(), Ok(None))
+        {
+            let _ = child.kill();
+            let _ = child.wait();
         }
     }
 }
