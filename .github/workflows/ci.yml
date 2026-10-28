@@ -98,6 +98,31 @@ jobs:
           fi
           test ! -e "$HOME/Library/Application Support/PicPaste/AddOns/OCR/PicPasteOCR"
           bash scripts/manage-ocr-addon.sh uninstall
+      - name: Build opt-in native canary development binaries
+        run: cargo build --release -p shot-macos --features native-panel-probe --bins --locked
+      - name: Canary packaging rejects missing companion without deleting stable package
+        run: |
+          stable_before="$(shasum -a 256 dist/Lite/PicPaste.app/Contents/MacOS/PicPaste | cut -d ' ' -f 1)"
+          if PICPASTE_NATIVE_CANARY=1 PICPASTE_NATIVE_PROBE_BINARY=/missing/native-probe PICPASTE_VARIANT=Lite bash scripts/package-macos.sh; then
+            echo "ERROR: missing canary helper was accepted" >&2
+            exit 1
+          fi
+          stable_after="$(shasum -a 256 dist/Lite/PicPaste.app/Contents/MacOS/PicPaste | cut -d ' ' -f 1)"
+          test "$stable_before" = "$stable_after"
+          test ! -e dist/Lite/PicPaste.app/Contents/MacOS/ns-panel-probe
+      - name: Assemble and validate opt-in Lite/Full canary packages
+        run: |
+          PICPASTE_NATIVE_CANARY=1 PICPASTE_VARIANT=Lite bash scripts/package-macos.sh
+          PICPASTE_NATIVE_CANARY=1 PICPASTE_VARIANT=Full bash scripts/package-macos.sh
+          arch="$(uname -m)"
+          for variant in Lite Full; do
+            app="dist/$variant/PicPaste.app"
+            test -x "$app/Contents/MacOS/ns-panel-probe"
+            codesign --verify --deep --strict "$app"
+            test -f "dist/PicPaste-macos-$arch-$variant-NATIVE-CANARY-UNSIGNED-DEV.zip"
+            test -f "dist/PicPaste-macos-$arch-$variant-NATIVE-CANARY-UNSIGNED-DEV.zip.sha256"
+            shasum -a 256 -c "dist/PicPaste-macos-$arch-$variant-NATIVE-CANARY-UNSIGNED-DEV.zip.sha256"
+          done
       - name: Upload unsigned development package
         uses: actions/upload-artifact@v4
         with:
