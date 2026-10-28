@@ -5,7 +5,29 @@
 //! implementation: marked-text IME composition requires a separate bridge.
 use objc2_app_kit::{NSEvent, NSEventModifierFlags, NSEventType, NSPanel, NSView};
 use shot_core::glass_toolbar::PreviewTheme;
+use shot_core::ime::ImeChange;
 use shot_core::native_panel::{PanelPointerPoint, PanelSurfaceSize};
+
+/// Convert native input-context callbacks to exactly one egui event.
+pub(crate) fn egui_event_for_ime_change(change: ImeChange) -> Option<egui::Event> {
+    match change {
+        ImeChange::Preedit {
+            text,
+            active_range_chars,
+        } => Some(egui::Event::Ime(egui::ImeEvent::Preedit {
+            text,
+            active_range_chars,
+        })),
+        ImeChange::Commit { text, was_marked } if !text.is_empty() => {
+            if was_marked {
+                Some(egui::Event::Ime(egui::ImeEvent::Commit(text)))
+            } else {
+                Some(egui::Event::Text(text))
+            }
+        }
+        ImeChange::Commit { .. } => None,
+    }
+}
 
 /// Theme changes only the egui demo canvas. This does not change system
 /// Liquid Glass or any screenshot/PNG source pixels.
@@ -58,6 +80,7 @@ pub(crate) struct ProbeEgui {
     modifiers: egui::Modifiers,
     focused: bool,
     repaint: bool,
+    ime_cursor: Option<egui::Rect>,
 }
 
 impl ProbeEgui {
@@ -76,12 +99,29 @@ impl ProbeEgui {
             modifiers: egui::Modifiers::default(),
             focused: false,
             repaint: true,
+            ime_cursor: None,
         }
     }
 
     pub(crate) fn set_preview_theme(&mut self, theme: PreviewTheme) {
         apply_preview_theme(&self.ctx, theme);
         self.repaint = true;
+    }
+
+    /// IME is only activated while egui has a focused TextEdit.
+    pub(crate) fn wants_text_input(&self) -> bool {
+        self.ime_cursor.is_some()
+    }
+
+    pub(crate) fn ime_cursor_rect(&self) -> Option<egui::Rect> {
+        self.ime_cursor
+    }
+
+    pub(crate) fn push_ime_change(&mut self, change: ImeChange) {
+        if let Some(event) = egui_event_for_ime_change(change) {
+            self.events.push(event);
+            self.repaint = true;
+        }
     }
 
     pub(crate) fn needs_repaint(&self) -> bool {
@@ -169,7 +209,13 @@ impl ProbeEgui {
         })
     }
 
-    pub(crate) fn on_event(&mut self, event: &NSEvent, panel: &NSPanel, view: &NSView) {
+    pub(crate) fn on_event(
+        &mut self,
+        event: &NSEvent,
+        panel: &NSPanel,
+        view: &NSView,
+        native_text_active: bool,
+    ) {
         // AppKit continues to own events for title bar, close and resizing.
         // A probe must not siphon input destined for another application view.
         if event.windowNumber() != panel.windowNumber() {
@@ -258,6 +304,7 @@ impl ProbeEgui {
                 // Direct-key ASCII proof only. Native text input / IME
                 // marked-text candidates require NSTextInputClient.
                 if pressed
+                    && !native_text_active
                     && !self.modifiers.command
                     && !self.modifiers.ctrl
                     && !self.modifiers.alt
@@ -301,6 +348,9 @@ impl ProbeEgui {
         }
         let controls = &mut self.controls;
         let output = self.ctx.run_ui(raw, |ui| controls.ui(ui));
+        // egui reports the actual text caret in logical points. The native
+        // NSTextInputClient converts it to AppKit screen coordinates.
+        self.ime_cursor = output.platform_output.ime.as_ref().map(|ime| ime.cursor_rect);
         let screen = egui_wgpu::ScreenDescriptor {
             size_in_pixels: [viewport.size.width, viewport.size.height],
             pixels_per_point: output.pixels_per_point,
