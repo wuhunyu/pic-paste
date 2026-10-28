@@ -2930,6 +2930,23 @@ mod tests {
 
     #[cfg(feature = "native-panel-probe")]
     #[test]
+    fn automatic_native_capture_validates_frozen_source_and_capture_revision() {
+        let screen = test_screen(77);
+        let placement =
+            OverlayPlacement::new(DisplayId(1), (-100.0, 20.0), (80.0, 60.0)).unwrap();
+        let original = screen.source.rgba.clone();
+        let (snapshot, revision) = screen.native_capture_request(placement).unwrap();
+        assert_eq!(revision, (77, 0));
+        assert_eq!(snapshot.image().rgba, original);
+        assert_eq!(screen.source.rgba, original);
+
+        let wrong_screen =
+            OverlayPlacement::new(DisplayId(2), (-100.0, 20.0), (80.0, 60.0)).unwrap();
+        assert!(screen.native_capture_request(wrong_screen).is_err());
+    }
+
+    #[cfg(feature = "native-panel-probe")]
+    #[test]
     fn native_marks_import_into_screenshot_png_preview_and_undo_redo() {
         use shot_core::native_markup::NativeMark;
         let mut screen = test_screen(77);
