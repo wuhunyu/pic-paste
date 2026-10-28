@@ -177,3 +177,11 @@
 - [x] 内存预算：仅保留 ≤32MiB 源 RGBA，全部预览区域合计 ≤1MP；超大、相交、混合矢量/文字标注、尚未提交手势退回区域框。缓存按已提交历史失效，仅在有变化时更新，避免拖动过程中重复创建大纹理。
 - [x] macOS 原生纹理通过 egui/WGPU Metal 图层显示，仍使用现有 macOS 26 系统 Liquid Glass 或旧系统 Vibrancy/不透明回退。PPANN001/PPSEL001、生产 eframe、PNG-only 和离线行为不变。
 - [ ] 真实 Mac 实测需验证源图像素色彩/Alpha、Retina、遮挡、焦点、撤销、同帧更新与可接受响应时间；CI 的字节一致性与 no-GUI 测试**不等于真机渲染验收**，#5/#6/#10 保持开放。
+
+## 2026-10-28 — PR #52 原生截图接入试运行（CI / 实机需分开记录）
+
+- [x] 原生试运行的纯 Rust 状态机：默认保持旧编辑器，只有主动开启且成功启动匹配 request ID 才隐藏旧浮层；旧请求回复忽略，成功/异常回到旧编辑器，自动模式取消结束截图。
+- [x] 可选 `native-panel-probe` 功能构建接入实际截图后自动启动 companion；复用已有 `NativeSnapshot` 源像素/显示器/编辑 revision 验证，原生标注结果只交回父编辑器 PNG 历史。设置页开关不持久化，菜单“显示窗口”可退出卡住的试运行。
+- [x] `PICPASTE_NATIVE_CANARY=1` 将同目录 helper 作为独立 ad-hoc 开发版打包；没有 helper 则拒绝打包且不删除旧包。CI 额外构建 release feature-gated binaries 与验证 Lite/Full canary ZIP；默认开发发行包不变。
+- [ ] 在 PR #52 的最新同头 CI 完整通过之前，**不得声称这一增量已经验证或合并**；真实 Mac 原生试运行仍须按 [验收清单](native-macos-acceptance.md)执行，Issue #5/#10 保持开放。
+- [ ] 默认 NSPanel 接管完整生产截图/贴图、签名、公证、性能验收及 Windows 尚未完成；原始 20 项任务数量不变。

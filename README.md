@@ -204,3 +204,9 @@ python3 scripts/native_acceptance.py verify --report native-acceptance.json
 可选 NSPanel 现在对**已提交、无重叠、且全部为马赛克/模糊的标注**显示真实像素效果；和最终 PNG 共用 `shot-image::composite` 的 12px 马赛克块、6px 模糊半径算法，源局部坐标和 RGBA/Alpha 一致。仅从源截图拷贝必要的 ROI 到独立 egui 小纹理；原始截图和 `PPANN001`/ `PPSEL001` 不修改。每次仅在提交/撤销/重做后更新缓存，拖拽未完成时仍为区域框。
 
 为了控制资源，额外保留的 CPU 源截图不得超过 **32 MiB**，所有可预览效果区域合计不得超过 **1,000,000 像素**；超过预算、标注重叠、与线条/文字混用或没有 CPU 源时，**明确退回区域框**，确认后在既有 eframe PNG 编辑器里查看最终效果。原本允许的单次 4MP 效果编辑和 PNG 保存不受预览 1MP 预算限制。默认 eframe 截图路径、Mac 原生系统玻璃控件以及离线运行不变。实时拖拽期间不计算像素效果，尚未进行真实 Mac Retina/颜色/Alpha、Spaces/TCC、IME/资源测试。
+
+## 2026-10-28 — 可回退的原生截图试运行入口（PR #52）
+
+仅在 `--features native-panel-probe` 开发构建中，设置页可以**当次运行**显式选择“下一次截图优先使用原生 NSPanel”。启动成功后，目标显示器冻结画面由同目录的独立 AppKit/Metal companion 展示并编辑；严格校验 `PPSEL001` / `PPANN001`、截图/编辑 revision 后，结果仍交回稳定 eframe 的 PNG-only 保存、Undo/Redo、剪贴板与贴图流程。原生启动/回包错误回到稳定编辑器，原生取消则关闭此次自动截图；菜单栏“显示窗口”可强制退出试运行并恢复编辑器，重启默认关闭。默认 Lite/Full 包**没有**这个开关或 companion。
+
+使用 `cargo build --release -p shot-macos --features native-panel-probe --bins --locked`，然后 `PICPASTE_NATIVE_CANARY=1 PICPASTE_VARIANT=Lite bash scripts/package-macos.sh` 或 `PICPASTE_VARIANT=Full` 生成单独的 **NATIVE-CANARY-UNSIGNED-DEV** ZIP。仅供开发测试；需要 [真实 Mac 验收](docs/native-macos-acceptance.md)，不代表已经完成默认 NSPanel 替换、macOS 14–26 Retina/Spaces/TCC/IME/性能、正式签名或公证。
