@@ -12,6 +12,8 @@ use shot_core::async_ticket::OcrTicket;
 use shot_core::display::{DisplaySelection, OverlayPlacement};
 #[cfg(feature = "native-panel-probe")]
 use shot_core::native_annotation::NativeEditReply;
+#[cfg(feature = "native-panel-probe")]
+use shot_core::native_capture_canary::{CanaryPhase, CanaryReply, CanaryTransition};
 #[cfg(all(feature = "native-panel-probe", test))]
 use shot_core::native_selection::NativeSelectionReply;
 #[cfg(feature = "native-panel-probe")]
@@ -248,6 +250,21 @@ impl SelectionView {
     #[cfg(feature = "native-panel-probe")]
     fn accepts_native_session(&self, active: (u64, (u64, u64)), received_id: u64) -> bool {
         active.0 == received_id && self.accepts_native_revision(active.1)
+    }
+
+    /// Preserve the exact selected display and edit revision across a native
+    /// child process. Never transfer an already-composited or downscaled image.
+    #[cfg(feature = "native-panel-probe")]
+    fn native_capture_request(
+        &self,
+        placement: OverlayPlacement,
+    ) -> Result<(NativeSnapshot, (u64, u64)), String> {
+        if !placement.belongs_to(self.display_id) {
+            return Err(String::from("原生框选显示器与截图不一致"));
+        }
+        NativeSnapshot::validate_dimensions(self.source.width, self.source.height)?;
+        let snapshot = NativeSnapshot::new(placement, self.source.as_ref().clone())?;
+        Ok((snapshot, (self.capture_revision, self.edit_revision)))
     }
 
     /// Validate selection, display, image dimensions and every native mark,
@@ -696,6 +713,10 @@ pub struct PicPasteApp {
     native_selection_revision: Option<(u64, (u64, u64))>,
     #[cfg(feature = "native-panel-probe")]
     native_selection_next_id: u64,
+    #[cfg(feature = "native-panel-probe")]
+    native_canary_enabled: bool,
+    #[cfg(feature = "native-panel-probe")]
+    native_canary_phase: CanaryPhase,
 }
 
 impl PicPasteApp {
@@ -784,6 +805,39 @@ impl PicPasteApp {
             native_selection_revision: None,
             #[cfg(feature = "native-panel-probe")]
             native_selection_next_id: 0,
+            #[cfg(feature = "native-panel-probe")]
+            native_canary_enabled: false,
+            #[cfg(feature = "native-panel-probe")]
+            native_canary_phase: CanaryPhase::default(),
+        }
+    }
+
+    /// Shared by the manual debug button and opt-in automatic capture.
+    /// The helper may not be started until we have a valid immutable frame.
+    #[cfg(feature = "native-panel-probe")]
+    fn launch_native_selection(
+        &mut self,
+        ctx: &egui::Context,
+    ) -> Result<ProbeLaunchResult, String> {
+        let screen = self.screen.as_ref().ok_or("截图尚未就绪")?;
+        let placement = self.overlay_placement.ok_or("截图显示器位置不可用")?;
+        let (snapshot, revision) = screen.native_capture_request(placement)?;
+        let request_id = self
+            .native_selection_next_id
+            .checked_add(1)
+            .ok_or("原生框选会话 ID 已耗尽")?;
+        match self.native_probe.launch_select(
+            snapshot,
+            request_id,
+            self.native_selection_tx.clone(),
+            ctx.clone(),
+        )? {
+            ProbeLaunchResult::Started => {
+                self.native_selection_next_id = request_id;
+                self.native_selection_revision = Some((request_id, revision));
+                Ok(ProbeLaunchResult::Started)
+            }
+            ProbeLaunchResult::AlreadyRunning => Ok(ProbeLaunchResult::AlreadyRunning),
         }
     }
 
@@ -831,6 +885,8 @@ impl PicPasteApp {
             self.status = format!("原生实验窗口无法关闭，截图已取消：{error}");
             return;
         }
+        #[cfg(feature = "native-panel-probe")]
+        self.native_canary_phase.reset();
         if !self.overlay.begin_capture() {
             return;
         }
@@ -1539,30 +1595,65 @@ impl PicPasteApp {
                     continue; // Stale or killed helper.
                 };
                 if active.0 != received_id {
-                    continue; // Old child must not consume the new session's guard.
+                    continue; // Never consume a newer session.
                 }
                 self.native_selection_revision = None;
                 let revision = active.1;
                 if !self.overlay.is_fullscreen() {
+                    self.native_canary_phase.reset();
                     continue;
                 }
                 let Some(screen) = self.screen.as_mut() else {
+                    self.native_canary_phase.reset();
                     continue;
                 };
                 if !screen.accepts_native_session(active, received_id) {
+                    // Captures/edits changed since launch. Reveal the original
+                    // editor without applying a byte of the stale reply.
+                    self.native_canary_phase.reset();
+                    self.status = String::from("原生框选结果已过期，已恢复稳定截图编辑器");
                     continue;
                 }
-                self.status = match response {
+                let (status, outcome) = match response {
                     Ok(reply) => match screen.import_native_reply(&reply) {
-                        Ok(Some(count)) => format!(
-                            "原生选区与 {} 条标注已校验导入；可撤销/重做、复制/贴图或保存带标注 PNG",
-                            count
+                        Ok(Some(count)) => (
+                            format!(
+                                "原生选区与 {} 条标注已校验导入；可撤销/重做、复制/贴图或保存带标注 PNG",
+                                count
+                            ),
+                            CanaryReply::Applied,
                         ),
-                        Ok(None) => String::from("已取消 NSPanel 原生框选，原截图和已有标注未修改"),
-                        Err(error) => format!("原生标注结果无效，原截图及已有标注未修改：{error}"),
+                        Ok(None) => (
+                            String::from("已取消 NSPanel 原生框选，原截图和已有标注未修改"),
+                            CanaryReply::Cancelled,
+                        ),
+                        Err(error) => (
+                            format!("原生标注结果无效，已恢复稳定编辑器：{error}"),
+                            CanaryReply::Rejected,
+                        ),
                     },
-                    Err(error) => format!("原生标注进程未返回有效结果，原截图未修改：{error}"),
+                    Err(error) => (
+                        format!("原生标注进程未返回有效结果，已恢复稳定编辑器：{error}"),
+                        CanaryReply::Rejected,
+                    ),
                 };
+                self.status = status;
+                if self.native_canary_phase.complete(received_id, outcome)
+                    == CanaryTransition::DismissCapture
+                {
+                    // Escape in an automatically opened NSPanel means cancel
+                    // the capture, not silently reopen a second editor.
+                    self.screen = None;
+                    self.overlay_placement = None;
+                    self.overlay.dismiss();
+                    ctx.send_viewport_cmd_to(
+                        egui::ViewportId::ROOT,
+                        egui::ViewportCommand::Visible(true),
+                    );
+                    continue;
+                }
+                // Applied edits and all failed/manual results return to the
+                // same trusted parent editor for PNG/copy/pin/Undo.
                 let id = egui::ViewportId::from_hash_of(("picpaste-capture", revision.0));
                 ctx.send_viewport_cmd_to(id, egui::ViewportCommand::Focus);
             }
@@ -1577,6 +1668,17 @@ impl PicPasteApp {
                 MenuAction::ResumeScroll => self.resume_manual_scroll(),
                 MenuAction::CancelScroll => self.cancel_manual_scroll(),
                 MenuAction::Show => {
+                    #[cfg(feature = "native-panel-probe")]
+                    if self.native_canary_phase.hides_legacy() {
+                        self.native_canary_phase.reset();
+                        self.native_selection_revision = None;
+                        self.status = match self.native_probe.stop_for_capture() {
+                            Ok(()) => String::from("已停止原生试运行窗口，恢复稳定截图编辑器"),
+                            Err(error) => {
+                                format!("原生试运行窗口关闭失败：{error}；已恢复稳定编辑器")
+                            }
+                        };
+                    }
                     ctx.send_viewport_cmd(egui::ViewportCommand::Visible(true));
                     ctx.send_viewport_cmd(egui::ViewportCommand::Focus);
                 }
@@ -1921,6 +2023,27 @@ impl PicPasteApp {
                 Arc::new(captured.image),
                 std::mem::take(&mut self.pending_window_candidates),
             ));
+            #[cfg(feature = "native-panel-probe")]
+            if self.native_canary_enabled {
+                match self.launch_native_selection(ctx) {
+                    Ok(ProbeLaunchResult::Started) => {
+                        let session_id = self.native_selection_revision.map(|(id, _)| id);
+                        self.native_canary_phase = CanaryPhase::begin(true, session_id);
+                        self.status = String::from(
+                            "已优先打开 NSPanel 原生框选（试运行）；确认后返回 PNG 编辑器，取消则结束截图",
+                        );
+                    }
+                    Ok(ProbeLaunchResult::AlreadyRunning) => {
+                        self.native_canary_phase.reset();
+                        self.status = String::from("原生框选窗口忙，已自动回退到稳定截图编辑器");
+                    }
+                    Err(error) => {
+                        self.native_canary_phase.reset();
+                        self.status =
+                            format!("原生试运行不可用，已自动回退到稳定截图编辑器：{error}");
+                    }
+                }
+            }
         }
         let incoming_preview = self.scroll_preview_pending.take();
         let has_new_review = incoming_preview.is_some();
@@ -1982,6 +2105,12 @@ impl eframe::App for PicPasteApp {
             && ctx.input(|input| input.viewport().close_requested())
         {
             if self.overlay.dismiss() {
+                #[cfg(feature = "native-panel-probe")]
+                {
+                    self.native_canary_phase.reset();
+                    self.native_selection_revision = None;
+                    let _ = self.native_probe.stop_for_capture();
+                }
                 self.screen = None;
                 self.overlay_placement = None;
             }
@@ -2036,7 +2165,12 @@ impl eframe::App for PicPasteApp {
                 },
             );
         }
-        if self.overlay.is_fullscreen() {
+        #[cfg(feature = "native-panel-probe")]
+        let show_capture_overlay =
+            self.overlay.is_fullscreen() && !self.native_canary_phase.hides_legacy();
+        #[cfg(not(feature = "native-panel-probe"))]
+        let show_capture_overlay = self.overlay.is_fullscreen();
+        if show_capture_overlay {
             if let Some(placement) = self.overlay_placement {
                 let context = ui.ctx().clone();
                 let id =
@@ -2065,7 +2199,7 @@ impl eframe::App for PicPasteApp {
                     .send_viewport_cmd(egui::ViewportCommand::Visible(true));
                 self.status = String::from("截图窗口位置不可用，请重新截图");
             }
-        } else {
+        } else if !self.overlay.is_fullscreen() {
             self.render_content(ui);
         }
         // Pins are children of the root viewport and must outlive an editor.
@@ -2171,9 +2305,14 @@ impl PicPasteApp {
                 // Only compiled in explicitly opted-in developer builds.
                 // The normal capture path below remains an eframe viewport.
                 #[cfg(feature = "native-panel-probe")]
-                ui.collapsing("原生 NSPanel 实验（不替换截图）", |ui| {
-                    ui.label("独立的 AppKit / Metal / Liquid Glass 实验窗口，仅供界面与输入测试。");
-                    ui.label("须先编译同目录的 ns-panel-probe；正式截图、选区和贴图仍使用稳定窗口。");
+                ui.collapsing("原生 NSPanel 试运行（开发包专用）", |ui| {
+                    ui.checkbox(
+                        &mut self.native_canary_enabled,
+                        "下一次截图优先使用原生 NSPanel 选区与标注",
+                    );
+                    ui.label("默认关闭、仅本次运行有效。无法启动或回传错误时自动恢复稳定编辑器。");
+                    ui.label("原生取消会结束本次截图；菜单栏选择“显示窗口”可随时退出卡住的试运行。");
+                    ui.label("须先编译并在应用同目录放置 ns-panel-probe；完整真机验收尚未通过。");
                     if ui.button("启动独立 NSPanel 实验窗口").clicked() {
                         self.status = match self.native_probe.launch() {
                             Ok(ProbeLaunchResult::Started) => String::from(
@@ -2225,6 +2364,7 @@ impl PicPasteApp {
             if ui.ctx().input(|i| i.key_pressed(egui::Key::Escape)) {
                 #[cfg(feature = "native-panel-probe")]
                 {
+                    self.native_canary_phase.reset();
                     self.native_selection_revision = None;
                     let _ = self.native_probe.stop_for_capture();
                 }
@@ -2482,39 +2622,14 @@ impl PicPasteApp {
             }
             #[cfg(feature = "native-panel-probe")]
             if requested_native_selection {
-                let prepared = (|| -> Result<(NativeSnapshot, (u64, u64)), String> {
-                    let screen = self.screen.as_ref().ok_or("截图尚未就绪")?;
-                    let placement = self.overlay_placement.ok_or("截图显示器位置不可用")?;
-                    if !placement.belongs_to(screen.display_id) {
-                        return Err(String::from("原生框选显示器与截图不一致"));
+                self.status = match self.launch_native_selection(ui.ctx()) {
+                    Ok(ProbeLaunchResult::Started) => String::from(
+                        "已启动 NSPanel 原生框选与标注；确认后回传现有编辑器，Esc 取消（待真机验证）",
+                    ),
+                    Ok(ProbeLaunchResult::AlreadyRunning) => {
+                        String::from("原生实验窗口仍在运行，请先关闭后再次框选")
                     }
-                    NativeSnapshot::validate_dimensions(
-                        screen.source.width,
-                        screen.source.height,
-                    )?;
-                    let snapshot =
-                        NativeSnapshot::new(placement, screen.source.as_ref().clone())?;
-                    Ok((snapshot, (screen.capture_revision, screen.edit_revision)))
-                })();
-                let request_id = self.native_selection_next_id.checked_add(1).unwrap_or(1);
-                self.status = match prepared {
-                    Ok((snapshot, revision)) => match self.native_probe.launch_select(
-                        snapshot,
-                        request_id,
-                        self.native_selection_tx.clone(),
-                        ui.ctx().clone(),
-                    ) {
-                        Ok(ProbeLaunchResult::Started) => {
-                            self.native_selection_next_id = request_id;
-                            self.native_selection_revision = Some((request_id, revision));
-                            String::from("已启动 NSPanel 原生框选与标注；确认后回传现有编辑器，Esc 取消（待真机验证）")
-                        }
-                        Ok(ProbeLaunchResult::AlreadyRunning) => {
-                            String::from("原生实验窗口仍在运行，请先关闭后再次框选")
-                        }
-                        Err(error) => format!("NSPanel 原生框选未启动：{error}"),
-                    },
-                    Err(error) => format!("NSPanel 原生框选不可用：{error}"),
+                    Err(error) => format!("NSPanel 原生框选未启动：{error}"),
                 };
             }
             if let Some(color) = color_to_copy {
@@ -2534,6 +2649,7 @@ impl PicPasteApp {
             if let Some(action) = selected_action {
                 #[cfg(feature = "native-panel-probe")]
                 {
+                    self.native_canary_phase.reset();
                     self.native_selection_revision = None;
                     let _ = self.native_probe.stop_for_capture();
                 }
@@ -2926,6 +3042,22 @@ mod tests {
         let ctx = egui::Context::default();
         let image = Arc::new(RgbaFrame::new(80, 60, vec![255; 80 * 60 * 4]).unwrap());
         SelectionView::new(&ctx, DisplayId(1), capture_id, image, Vec::new())
+    }
+
+    #[cfg(feature = "native-panel-probe")]
+    #[test]
+    fn automatic_native_capture_validates_frozen_source_and_capture_revision() {
+        let screen = test_screen(77);
+        let placement = OverlayPlacement::new(DisplayId(1), (-100.0, 20.0), (80.0, 60.0)).unwrap();
+        let original = screen.source.rgba.clone();
+        let (snapshot, revision) = screen.native_capture_request(placement).unwrap();
+        assert_eq!(revision, (77, 0));
+        assert_eq!(snapshot.image().rgba, original);
+        assert_eq!(screen.source.rgba, original);
+
+        let wrong_screen =
+            OverlayPlacement::new(DisplayId(2), (-100.0, 20.0), (80.0, 60.0)).unwrap();
+        assert!(screen.native_capture_request(wrong_screen).is_err());
     }
 
     #[cfg(feature = "native-panel-probe")]

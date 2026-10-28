@@ -76,3 +76,27 @@ GitHub macOS runner 执行 `ns-panel-probe --preflight`，并上传只读 JSON �
 ## 七、PR #51 原生像素预览专项真机验收
 
 在 macOS 14/26（分别记录系统版本）使用 3840×2160 及 5120×2880、1×/2× 混合双屏，完成单个 12px 马赛克块、半径 6px 模糊、不同奇数原点的 ROI、部分透明 PNG 区域处理。仅在**已提交、互不重叠、纯马赛克/模糊**且总效果≤1MP、源 RGBA≤32MiB 时要求 NSPanel 原生图像层与父编辑器 PNG 同一 ROI 逐像素匹配；拖动草稿为框选，不计算效果。对相交/混合矢量或文字/超 1MP/超 32MiB 的图像，应只显示区域框，确认后父编辑器仍可按单次 4MP 效果完成输出；测试撤销、重做后缓存失效、是否出现残留纹理、边界色差、GPU 与 CPU/RSS 峰值。请记录实际机器、提交 SHA、视频/截图及测量原始数据，CI 的字节测试不代表 GPU 显示或性能已通过。
+
+## 八、PR #52 原生自动截图试运行（仅开发版，未完成真机验收）
+
+构建一个**单独标记**、可运行的开发包（不会改变常规 Lite/Full ZIP）：
+
+```bash
+cargo build --release -p shot-macos --features native-panel-probe --bins --locked
+PICPASTE_VARIANT=Lite PICPASTE_NATIVE_CANARY=1 bash scripts/package-macos.sh
+PICPASTE_VARIANT=Full PICPASTE_NATIVE_CANARY=1 bash scripts/package-macos.sh
+```
+
+两个包的文件名包含 `NATIVE-CANARY-UNSIGNED-DEV`，应用 `Contents/MacOS` 内有同目录已 ad-hoc 签名的 `ns-panel-probe`。**非正式 Developer ID 签名或公证发行件。** 普通构建不附带 companion、也没有试运行开关。
+
+在真实 macOS 14/26 上执行并记录截屏、录屏、机器/系统/构建 SHA 与错误日志：
+
+1. 在试运行包设置页打开“下一次截图优先使用原生 NSPanel”；每次重启默认关闭，不会暗中改变所有用户的行为。
+2. 使用快捷键和按钮分别截图；一次有效 Capture 后应进入独立 NSPanel 而不是同时弹出两个置顶编辑器；显示器全局**逻辑点**定位、选区和标注仍按原屏局部**物理像素**核验。
+3. 点击原生“确认”，核对旧编辑器中的 PNG 合成、Undo/Redo、保存/复制/贴图与源图 Alpha；再次截图、改编辑历史后，旧子进程回复不能覆盖新内容。
+4. 原生 Esc/取消必须**结束本次自动截图**并恢复设置/托盘操作，不得无故出现另一个编辑器；手动实验入口取消时仍只保留已有截图。
+5. 用移除/不可执行的 sibling companion 测试自动回退稳定 eframe，截图不得丢失。只对临时开发包操作，不要修改正在使用的应用。
+6. 在原生面板卡住、输入法抢焦点或缺少回包时，选择菜单栏“显示窗口”应停止 companion 并恢复原来的稳定截图编辑器。重复测试 10 次，确认不出现捕获自窗口的残影。
+7. 记录混合 1×/2×、负原点、Spaces、全屏、TCC 拒绝/授权/撤销、中文与日文 IME，以及启动/P95/内存/帧指标。CI 的头less smoke、preflight `not_run` 和签名验证不能替代实际 GUI 验收。
+
+**回退方式：** 在设置页关闭试运行选项，或重新启动应用；旧 eframe 截图路径继续工作。此里程碑不是“完整原生截图 UI 已发布”，Issue #5/#10 在采集真实证据前继续开放。
