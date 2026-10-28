@@ -95,12 +95,15 @@ impl ProbeGlassToolbar {
         let local_rect = NSRect::new(NSPoint::new(0.0, 0.0), NSSize::new(BAR_WIDTH, BAR_HEIGHT));
         let content = NSView::initWithFrame(NSView::alloc(mtm), local_rect);
         let target = GlassActionTarget::new(mtm);
-        let theme_button = NSButton::buttonWithTitle_target_action(
-            ns_string!("浅色预览"),
-            Some(&*target),
-            Some(sel!(togglePreviewTheme:)),
-            mtm,
-        );
+        // SAFETY: GlassActionTarget implements togglePreviewTheme: and remains retained.
+        let theme_button = unsafe {
+            NSButton::buttonWithTitle_target_action(
+                ns_string!("浅色预览"),
+                Some(&*target),
+                Some(sel!(togglePreviewTheme:)),
+                mtm,
+            )
+        };
         theme_button.setFrame(NSRect::new(
             NSPoint::new(8.0, 6.0),
             NSSize::new(120.0, 32.0),
@@ -110,12 +113,15 @@ impl ProbeGlassToolbar {
         theme_button.setBordered(false);
         content.addSubview(&theme_button);
 
-        let close_button = NSButton::buttonWithTitle_target_action(
-            ns_string!("关闭"),
-            Some(&*target),
-            Some(sel!(closeProbe:)),
-            mtm,
-        );
+        // SAFETY: GlassActionTarget implements closeProbe: and remains retained.
+        let close_button = unsafe {
+            NSButton::buttonWithTitle_target_action(
+                ns_string!("关闭"),
+                Some(&*target),
+                Some(sel!(closeProbe:)),
+                mtm,
+            )
+        };
         close_button.setFrame(NSRect::new(
             NSPoint::new(134.0, 6.0),
             NSSize::new(94.0, 32.0),
