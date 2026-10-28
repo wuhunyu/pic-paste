@@ -104,4 +104,3 @@ fn cocoa_unmark_accepts_marked_text_without_a_duplicate_commit() {
     assert_eq!(ime.unmark(), None);
     assert_eq!(ime.cancel(), None);
 }
-
