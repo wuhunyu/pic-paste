@@ -68,3 +68,31 @@ impl FloatingBarFrame {
             && y < self.y + self.height
     }
 }
+
+
+/// Preview background choice for the opt-in NSPanel demo. It is deliberately
+/// independent from screenshot/crop pixels and from the system's appearance.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum PreviewTheme {
+    #[default]
+    Dark,
+    Light,
+}
+
+impl PreviewTheme {
+    /// Toggle only the WGPU/egui demonstration canvas, never captured pixels.
+    pub fn toggle(self) -> Self {
+        match self {
+            Self::Dark => Self::Light,
+            Self::Light => Self::Dark,
+        }
+    }
+
+    /// The visible button title describes what clicking it will do next.
+    pub fn toggle_label(self) -> &'static str {
+        match self {
+            Self::Dark => "浅色预览",
+            Self::Light => "深色预览",
+        }
+    }
+}
