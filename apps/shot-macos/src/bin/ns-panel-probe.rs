@@ -306,9 +306,9 @@ mod tests {
         use shot_core::glass_toolbar::PreviewTheme;
         let ctx = egui::Context::default();
         panel_egui::apply_preview_theme(&ctx, PreviewTheme::Light);
-        assert!(!ctx.style().visuals.dark_mode);
+        assert_eq!(ctx.theme(), egui::Theme::Light);
         panel_egui::apply_preview_theme(&ctx, PreviewTheme::Dark);
-        assert!(ctx.style().visuals.dark_mode);
+        assert_eq!(ctx.theme(), egui::Theme::Dark);
     }
 
     #[cfg(target_os = "macos")]
