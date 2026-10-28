@@ -89,6 +89,29 @@ mod native_probe_launcher_tests {
     }
 
     #[test]
+    fn capture_interlock_stops_live_probe_and_allows_relaunch() {
+        let dir = unique_dir();
+        fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("ns-panel-probe");
+        fs::write(&path, "#!/bin/sh\\nexec /bin/sleep 15\\n").unwrap();
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o700)).unwrap();
+        let app = dir.join("PicPaste");
+        let mut launcher = NativeProbeLauncher::default();
+        assert_eq!(
+            launcher.launch_from(&app).unwrap(),
+            ProbeLaunchResult::Started
+        );
+        launcher.stop_for_capture().unwrap();
+        launcher.stop_for_capture().unwrap();
+        assert_eq!(
+            launcher.launch_from(&app).unwrap(),
+            ProbeLaunchResult::Started
+        );
+        drop(launcher);
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
     fn repeated_launch_reuses_the_same_live_companion() {
         let dir = unique_dir();
         fs::create_dir_all(&dir).unwrap();
