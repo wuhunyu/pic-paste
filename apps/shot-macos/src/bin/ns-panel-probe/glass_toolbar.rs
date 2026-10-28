@@ -27,11 +27,16 @@ struct GlassTargetIvars {
     pending: Cell<Option<GlassToolbarAction>>,
 }
 
+struct GlassActionTargetIvars {
+    pending: Cell<Option<GlassToolbarAction>>,
+}
+
 define_class!(
     // SAFETY: NSObject has no special subclassing requirements, and this
     // type has no Drop implementation. All AppKit actions stay on the
     // AppKit main thread. Method signatures match their Objective-C selectors.
     #[unsafe(super(NSObject))]
+    #[ivars = GlassActionTargetIvars]
     #[thread_kind = MainThreadOnly]
     #[ivars = GlassTargetIvars]
     #[derive(Debug)]
