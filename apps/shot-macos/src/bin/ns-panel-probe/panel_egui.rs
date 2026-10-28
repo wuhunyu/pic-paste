@@ -3,12 +3,14 @@
 //! Never used by production screenshot, scrolling or pin windows. In
 //! particular, handling direct-key text here is NOT an NSTextInputClient
 //! implementation: marked-text IME composition requires a separate bridge.
+use super::effect_preview::NativeEffectTextureCache;
 use objc2_app_kit::{NSEvent, NSEventModifierFlags, NSEventType, NSPanel, NSView};
 use shot_core::glass_toolbar::PreviewTheme;
 use shot_core::ime::ImeChange;
 use shot_core::native_markup::{NativeMark, NativeMarkup, NativeMarkupTool};
 use shot_core::native_panel::{PanelPointerPoint, PanelSurfaceSize};
 use shot_core::native_selection_edit::NativeSelectionEdit;
+use shot_image::native_effect_preview::preview_source_supported;
 
 /// Convert native input-context callbacks to exactly one egui event.
 pub(crate) fn egui_event_for_ime_change(change: ImeChange) -> Option<egui::Event> {
@@ -109,6 +111,15 @@ pub(crate) fn resolve_selection_action(
 /// the immutable screenshot texture. Their coordinates are physical source
 /// pixels projected into the panel's local logical-point canvas.
 pub(crate) fn paint_native_marks(ui: &egui::Ui, origin: egui::Pos2, markup: &NativeMarkup) {
+    paint_native_marks_with_mode(ui, origin, markup, false);
+}
+
+fn paint_native_marks_with_mode(
+    ui: &egui::Ui,
+    origin: egui::Pos2,
+    markup: &NativeMarkup,
+    exact_effects: bool,
+) {
     let painter = ui.painter();
     let stroke = egui::Stroke::new(3.0, egui::Color32::from_rgb(39, 178, 231));
     let at = |pixel: (u32, u32)| {
@@ -200,6 +211,9 @@ pub(crate) fn paint_native_marks(ui: &egui::Ui, origin: egui::Pos2, markup: &Nat
         }
     };
     for mark in markup.visible() {
+        if exact_effects && matches!(mark, NativeMark::Pixelate { .. } | NativeMark::Blur { .. }) {
+            continue;
+        }
         draw(mark);
     }
     if let Some(draft) = markup.draft() {
@@ -214,6 +228,7 @@ pub(crate) fn show_native_selection(
     texture: &egui::TextureHandle,
     selection: &mut NativeSelectionEdit,
     markup: &mut NativeMarkup,
+    effect_preview: &NativeEffectTextureCache,
     text_buffer: &mut String,
     action: &mut Option<SelectionAction>,
 ) {
@@ -259,7 +274,10 @@ pub(crate) fn show_native_selection(
                     }
                 }
             }
-            paint_native_marks(ui, bounds.min, markup);
+            // Cached RGBA patches sit above the frozen screenshot, below
+            // draft outlines and selection grips. No source pixels mutate.
+            effect_preview.paint(ui.painter(), bounds.min, markup);
+            paint_native_marks_with_mode(ui, bounds.min, markup, effect_preview.is_exact());
             if let Some((x, y, width, height)) = selection.preview_rect_points()
                 && width > 0.0
                 && height > 0.0
@@ -316,7 +334,16 @@ pub(crate) fn show_native_selection(
         .show(root.ctx(), |ui| {
             egui::Frame::popup(ui.style()).show(ui, |ui| {
                 ui.horizontal(|ui| {
-                    ui.small("效果区仅标框；确认后在编辑器预览并保存 PNG");
+                    let has_effect = markup.visible().iter().any(|mark| {
+                        matches!(mark, NativeMark::Pixelate { .. } | NativeMark::Blur { .. })
+                    });
+                    if effect_preview.is_exact() {
+                        ui.small("已提交非重叠效果使用像素预览；拖动时仅标框");
+                    } else if has_effect {
+                        ui.small("复杂或大面积效果仅标框；确认后查看最终 PNG 效果");
+                    } else {
+                        ui.small("绘制后确认，将标注导入 PNG 编辑器");
+                    }
                     if let Some(rect) = selection.current_rect() {
                         ui.label(format!("{} × {} px", rect.width, rect.height));
                     }
@@ -376,6 +403,9 @@ pub(crate) struct ProbeEgui {
     renderer: egui_wgpu::Renderer,
     controls: ProbeControls,
     snapshot: Option<egui::TextureHandle>,
+    // Retain source CPU bytes only in opt-in selection mode and <=32 MiB.
+    preview_source: Option<shot_core::RgbaFrame>,
+    effect_previews: NativeEffectTextureCache,
     selection: Option<NativeSelectionEdit>,
     markup: Option<NativeMarkup>,
     text_buffer: String,
@@ -399,6 +429,11 @@ impl ProbeEgui {
         let ctx = egui::Context::default();
         apply_preview_theme(&ctx, PreviewTheme::Dark);
         let snapshot = image.as_ref().map(|frame| snapshot_texture(&ctx, frame));
+        let preview_source = if selection.is_some() {
+            image.filter(|frame| preview_source_supported(frame.width, frame.height))
+        } else {
+            None
+        };
         Self {
             ctx,
             renderer: egui_wgpu::Renderer::new(
@@ -408,6 +443,8 @@ impl ProbeEgui {
             ),
             controls: ProbeControls::default(),
             snapshot,
+            preview_source,
+            effect_previews: NativeEffectTextureCache::default(),
             selection,
             markup,
             text_buffer: String::from("文字"),
@@ -728,8 +765,18 @@ impl ProbeEgui {
             viewport.native_pixels_per_point = Some(scale);
             viewport.focused = Some(self.focused);
         }
+        // A prior AppKit toolbar undo/redo may have changed the history.
+        // Discard stale GPU patches *before* this frame is painted.
+        if let Some(markup) = self.markup.as_ref() {
+            self.effect_previews.sync(
+                &self.ctx,
+                self.preview_source.as_ref(),
+                markup.visible(),
+            );
+        }
         let controls = &mut self.controls;
         let snapshot = self.snapshot.as_ref();
+        let effect_previews = &self.effect_previews;
         let selection = &mut self.selection;
         let markup = &mut self.markup;
         let text_buffer = &mut self.text_buffer;
@@ -742,6 +789,7 @@ impl ProbeEgui {
                         texture,
                         selection,
                         markup,
+                        effect_previews,
                         text_buffer,
                         &mut selection_action,
                     );
@@ -755,6 +803,15 @@ impl ProbeEgui {
         if let Some(action) = selection_action {
             self.apply_selection_action(action);
         }
+        // Gestures commit during run_ui. Prepare the changed preview only
+        // once and paint it on the next frame, never on every drag event.
+        let preview_changed = self.markup.as_ref().is_some_and(|markup| {
+            self.effect_previews.sync(
+                &self.ctx,
+                self.preview_source.as_ref(),
+                markup.visible(),
+            )
+        });
         // egui reports the actual text caret in logical points. The native
         // NSTextInputClient converts it to AppKit screen coordinates.
         self.ime_cursor = output
@@ -820,7 +877,7 @@ impl ProbeEgui {
         for id in &output.textures_delta.free {
             self.renderer.free_texture(id);
         }
-        self.repaint = false;
+        self.repaint = preview_changed;
         Ok(())
     }
 }
