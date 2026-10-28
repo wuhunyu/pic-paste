@@ -337,10 +337,7 @@ impl ProbeGlassToolbar {
             // Two rows keep the material capsule inside a 580pt-wide host.
             let x = 8.0 + (index % 6) as f64 * 90.0;
             let y = if index < 6 { 46.0 } else { 6.0 };
-            button.setFrame(NSRect::new(
-                NSPoint::new(x, y),
-                NSSize::new(86.0, 36.0),
-            ));
+            button.setFrame(NSRect::new(NSPoint::new(x, y), NSSize::new(86.0, 36.0)));
             button.setBordered(false);
             content.addSubview(&button);
             if let Some(tool) = tool {
