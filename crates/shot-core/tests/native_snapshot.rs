@@ -1,6 +1,6 @@
 use shot_core::RgbaFrame;
 use shot_core::display::OverlayPlacement;
-use shot_core::native_snapshot::{MAX_SNAPSHOT_BYTES, NativeSnapshot};
+use shot_core::native_snapshot::NativeSnapshot;
 use shot_core::platform::DisplayId;
 
 fn sample() -> NativeSnapshot {
@@ -57,7 +57,7 @@ fn limits_are_checked_before_large_payload_allocation() {
     assert!(NativeSnapshot::validate_dimensions(0, 1).is_err());
     assert!(NativeSnapshot::validate_dimensions(8193, 1).is_err());
     assert!(NativeSnapshot::validate_dimensions(8192, 8192).is_err());
-    assert!(MAX_SNAPSHOT_BYTES >= 60 * 1024 * 1024);
+    assert!(NativeSnapshot::validate_dimensions(5120, 2880).is_ok());
     assert_eq!(NativeSnapshot::validate_dimensions(2, 2).unwrap(), 16);
     let mut wire = Vec::new();
     sample().write_to(&mut wire).unwrap();
