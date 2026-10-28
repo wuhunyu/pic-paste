@@ -14,6 +14,10 @@ mod panel_egui;
 mod glass_toolbar;
 
 #[cfg(target_os = "macos")]
+#[path = "ns-panel-probe/effect_preview.rs"]
+mod effect_preview;
+
+#[cfg(target_os = "macos")]
 #[path = "ns-panel-probe/ime.rs"]
 mod ime;
 
@@ -688,6 +692,7 @@ mod tests {
                 &texture,
                 &mut selection,
                 &mut markup,
+                &effect_preview::NativeEffectTextureCache::default(),
                 &mut text,
                 &mut selected,
             );
@@ -845,6 +850,54 @@ mod tests {
         assert!(output.shapes.len() >= 7);
         output.drop_without_applying_deltas();
         assert_eq!(marks.visible().len(), 3);
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn native_effect_textures_are_cached_until_history_changes() {
+        use shot_core::RgbaFrame;
+        use shot_core::native_markup::NativeMark;
+
+        let image = RgbaFrame::new(80, 60, vec![125; 80 * 60 * 4]).unwrap();
+        let ctx = egui::Context::default();
+        let mut cache = effect_preview::NativeEffectTextureCache::default();
+        assert!(cache.sync(&ctx, Some(&image), &[]));
+        assert!(!cache.is_exact());
+        let marks = vec![NativeMark::Pixelate {
+            left: 7,
+            top: 9,
+            width: 31,
+            height: 22,
+        }];
+        assert!(cache.sync(&ctx, Some(&image), &marks));
+        assert!(cache.is_exact());
+        assert_eq!(cache.patch_count(), 1);
+        assert!(!cache.sync(&ctx, Some(&image), &marks));
+        assert_eq!(cache.patch_count(), 1);
+        assert!(cache.sync(&ctx, Some(&image), &[]));
+        assert!(!cache.is_exact());
+        assert_eq!(cache.patch_count(), 0);
+        assert!(cache.sync(&ctx, None, &marks));
+        assert!(!cache.is_exact());
+        assert_eq!(cache.patch_count(), 0);
+
+        let overlapping = [
+            NativeMark::Pixelate {
+                left: 7,
+                top: 9,
+                width: 31,
+                height: 22,
+            },
+            NativeMark::Blur {
+                left: 20,
+                top: 15,
+                width: 9,
+                height: 9,
+            },
+        ];
+        assert!(cache.sync(&ctx, Some(&image), &overlapping));
+        assert!(!cache.is_exact());
+        assert_eq!(cache.patch_count(), 0);
     }
 
     #[cfg(target_os = "macos")]

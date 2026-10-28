@@ -9,6 +9,9 @@ use crate::history::{Annotation, AnnotationDocument};
 const CYAN: [u8; 4] = [39, 178, 231, 255];
 const STROKE: f32 = 3.0;
 const TEXT_SIZE: f32 = 26.0;
+/// Shared exact parameters for native PNG import and bounded pixel previews.
+pub const NATIVE_PIXELATE_BLOCK_SIZE: u32 = 12;
+pub const NATIVE_BLUR_RADIUS: u32 = 6;
 
 /// Add one validated native batch to the existing undo/redo history.
 /// Returned commands are full-frame source-local physical coordinates,
@@ -42,7 +45,7 @@ pub fn import_native_marks(
                 top: *top,
                 width: *width,
                 height: *height,
-                block_size: 12,
+                block_size: NATIVE_PIXELATE_BLOCK_SIZE,
             },
             NativeMark::Blur {
                 left,
@@ -54,7 +57,7 @@ pub fn import_native_marks(
                 top: *top,
                 width: *width,
                 height: *height,
-                radius: 6,
+                radius: NATIVE_BLUR_RADIUS,
             },
             NativeMark::Arrow { from, to } => Annotation::Arrow {
                 from: (from.0 as f32, from.1 as f32),

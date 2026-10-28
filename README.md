@@ -1,10 +1,10 @@
 # PicPaste
 
-> **原生 NSPanel（仅实验 Feature）：** PR #45–#50 已在独立原生浮层实现八手柄选区、系统 Liquid Glass 控件、画笔/直线/箭头/矩形/椭圆/马赛克/模糊/Unicode 文字与本地 Undo/Redo；确认后通过有界 `PPANN001` 进入既有 eframe 标注历史及 PNG 保存/撤销/贴图链路。使用 `--features native-panel-probe` 才可访问；正式 Lite/Full 默认仍用 eframe/winit，不代表 macOS GUI、Retina、Spaces、TCC、IME 或性能已经真机验收。
+> **原生 NSPanel（仅实验 Feature）：** PR #45–#51 已在独立原生浮层实现八手柄选区、系统 Liquid Glass 控件、画笔/直线/箭头/矩形/椭圆/马赛克/模糊/Unicode 文字与本地 Undo/Redo；确认后通过有界 `PPANN001` 进入既有 eframe 标注历史及 PNG 保存/撤销/贴图链路。使用 `--features native-panel-probe` 才可访问；正式 Lite/Full 默认仍用 eframe/winit，不代表 macOS GUI、Retina、Spaces、TCC、IME 或性能已经真机验收。
 
 An offline, macOS-first screenshot and pinned-image utility written in Rust 2024, egui/eframe + wgpu and native ScreenCaptureKit. No Electron or WebView. **Development preview, not a signed/notarized public release.** Windows integration is planned after the macOS acceptance gates.
 
-> **Progress truth:** [Current status](docs/STATUS.md) · [Remaining work / active Issue ledger](docs/REMAINING.md) · [Original 20-task tracker](docs/TASKS.md) · [Open Issues](https://github.com/wuhunyu/pic-paste/issues). This README describes the code on `main`, not work in an unmerged PR. As of 2026-10-28, manual screenshot preview (#18), self-window exclusion (#20), trusted-prefix trimming (#21), pin OCR line picking (#22), slow-scroll recovery (#23), fixed-band exclusion (#24), rounded long PNG (#25), bounded review annotation/copy/pin (#26), animation-tolerant overlap / trusted middle retake (#27), Vision word/character OCR plus offline QR (#28), trusted standalone Add-on code (#29), and experimental native annotation persistence (#45), offline Mac preflight (#46), native ellipse (#47), local Undo/Redo (#48) and bounded line/pixelate/blur (#49) and native keyboard routing (#50) are integrated. Physical mixed-DPI, Spaces, Screen Recording TCC, native clipboard/pins and performance acceptance remain **unverified**.
+> **Progress truth:** [Current status](docs/STATUS.md) · [Remaining work / active Issue ledger](docs/REMAINING.md) · [Original 20-task tracker](docs/TASKS.md) · [Open Issues](https://github.com/wuhunyu/pic-paste/issues). This README describes the code on `main`, not work in an unmerged PR. As of 2026-10-28, manual screenshot preview (#18), self-window exclusion (#20), trusted-prefix trimming (#21), pin OCR line picking (#22), slow-scroll recovery (#23), fixed-band exclusion (#24), rounded long PNG (#25), bounded review annotation/copy/pin (#26), animation-tolerant overlap / trusted middle retake (#27), Vision word/character OCR plus offline QR (#28), trusted standalone Add-on code (#29), and experimental native annotation persistence (#45), offline Mac preflight (#46), native ellipse (#47), local Undo/Redo (#48) and bounded line/pixelate/blur (#49) and native keyboard routing (#50) and bounded native effect pixel previews (#51) are integrated. Physical mixed-DPI, Spaces, Screen Recording TCC, native clipboard/pins and performance acceptance remain **unverified**.
 
 ## Implemented macOS development workflow
 
@@ -198,3 +198,9 @@ python3 scripts/native_acceptance.py verify --report native-acceptance.json
 ### 实验 NSPanel 键盘操作（PR #50）
 
 仅在 `--features native-panel-probe` 的实验 NSPanel 中：`⌘Z` 撤销已提交原生标注，`⇧⌘Z` 重做，Enter 确认有效选区，Escape 取消并退出面板。在**原生文字输入框激活**时，这些快捷键由 egui / macOS 输入法接管，尤其是 Escape 不能直接关闭整个截图窗口。Cmd+Z 按 `NSEvent.charactersIgnoringModifiers` 匹配当前键盘布局的字母，而不是固定美式键盘物理键位；快捷键的 KeyDown、KeyUp 成对消费，按住不会反复撤销。Cmd+Option+Z、Cmd+Control+Z 不覆盖。CI 只能验证路由纯逻辑及 macOS 编译，真实中文/日韩 IME、候选框、非美式键盘和焦点切换仍需实机验收。生产默认 UI、原图/协议及 PNG-only 不变。
+
+### 原生马赛克/模糊像素预览（实验 PR #51）
+
+可选 NSPanel 现在对**已提交、无重叠、且全部为马赛克/模糊的标注**显示真实像素效果；和最终 PNG 共用 `shot-image::composite` 的 12px 马赛克块、6px 模糊半径算法，源局部坐标和 RGBA/Alpha 一致。仅从源截图拷贝必要的 ROI 到独立 egui 小纹理；原始截图和 `PPANN001`/ `PPSEL001` 不修改。每次仅在提交/撤销/重做后更新缓存，拖拽未完成时仍为区域框。
+
+为了控制资源，额外保留的 CPU 源截图不得超过 **32 MiB**，所有可预览效果区域合计不得超过 **1,000,000 像素**；超过预算、标注重叠、与线条/文字混用或没有 CPU 源时，**明确退回区域框**，确认后在既有 eframe PNG 编辑器里查看最终效果。原本允许的单次 4MP 效果编辑和 PNG 保存不受预览 1MP 预算限制。默认 eframe 截图路径、Mac 原生系统玻璃控件以及离线运行不变。实时拖拽期间不计算像素效果，尚未进行真实 Mac Retina/颜色/Alpha、Spaces/TCC、IME/资源测试。
