@@ -46,8 +46,8 @@ mod native_probe_launcher_tests {
     };
     use shot_core::RgbaFrame;
     use shot_core::display::OverlayPlacement;
-    use shot_core::native_snapshot::NativeSnapshot;
     use shot_core::native_selection::NativeSelectionReply;
+    use shot_core::native_snapshot::NativeSnapshot;
     use shot_core::platform::DisplayId;
     use std::fs;
     use std::os::unix::fs::{PermissionsExt, symlink};
@@ -225,7 +225,12 @@ mod native_probe_launcher_tests {
         let mut launcher = NativeProbeLauncher::default();
         assert_eq!(
             launcher
-                .launch_select_from(&dir.join("PicPaste"), snapshot, tx, eframe::egui::Context::default())
+                .launch_select_from(
+                    &dir.join("PicPaste"),
+                    snapshot,
+                    tx,
+                    eframe::egui::Context::default()
+                )
                 .unwrap(),
             ProbeLaunchResult::Started
         );

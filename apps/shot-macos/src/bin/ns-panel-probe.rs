@@ -102,7 +102,9 @@ mod native {
     use shot_core::glass_toolbar::{GlassToolbarAction, PreviewTheme};
     use shot_core::ime::{ImeKeyRoute, ImeKeyRouting};
     use shot_core::native_panel::{PanelSurfaceLifecycle, PanelSurfaceUpdate};
-    use shot_core::native_selection::{AppKitSelectionFrame, NativeSelection, NativeSelectionReply};
+    use shot_core::native_selection::{
+        AppKitSelectionFrame, NativeSelection, NativeSelectionReply,
+    };
     use std::ptr::NonNull;
 
     /// This opt-in probe must run on AppKit's main thread. It pumps native
@@ -111,7 +113,12 @@ mod native {
     pub fn show(snapshot: Option<NativeSnapshot>, selection_mode: bool) -> Result<(), String> {
         let frozen_preview = snapshot.is_some();
         let selection_placement = if selection_mode {
-            Some(snapshot.as_ref().ok_or("native selection requires screenshot")?.placement())
+            Some(
+                snapshot
+                    .as_ref()
+                    .ok_or("native selection requires screenshot")?
+                    .placement(),
+            )
         } else {
             None
         };
@@ -134,7 +141,9 @@ mod native {
                     && (bounds.size.height - target.height).abs() <= 1.0
             });
             if !known_display {
-                return Err(String::from("capture display no longer matches an AppKit screen"));
+                return Err(String::from(
+                    "capture display no longer matches an AppKit screen",
+                ));
             }
             Some(NSRect::new(
                 NSPoint::new(target.x, target.y),
@@ -198,7 +207,9 @@ mod native {
             if (bounds.size.width - f64::from(width)).abs() > 1.0
                 || (bounds.size.height - f64::from(height)).abs() > 1.0
             {
-                return Err(String::from("AppKit native selection content geometry changed"));
+                return Err(String::from(
+                    "AppKit native selection content geometry changed",
+                ));
             }
         }
         let scale = panel.backingScaleFactor();
@@ -241,8 +252,14 @@ mod native {
             .ok_or("Metal adapter does not support NSPanel surface")?;
         surface.configure(&device, &config);
         let native_selection = if let Some(placement) = selection_placement {
-            let frame = snapshot.as_ref().ok_or("selection frame unavailable")?.image();
-            Some(NativeSelection::new(placement, (frame.width, frame.height))?)
+            let frame = snapshot
+                .as_ref()
+                .ok_or("selection frame unavailable")?
+                .image();
+            Some(NativeSelection::new(
+                placement,
+                (frame.width, frame.height),
+            )?)
         } else {
             None
         };
@@ -326,9 +343,9 @@ mod native {
                     };
                     if route == ImeKeyRoute::Egui
                         && (!pointer_down
-                            || glass_toolbar
-                                .as_ref()
-                                .is_none_or(|toolbar| !toolbar.contains_pointer(&event, &content_view)))
+                            || glass_toolbar.as_ref().is_none_or(|toolbar| {
+                                !toolbar.contains_pointer(&event, &content_view)
+                            }))
                     {
                         // This key was not consumed by the native context; allow
                         // the original ASCII fallback for this event.
@@ -518,8 +535,8 @@ mod tests {
     fn native_selection_overlay_paints_frozen_pixels_with_drag_surface() {
         use shot_core::display::OverlayPlacement;
         use shot_core::platform::DisplayId;
-        let placement = OverlayPlacement::new(DisplayId(17), (-100.0, -20.0), (100.0, 80.0))
-            .unwrap();
+        let placement =
+            OverlayPlacement::new(DisplayId(17), (-100.0, -20.0), (100.0, 80.0)).unwrap();
         let mut selection =
             shot_core::native_selection::NativeSelection::new(placement, (200, 160)).unwrap();
         let ctx = egui::Context::default();

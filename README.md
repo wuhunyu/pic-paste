@@ -146,3 +146,8 @@ cargo run --locked -p shot-macos --features native-panel-probe --bin ns-panel-pr
 
 > **2026-10-28 native macOS progress:** PR [#38](https://github.com/wuhunyu/pic-paste/pull/38) added opt-in NSPanel CJK text composition, and PR [#39](https://github.com/wuhunyu/pic-paste/pull/39) fixed AppKit-consumed key routing; both are merged. [#40](https://github.com/wuhunyu/pic-paste/pull/40) adds an **explicitly feature-gated** option in the main settings window to launch the separate NSPanel/Liquid Glass test program. It does **not** switch actual screenshot/editor or pin windows to NSPanel. Real macOS GUI, CJK candidate placement, Retina/Spaces, TCC, performance and accessibility acceptance remain open.
 
+
+
+### Experimental native NSPanel screen selection (developer feature)
+
+Build both native binaries with `cargo build --locked -p shot-macos --features native-panel-probe --bins`, then run `cargo run --locked -p shot-macos --features native-panel-probe --bin shot-macos`. Capture normally and click **NSPanel 原生框选（实验）**. A separate **borderless native AppKit NSPanel** displays an immutable full-display RGBA screenshot on the selected display, lets you drag a region and transfers one validated physical-pixel rectangle back to the existing eframe editor. Escape cancels and leaves the screenshot unchanged. This mode is **opt-in** and needs an interactive macOS desktop; it is not the default production screenshot backend or a complete native annotation editor. macOS 14+/26, Spaces, TCC, mixed Retina scaling, keyboard focus and actual GPU/GUI performance still need real-device acceptance. No temporary screenshot files, PNG changes or new network services are involved.
