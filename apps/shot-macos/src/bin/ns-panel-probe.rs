@@ -3,6 +3,7 @@
 //! This binary is gated by `native-panel-probe`, and never replaces the
 //! production eframe/winit screenshot or pin window backend.
 use shot_core::native_panel::PanelSurfaceSize;
+use shot_core::native_snapshot::NativeSnapshot;
 
 #[cfg(target_os = "macos")]
 #[path = "ns-panel-probe/panel_egui.rs"]
@@ -20,6 +21,7 @@ mod ime;
 enum ProbeCommand {
     Check,
     Show,
+    Snapshot,
 }
 
 impl ProbeCommand {
@@ -27,7 +29,8 @@ impl ProbeCommand {
         match args {
             ["--check"] => Ok(Self::Check),
             ["--show"] => Ok(Self::Show),
-            _ => Err("usage: ns-panel-probe --check | --show"),
+            ["--snapshot"] => Ok(Self::Snapshot),
+            _ => Err("usage: ns-panel-probe --check | --show | --snapshot"),
         }
     }
 }
@@ -47,7 +50,14 @@ fn run() -> Result<(), String> {
             );
             Ok(())
         }
-        ProbeCommand::Show => native::show(),
+        ProbeCommand::Show => native::show(None),
+        ProbeCommand::Snapshot => {
+            // Bound and verify the complete one-shot stdin frame before
+            // initializing AppKit or allocating a Metal surface.
+            let stdin = std::io::stdin();
+            let snapshot = NativeSnapshot::read_from(&mut stdin.lock())?;
+            native::show(Some(snapshot))
+        },
     }
 }
 
@@ -60,14 +70,16 @@ fn main() {
 
 #[cfg(not(target_os = "macos"))]
 mod native {
-    pub fn show() -> Result<(), String> {
+    use super::NativeSnapshot;
+
+    pub fn show(_snapshot: Option<NativeSnapshot>) -> Result<(), String> {
         Err(String::from("interactive NSPanel requires macOS 14+"))
     }
 }
 
 #[cfg(target_os = "macos")]
 mod native {
-    use super::PanelSurfaceSize;
+    use super::{NativeSnapshot, PanelSurfaceSize};
     use super::glass_toolbar::ProbeGlassToolbar;
     use super::ime::ProbeImeBridge;
     use super::panel_egui::{ProbeEgui, ProbeViewport};
@@ -86,7 +98,8 @@ mod native {
     /// This opt-in probe must run on AppKit's main thread. It pumps native
     /// events itself so that a close event can return control to Rust and
     /// release the Metal surface before AppKit's retained view and panel.
-    pub fn show() -> Result<(), String> {
+    pub fn show(snapshot: Option<NativeSnapshot>) -> Result<(), String> {
+        let frozen_preview = snapshot.is_some();
         let mtm =
             MainThreadMarker::new().ok_or("AppKit NSPanel must be created on the main thread")?;
         let application = NSApplication::sharedApplication(mtm);
@@ -103,7 +116,11 @@ mod native {
         unsafe { panel.setReleasedWhenClosed(false) };
         panel.setFloatingPanel(true);
         panel.setBecomesKeyOnlyIfNeeded(false);
-        panel.setTitle(ns_string!("PicPaste · NSPanel + WGPU Metal 实验"));
+        if frozen_preview {
+            panel.setTitle(ns_string!("PicPaste · 冻结截图原生预览（实验）"));
+        } else {
+            panel.setTitle(ns_string!("PicPaste · NSPanel + WGPU Metal 实验"));
+        }
         panel.setHasShadow(false);
         panel.setMovableByWindowBackground(false);
         panel.setAcceptsMouseMovedEvents(true);
@@ -157,7 +174,11 @@ mod native {
             .get_default_config(&adapter, size.width, size.height)
             .ok_or("Metal adapter does not support NSPanel surface")?;
         surface.configure(&device, &config);
-        let mut egui_ui = ProbeEgui::new(&device, config.format);
+        let mut egui_ui = ProbeEgui::new(
+            &device,
+            config.format,
+            snapshot.map(NativeSnapshot::into_image),
+        );
         egui_ui.set_focus(panel.isKeyWindow());
         egui_ui.paint(
             &surface,
