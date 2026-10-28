@@ -139,3 +139,10 @@ fn invalid_display_dimensions_are_rejected() {
     assert!(NativeMarkup::new(placement, (0, 160)).is_err());
     assert!(NativeMarkup::new(placement, (9000, 160)).is_err());
 }
+
+#[test]
+fn annotations_project_back_into_display_local_points_not_desktop_coordinates() {
+    let marks = markup();
+    assert_eq!(marks.to_logical_point((20, 40)), (10.0, 20.0));
+    assert_eq!(marks.to_logical_point((199, 159)), (99.5, 79.5));
+}
