@@ -32,7 +32,9 @@ impl NativeScreenDiagnostic {
             || size_pt.1 <= 0.0
             || backing_scale <= 0.0
         {
-            return Err(String::from("invalid AppKit screen points or backing scale"));
+            return Err(String::from(
+                "invalid AppKit screen points or backing scale",
+            ));
         }
         Ok(Self {
             origin_pt,
