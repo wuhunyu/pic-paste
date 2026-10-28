@@ -97,7 +97,10 @@ mod native_probe_launcher_tests {
         fs::set_permissions(&path, fs::Permissions::from_mode(0o700)).unwrap();
         let app = dir.join("PicPaste");
         let mut launcher = NativeProbeLauncher::default();
-        assert_eq!(launcher.launch_from(&app).unwrap(), ProbeLaunchResult::Started);
+        assert_eq!(
+            launcher.launch_from(&app).unwrap(),
+            ProbeLaunchResult::Started
+        );
         assert_eq!(
             launcher.launch_from(&app).unwrap(),
             ProbeLaunchResult::AlreadyRunning
