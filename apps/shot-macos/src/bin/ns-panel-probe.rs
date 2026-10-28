@@ -101,9 +101,9 @@ mod native {
     use raw_window_handle::{AppKitWindowHandle, RawWindowHandle};
     use shot_core::glass_toolbar::{GlassToolbarAction, PreviewTheme};
     use shot_core::ime::{ImeKeyRoute, ImeKeyRouting};
+    use shot_core::native_annotation::NativeEditReply;
     use shot_core::native_markup::NativeMarkup;
     use shot_core::native_panel::{PanelSurfaceLifecycle, PanelSurfaceUpdate};
-    use shot_core::native_annotation::NativeEditReply;
     use shot_core::native_selection::{AppKitSelectionFrame, NativeSelectionReply};
     use shot_core::native_selection_edit::NativeSelectionEdit;
     use std::ptr::NonNull;
