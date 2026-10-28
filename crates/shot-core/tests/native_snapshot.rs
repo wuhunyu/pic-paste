@@ -4,11 +4,14 @@ use shot_core::native_snapshot::{MAX_SNAPSHOT_BYTES, NativeSnapshot};
 use shot_core::platform::DisplayId;
 
 fn sample() -> NativeSnapshot {
-    let placement = OverlayPlacement::new(DisplayId(42), (-1440.0, -100.0), (1440.0, 900.0)).unwrap();
-    let image = RgbaFrame::new(2, 2, vec![
-        255, 0, 0, 255, 0, 255, 0, 255,
-        0, 0, 255, 255, 0, 0, 0, 0,
-    ]).unwrap();
+    let placement =
+        OverlayPlacement::new(DisplayId(42), (-1440.0, -100.0), (1440.0, 900.0)).unwrap();
+    let image = RgbaFrame::new(
+        2,
+        2,
+        vec![255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 0, 0, 0, 0],
+    )
+    .unwrap();
     NativeSnapshot::new(placement, image).unwrap()
 }
 
