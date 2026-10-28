@@ -78,5 +78,5 @@
 
 ## 2026-10-28 — Interactive native glass preview controls (#37)
 
-- [ ] [PR #37](https://github.com/wuhunyu/pic-paste/pull/37) adds two native AppKit `NSButton` controls to the existing opt-in glass/vibrancy/opaque capsule: theme toggle of the **demo only** and safe window close. Confirm full Linux/macOS CI and merge separately.
+- [x] [PR #37](https://github.com/wuhunyu/pic-paste/pull/37) adds two native AppKit `NSButton` controls to the existing opt-in glass/vibrancy/opaque capsule: theme toggle of the **demo only** and safe window close. Merged to main after [CI #40609033351](https://github.com/wuhunyu/pic-paste/actions/runs/40609033351) succeeded.
 - [ ] Real macOS 26/14+ visual and mouse/keyboard/VoiceOver/Retina/Spaces/Reduce Transparency acceptance, actual screenshot toolbar actions, clipboard/save/annotate and production rollout switch remain **open**.
