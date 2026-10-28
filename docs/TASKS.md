@@ -6,7 +6,7 @@
 | --- | --- | --- | --- | --- |
 | P0-T1 | Rust Cargo workspace 与 CI | **代码基本完成** | `Cargo.lock`、macOS/Linux fmt/test/Clippy/Release、Swift IPC、Lite/Full 构建；缺真机基准 | [#5](https://github.com/wuhunyu/pic-paste/issues/5)、[#10](https://github.com/wuhunyu/pic-paste/issues/10) |
 | P0-T2 | AppKit 菜单栏、全局快捷键 | **部分实现** | 菜单栏、四功能快捷键、Ctrl+Option+1–9 自定义及失败回滚（PR #14）；真机冲突/恢复/权限未验收 | [#5](https://github.com/wuhunyu/pic-paste/issues/5) |
-| P0-T3 | ScreenCaptureKit、多屏与选区浮层 | **部分实现** | 选显示器、八手柄、窗口候选、放大镜；#31 局部像素/逻辑点隔离；#32–#49 已形成独立 AppKit NSPanel/WGPU Metal/egui 实验选区、直线/几何/马赛克/模糊及 Undo/Redo 回传（不替换正式 UI；缺真机验收） | [#5](https://github.com/wuhunyu/pic-paste/issues/5) |
+| P0-T3 | ScreenCaptureKit、多屏与选区浮层 | **部分实现** | 选显示器、八手柄、窗口候选、放大镜；#31 局部像素/逻辑点隔离；#32–#50 已形成独立 AppKit NSPanel/WGPU Metal/egui 实验选区、直线/几何/马赛克/模糊及 Undo/Redo 回传（不替换正式 UI；缺真机验收） | [#5](https://github.com/wuhunyu/pic-paste/issues/5) |
 | P0-T4 | 原生贴图、鼠标穿透与性能 | **部分实现** | 多贴图/穿透/恢复与 #30 纹理预算；#31 独立 Pin 初始不激活/无阴影、仅穿透模式透传鼠标；真实跨 Spaces、焦点/拖动与性能未验收 | [#5](https://github.com/wuhunyu/pic-paste/issues/5) |
 | P1-T1 | 选区、窗口识别、取色/放大镜 | **代码基本完成** | 窗口点击选择 #15、9×9 放大镜/HEX；真实重叠窗口和负坐标验证未完成 | [#5](https://github.com/wuhunyu/pic-paste/issues/5) |
 | P1-T2 | 标注、撤销重做 | **代码基本完成** | 线/箭头/画笔/几何/模糊/马赛克、文字 #17、Undo/Redo；原生实验 NSPanel #47/#48 补椭圆和本地重做；CJK 系统字体实际覆盖需验证 | [#6](https://github.com/wuhunyu/pic-paste/issues/6) |
@@ -156,3 +156,8 @@ PR #38 (CJK marked-text) and PR #39 (native-consumed key routing) are merged wit
 - [x] 直线/马赛克/模糊源物理像素草稿及确认，支持反向拖拽；单个区域处理不超过 4MP，`PPANN001` tags 6/7/8 限制长度和校验。与原有 PNG-only、Undo/Redo、无覆盖保存兼容。
 - [x] 系统材质工具栏 560pt 内两排 12 操作；马赛克/模糊仅显示**操作区域标记**，父编辑器确认后显示准确像素效果。
 - [ ] 真机多屏 Retina/Spaces/TCC、系统字体/IME、PNG 实际效果对照、焦点及性能未验收，原 20 项任务分类不改变。
+
+## 2026-10-28 — PR #50 NSPanel 键盘与输入法事件路由
+
+- [x] 独立原生实验面板处理 `⌘Z`、`⇧⌘Z`、Enter/ Escape，文字输入状态交还 egui/IME，按键释放和重复阻断覆盖纯状态机测试；不改生产默认 eframe、源 RGBA、PNG-only。
+- [ ] 真机 macOS 14+/26 多语言键盘布局、中文/日文候选、无文字焦点 Escape、选区确认、全屏 Space 切换仍无实机测量证据，不能把此功能标记为真实系统 GUI 验收通过。
