@@ -300,7 +300,7 @@ mod tests {
         // the generated font texture updates rather than leaking them.
         output.drop_without_applying_deltas();
     }
-#[cfg(target_os = "macos")]
+    #[cfg(target_os = "macos")]
     #[test]
     fn preview_theme_switches_headless_egui_visuals() {
         use shot_core::glass_toolbar::PreviewTheme;
@@ -314,9 +314,9 @@ mod tests {
     #[cfg(target_os = "macos")]
     #[test]
     fn native_glass_controls_provide_action_queue_contract() {
-        let _callback: fn(&glass_toolbar::ProbeGlassToolbar)
-            -> Option<shot_core::glass_toolbar::GlassToolbarAction> =
+        let _callback: fn(
+            &glass_toolbar::ProbeGlassToolbar,
+        ) -> Option<shot_core::glass_toolbar::GlassToolbarAction> =
             glass_toolbar::ProbeGlassToolbar::take_action;
     }
-
 }
