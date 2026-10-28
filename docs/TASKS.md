@@ -131,3 +131,10 @@ PR #38 (CJK marked-text) and PR #39 (native-consumed key routing) are merged wit
 - [x] 可选 NSPanel 中的系统材质标注按钮选择画笔、箭头、矩形、文字及撤销；实现非破坏性源分辨率标注的临时预览与容量边界。
 - [ ] **标注保存未完成**：当前 PPSEL001 只携带选区，不携带标注；下一任务需父子进程有界协议、AnnotationDocument 导入与源码单测、PNG 正确性验收。
 - [ ] 完整原生编辑器/系统 Liquid Glass 的真实 macOS 14–26、Retina、TCC、Spaces、IME 和性能测试仍未完成；Issue #5/#10 不能关闭。
+
+
+## 2026-10-28 — PR #45 原生标注跨进程持久化（不修改原 20 项状态统计）
+
+- [x] `PPSEL001` 保留旧 33 字节回复；含标注确认使用 `PPANN001` 并严格验证协议长度、标注数量、物理坐标、显示器和原始图像尺寸。
+- [x] 标注在父进程经截图/编辑 revision 核验并一次性预合成后进入现有 PNG-only、撤销/重做、复制与贴图流程。错误及取消返回均不改变现有历史。
+- [ ] macOS 14–26 真实窗口交互/混合 DPI/Spaces/TCC/Liquid Glass/中文 IME/性能验收与生产切换依然未完成。
