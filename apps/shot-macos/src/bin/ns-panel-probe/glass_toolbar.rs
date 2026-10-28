@@ -87,6 +87,13 @@ define_class!(
             )));
         }
 
+        #[unsafe(method(chooseEllipse:))]
+        fn choose_ellipse(&self, _sender: &AnyObject) {
+            self.ivars().pending.set(Some(GlassToolbarAction::ChooseTool(
+                NativeMarkupTool::Ellipse,
+            )));
+        }
+
         #[unsafe(method(chooseText:))]
         fn choose_text(&self, _sender: &AnyObject) {
             self.ivars().pending.set(Some(GlassToolbarAction::ChooseTool(
@@ -266,6 +273,11 @@ impl ProbeGlassToolbar {
                 Some(NativeMarkupTool::Rectangle),
             ),
             (
+                ns_string!("椭圆"),
+                sel!(chooseEllipse:),
+                Some(NativeMarkupTool::Ellipse),
+            ),
+            (
                 ns_string!("文字"),
                 sel!(chooseText:),
                 Some(NativeMarkupTool::Text),
@@ -281,8 +293,8 @@ impl ProbeGlassToolbar {
                 NSButton::buttonWithTitle_target_action(title, Some(&*target), Some(selector), mtm)
             };
             button.setFrame(NSRect::new(
-                NSPoint::new(8.0 + index as f64 * 78.0, 6.0),
-                NSSize::new(76.0, 36.0),
+                NSPoint::new(8.0 + index as f64 * 68.0, 6.0),
+                NSSize::new(66.0, 36.0),
             ));
             button.setBordered(false);
             content.addSubview(&button);
@@ -316,6 +328,8 @@ impl ProbeGlassToolbar {
                 (NativeMarkupTool::Arrow, false) => ns_string!("箭头"),
                 (NativeMarkupTool::Rectangle, true) => ns_string!("●矩形"),
                 (NativeMarkupTool::Rectangle, false) => ns_string!("矩形"),
+                (NativeMarkupTool::Ellipse, true) => ns_string!("●椭圆"),
+                (NativeMarkupTool::Ellipse, false) => ns_string!("椭圆"),
                 (NativeMarkupTool::Text, true) => ns_string!("●文字"),
                 (NativeMarkupTool::Text, false) => ns_string!("文字"),
             };
