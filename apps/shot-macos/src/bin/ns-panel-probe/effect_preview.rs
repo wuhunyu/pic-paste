@@ -5,9 +5,7 @@
 use egui::{Color32, ColorImage, Context, Painter, Pos2, Rect, TextureHandle, TextureOptions};
 use shot_core::RgbaFrame;
 use shot_core::native_markup::{NativeMark, NativeMarkup};
-use shot_image::native_effect_preview::{
-    can_preview_native_effects, render_native_effect_patch,
-};
+use shot_image::native_effect_preview::{can_preview_native_effects, render_native_effect_patch};
 
 struct EffectTexturePatch {
     left: u32,
@@ -93,10 +91,8 @@ impl NativeEffectTextureCache {
             let right = patch.left + patch.size.0;
             let bottom = patch.top + patch.size.1;
             let (x1, y1) = markup.to_logical_point((right, bottom));
-            let target = Rect::from_min_max(
-                origin + egui::vec2(x0, y0),
-                origin + egui::vec2(x1, y1),
-            );
+            let target =
+                Rect::from_min_max(origin + egui::vec2(x0, y0), origin + egui::vec2(x1, y1));
             painter.image(
                 patch.texture.id(),
                 target,
