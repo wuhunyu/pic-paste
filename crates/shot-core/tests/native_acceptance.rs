@@ -41,7 +41,8 @@ fn accessibility_opaque_and_legacy_vibrancy_take_precedence_over_os_label() {
     let reduced = NativePreflightReport::new((26, 1, 0), true, true, true, vec![]).unwrap();
     assert_eq!(reduced.material(), GlassMaterial::Opaque);
     assert!(reduced.to_json_line().contains("\"material\":\"opaque\""));
-    let missing_class = NativePreflightReport::new((26, 0, 0), false, false, false, vec![]).unwrap();
+    let missing_class =
+        NativePreflightReport::new((26, 0, 0), false, false, false, vec![]).unwrap();
     assert_eq!(missing_class.material(), GlassMaterial::Vibrancy);
     let legacy = NativePreflightReport::new((14, 7, 3), false, true, false, vec![]).unwrap();
     assert_eq!(legacy.material(), GlassMaterial::Vibrancy);
@@ -84,6 +85,14 @@ fn identical_scaling_has_no_mixed_flag_and_tcc_is_only_observed() {
     let report = NativePreflightReport::new((15, 5, 0), false, false, true, screens).unwrap();
     assert!(!report.has_negative_origin());
     assert!(!report.has_mixed_scales());
-    assert!(report.to_json_line().contains("\"screen_recording_preflight\":true"));
-    assert!(report.to_json_line().contains("\"interactive_gui_observed\":false"));
+    assert!(
+        report
+            .to_json_line()
+            .contains("\"screen_recording_preflight\":true")
+    );
+    assert!(
+        report
+            .to_json_line()
+            .contains("\"interactive_gui_observed\":false")
+    );
 }
