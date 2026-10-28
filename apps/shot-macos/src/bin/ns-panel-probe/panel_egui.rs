@@ -122,6 +122,46 @@ pub(crate) fn paint_native_marks(ui: &egui::Ui, origin: egui::Pos2, markup: &Nat
                 painter.add(egui::Shape::line(positions, stroke));
             }
         }
+        NativeMark::Line { from, to } => {
+            painter.line_segment([at(*from), at(*to)], stroke);
+        }
+        NativeMark::Pixelate {
+            left,
+            top,
+            width,
+            height,
+        }
+        | NativeMark::Blur {
+            left,
+            top,
+            width,
+            height,
+        } => {
+            // ROI-only indicator: the source texture stays immutable.
+            // The parent editor previews the actual effect after confirmation.
+            let rect = egui::Rect::from_min_max(
+                at((*left, *top)),
+                at((left.saturating_add(*width), top.saturating_add(*height))),
+            );
+            painter.rect_filled(
+                rect,
+                0.0,
+                egui::Color32::from_rgba_unmultiplied(39, 178, 231, 40),
+            );
+            painter.rect_stroke(rect, 0.0, stroke, egui::StrokeKind::Inside);
+            let label = if matches!(mark, NativeMark::Pixelate { .. }) {
+                "马赛克区域"
+            } else {
+                "模糊区域"
+            };
+            painter.text(
+                rect.min + egui::vec2(4.0, 4.0),
+                egui::Align2::LEFT_TOP,
+                label,
+                egui::FontId::proportional(14.0),
+                stroke.color,
+            );
+        }
         NativeMark::Arrow { from, to } => {
             let a = at(*from);
             let b = at(*to);
@@ -276,7 +316,7 @@ pub(crate) fn show_native_selection(
         .show(root.ctx(), |ui| {
             egui::Frame::popup(ui.style()).show(ui, |ui| {
                 ui.horizontal(|ui| {
-                    ui.small("原生标注仅本地预览，不会保存到 PNG");
+                    ui.small("效果区仅标框；确认后在编辑器预览并保存 PNG");
                     if let Some(rect) = selection.current_rect() {
                         ui.label(format!("{} × {} px", rect.width, rect.height));
                     }
