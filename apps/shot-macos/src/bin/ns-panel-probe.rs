@@ -336,6 +336,7 @@ mod tests {
     fn cli_accepts_only_explicit_safe_and_interactive_modes() {
         assert_eq!(ProbeCommand::parse(&["--check"]), Ok(ProbeCommand::Check));
         assert_eq!(ProbeCommand::parse(&["--show"]), Ok(ProbeCommand::Show));
+        assert_eq!(ProbeCommand::parse(&["--snapshot"]), Ok(ProbeCommand::Snapshot));
         assert!(ProbeCommand::parse(&[]).is_err());
         assert!(ProbeCommand::parse(&["--show", "--check"]).is_err());
         assert!(ProbeCommand::parse(&["--unknown"]).is_err());
@@ -361,6 +362,27 @@ mod tests {
         // the generated font texture updates rather than leaking them.
         output.drop_without_applying_deltas();
     }
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn native_snapshot_texture_produces_egui_shapes_without_gpu_or_window() {
+        let frame = shot_core::RgbaFrame::new(2, 2, vec![255; 16]).unwrap();
+        let ctx = egui::Context::default();
+        let texture = panel_egui::snapshot_texture(&ctx, &frame);
+        assert_eq!(texture.size(), [2, 2]);
+        let input = egui::RawInput {
+            screen_rect: Some(egui::Rect::from_min_size(
+                egui::Pos2::ZERO,
+                egui::vec2(640.0, 360.0),
+            )),
+            ..Default::default()
+        };
+        let output = ctx.run_ui(input, |ui| {
+            panel_egui::show_snapshot(ui, &texture);
+        });
+        assert!(!output.shapes.is_empty());
+        output.drop_without_applying_deltas();
+    }
+
     #[cfg(target_os = "macos")]
     #[test]
     fn preview_theme_switches_headless_egui_visuals() {
