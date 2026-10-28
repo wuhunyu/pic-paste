@@ -754,8 +754,17 @@ impl PicPasteApp {
             || self.ocr_waiting
             || self.scroll_control.is_some()
             || self.scroll_review.is_some()
-            || !self.overlay.begin_capture()
         {
+            return;
+        }
+        // The opt-in NSPanel demo runs in another process, so capture cannot
+        // rely on the current-PID exclusion used for normal PicPaste windows.
+        #[cfg(feature = "native-panel-probe")]
+        if let Err(error) = self.native_probe.stop_for_capture() {
+            self.status = format!("原生实验窗口无法关闭，截图已取消：{error}");
+            return;
+        }
+        if !self.overlay.begin_capture() {
             return;
         }
         self.capturing = true;

@@ -78,6 +78,33 @@ impl NativeProbeLauncher {
         // physical macOS GUI acceptance is a separate test gate.
         Ok(ProbeLaunchResult::Started)
     }
+
+    /// Stop the separate AppKit process before taking a screenshot: unlike our
+    /// own windows, the companion has another PID and is not filtered by the
+    /// ScreenCaptureKit self-window exclusion. Idempotent after it exits.
+    pub(crate) fn stop_for_capture(&mut self) -> Result<(), String> {
+        let Some(child) = self.child.as_mut() else {
+            return Ok(());
+        };
+        match child.try_wait() {
+            Ok(Some(_)) => {}
+            Ok(None) => {
+                if let Err(error) = child.kill()
+                    && child
+                        .try_wait()
+                        .map_err(|check| format!("无法检查实验窗口退出状态：{check}"))?
+                        .is_none()
+                {
+                    return Err(format!("无法关闭原生实验窗口：{error}"));
+                }
+                child.wait()
+                    .map_err(|error| format!("无法等待原生实验窗口关闭：{error}"))?;
+            }
+            Err(error) => return Err(format!("无法检查原生实验窗口进程：{error}")),
+        }
+        self.child = None;
+        Ok(())
+    }
 }
 
 impl Drop for NativeProbeLauncher {
