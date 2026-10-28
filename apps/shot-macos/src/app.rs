@@ -245,6 +245,11 @@ impl SelectionView {
         (self.capture_revision, self.edit_revision) == expected
     }
 
+    #[cfg(feature = "native-panel-probe")]
+    fn accepts_native_session(&self, active: (u64, (u64, u64)), received_id: u64) -> bool {
+        active.0 == received_id && self.accepts_native_revision(active.1)
+    }
+
     /// Validate selection, display, image dimensions and every native mark,
     /// then pre-render the entire candidate history before mutating any live
     /// selection, annotation history, texture or PNG preview state.
@@ -684,11 +689,13 @@ pub struct PicPasteApp {
     #[cfg(feature = "native-panel-probe")]
     native_probe: NativeProbeLauncher,
     #[cfg(feature = "native-panel-probe")]
-    native_selection_tx: Sender<Result<NativeEditReply, String>>,
+    native_selection_tx: Sender<(u64, Result<NativeEditReply, String>)>,
     #[cfg(feature = "native-panel-probe")]
-    native_selection_rx: Receiver<Result<NativeEditReply, String>>,
+    native_selection_rx: Receiver<(u64, Result<NativeEditReply, String>)>,
     #[cfg(feature = "native-panel-probe")]
-    native_selection_revision: Option<(u64, u64)>,
+    native_selection_revision: Option<(u64, (u64, u64))>,
+    #[cfg(feature = "native-panel-probe")]
+    native_selection_next_id: u64,
 }
 
 impl PicPasteApp {
@@ -775,6 +782,8 @@ impl PicPasteApp {
             native_selection_rx,
             #[cfg(feature = "native-panel-probe")]
             native_selection_revision: None,
+            #[cfg(feature = "native-panel-probe")]
+            native_selection_next_id: 0,
         }
     }
 
@@ -1525,17 +1534,22 @@ impl PicPasteApp {
         #[cfg(feature = "native-panel-probe")]
         {
             let responses: Vec<_> = self.native_selection_rx.try_iter().collect();
-            for response in responses {
-                let Some(revision) = self.native_selection_revision.take() else {
-                    continue; // Stale or killed helper; never change this capture.
+            for (received_id, response) in responses {
+                let Some(active) = self.native_selection_revision else {
+                    continue; // Stale or killed helper.
                 };
+                if active.0 != received_id {
+                    continue; // Old child must not consume the new session's guard.
+                }
+                self.native_selection_revision = None;
+                let revision = active.1;
                 if !self.overlay.is_fullscreen() {
                     continue;
                 }
                 let Some(screen) = self.screen.as_mut() else {
                     continue;
                 };
-                if !screen.accepts_native_revision(revision) {
+                if !screen.accepts_native_session(active, received_id) {
                     continue;
                 }
                 self.status = match response {
@@ -2482,14 +2496,17 @@ impl PicPasteApp {
                         NativeSnapshot::new(placement, screen.source.as_ref().clone())?;
                     Ok((snapshot, (screen.capture_revision, screen.edit_revision)))
                 })();
+                let request_id = self.native_selection_next_id.checked_add(1).unwrap_or(1);
                 self.status = match prepared {
                     Ok((snapshot, revision)) => match self.native_probe.launch_select(
                         snapshot,
+                        request_id,
                         self.native_selection_tx.clone(),
                         ui.ctx().clone(),
                     ) {
                         Ok(ProbeLaunchResult::Started) => {
-                            self.native_selection_revision = Some(revision);
+                            self.native_selection_next_id = request_id;
+                            self.native_selection_revision = Some((request_id, revision));
                             String::from("已启动 NSPanel 原生框选与标注；确认后回传现有编辑器，Esc 取消（待真机验证）")
                         }
                         Ok(ProbeLaunchResult::AlreadyRunning) => {
