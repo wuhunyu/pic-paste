@@ -361,6 +361,8 @@ mod tests {
             ProbeCommand::parse(&["--snapshot"]),
             Ok(ProbeCommand::Snapshot)
         );
+        assert_eq!(ProbeCommand::parse(&["--select"]), Ok(ProbeCommand::Select));
+        assert!(ProbeCommand::parse(&["--select", "--snapshot"]).is_err());
         assert!(ProbeCommand::parse(&[]).is_err());
         assert!(ProbeCommand::parse(&["--show", "--check"]).is_err());
         assert!(ProbeCommand::parse(&["--unknown"]).is_err());
@@ -404,6 +406,34 @@ mod tests {
             panel_egui::show_snapshot(ui, &texture);
         });
         assert!(!output.shapes.is_empty());
+        output.drop_without_applying_deltas();
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn native_selection_overlay_paints_frozen_pixels_with_drag_surface() {
+        use shot_core::display::OverlayPlacement;
+        use shot_core::platform::DisplayId;
+        let placement = OverlayPlacement::new(DisplayId(17), (-100.0, -20.0), (100.0, 80.0))
+            .unwrap();
+        let mut selection =
+            shot_core::native_selection::NativeSelection::new(placement, (200, 160)).unwrap();
+        let ctx = egui::Context::default();
+        let frame = shot_core::RgbaFrame::new(2, 2, vec![255; 16]).unwrap();
+        let texture = panel_egui::snapshot_texture(&ctx, &frame);
+        let input = egui::RawInput {
+            screen_rect: Some(egui::Rect::from_min_size(
+                egui::Pos2::ZERO,
+                egui::vec2(100.0, 80.0),
+            )),
+            ..Default::default()
+        };
+        let mut selected = None;
+        let output = ctx.run_ui(input, |ui| {
+            panel_egui::show_native_selection(ui, &texture, &mut selection, &mut selected);
+        });
+        assert!(!output.shapes.is_empty());
+        assert!(selected.is_none());
         output.drop_without_applying_deltas();
     }
 
