@@ -83,6 +83,18 @@ impl NativeMarkup {
         &self.marks
     }
 
+    /// Project source-local pixel coordinates into NSPanel-local points.
+    /// Desktop-global origin (including negative monitor coordinates) is never
+    /// part of a mark and must never be scaled by Retina density.
+    pub fn to_logical_point(&self, pixel: (u32, u32)) -> (f32, f32) {
+        (
+            (f64::from(pixel.0) * f64::from(self.logical_points.0)
+                / f64::from(self.physical_pixels.0)) as f32,
+            (f64::from(pixel.1) * f64::from(self.logical_points.1)
+                / f64::from(self.physical_pixels.1)) as f32,
+        )
+    }
+
     fn valid_start(&self, pt: (f32, f32)) -> bool {
         pt.0.is_finite()
             && pt.1.is_finite()
