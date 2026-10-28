@@ -245,15 +245,31 @@ impl ProbeGlassToolbar {
         let content = NSView::initWithFrame(NSView::alloc(mtm), rect);
         let target = GlassActionTarget::new(mtm);
         let buttons = [
-            (ns_string!("选区"), sel!(chooseSelect:), Some(NativeMarkupTool::Select)),
-            (ns_string!("画笔"), sel!(chooseBrush:), Some(NativeMarkupTool::Brush)),
-            (ns_string!("箭头"), sel!(chooseArrow:), Some(NativeMarkupTool::Arrow)),
+            (
+                ns_string!("选区"),
+                sel!(chooseSelect:),
+                Some(NativeMarkupTool::Select),
+            ),
+            (
+                ns_string!("画笔"),
+                sel!(chooseBrush:),
+                Some(NativeMarkupTool::Brush),
+            ),
+            (
+                ns_string!("箭头"),
+                sel!(chooseArrow:),
+                Some(NativeMarkupTool::Arrow),
+            ),
             (
                 ns_string!("矩形"),
                 sel!(chooseRectangle:),
                 Some(NativeMarkupTool::Rectangle),
             ),
-            (ns_string!("文字"), sel!(chooseText:), Some(NativeMarkupTool::Text)),
+            (
+                ns_string!("文字"),
+                sel!(chooseText:),
+                Some(NativeMarkupTool::Text),
+            ),
             (ns_string!("撤销"), sel!(undoMarkup:), None),
             (ns_string!("取消"), sel!(cancelSelection:), None),
         ];
@@ -262,12 +278,7 @@ impl ProbeGlassToolbar {
             // SAFETY: every selector above is a concrete method registered on
             // GlassActionTarget; the retained target outlives all buttons.
             let button = unsafe {
-                NSButton::buttonWithTitle_target_action(
-                    title,
-                    Some(&*target),
-                    Some(selector),
-                    mtm,
-                )
+                NSButton::buttonWithTitle_target_action(title, Some(&*target), Some(selector), mtm)
             };
             button.setFrame(NSRect::new(
                 NSPoint::new(8.0 + index as f64 * 78.0, 6.0),

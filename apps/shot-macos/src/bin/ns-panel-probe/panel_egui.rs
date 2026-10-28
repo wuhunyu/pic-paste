@@ -6,9 +6,9 @@
 use objc2_app_kit::{NSEvent, NSEventModifierFlags, NSEventType, NSPanel, NSView};
 use shot_core::glass_toolbar::PreviewTheme;
 use shot_core::ime::ImeChange;
+use shot_core::native_markup::{NativeMark, NativeMarkup, NativeMarkupTool};
 use shot_core::native_panel::{PanelPointerPoint, PanelSurfaceSize};
 use shot_core::native_selection_edit::NativeSelectionEdit;
-use shot_core::native_markup::{NativeMark, NativeMarkup, NativeMarkupTool};
 
 /// Convert native input-context callbacks to exactly one egui event.
 pub(crate) fn egui_event_for_ime_change(change: ImeChange) -> Option<egui::Event> {
@@ -115,39 +115,37 @@ pub(crate) fn paint_native_marks(ui: &egui::Ui, origin: egui::Pos2, markup: &Nat
         let (x, y) = markup.to_logical_point(pixel);
         origin + egui::vec2(x, y)
     };
-    let draw = |mark: &NativeMark| {
-        match mark {
-            NativeMark::Brush { points } => {
-                if points.len() >= 2 {
-                    let positions: Vec<_> = points.iter().copied().map(at).collect();
-                    painter.add(egui::Shape::line(positions, stroke));
-                }
+    let draw = |mark: &NativeMark| match mark {
+        NativeMark::Brush { points } => {
+            if points.len() >= 2 {
+                let positions: Vec<_> = points.iter().copied().map(at).collect();
+                painter.add(egui::Shape::line(positions, stroke));
             }
-            NativeMark::Arrow { from, to } => {
-                let a = at(*from);
-                let b = at(*to);
-                painter.arrow(a, b - a, stroke);
-            }
-            NativeMark::Rectangle {
-                top_left,
-                bottom_right,
-            } => {
-                painter.rect_stroke(
-                    egui::Rect::from_two_pos(at(*top_left), at(*bottom_right)),
-                    0.0,
-                    stroke,
-                    egui::StrokeKind::Inside,
-                );
-            }
-            NativeMark::Text { at: point, content } => {
-                painter.text(
-                    at(*point),
-                    egui::Align2::LEFT_TOP,
-                    content,
-                    egui::FontId::proportional(26.0),
-                    stroke.color,
-                );
-            }
+        }
+        NativeMark::Arrow { from, to } => {
+            let a = at(*from);
+            let b = at(*to);
+            painter.arrow(a, b - a, stroke);
+        }
+        NativeMark::Rectangle {
+            top_left,
+            bottom_right,
+        } => {
+            painter.rect_stroke(
+                egui::Rect::from_two_pos(at(*top_left), at(*bottom_right)),
+                0.0,
+                stroke,
+                egui::StrokeKind::Inside,
+            );
+        }
+        NativeMark::Text { at: point, content } => {
+            painter.text(
+                at(*point),
+                egui::Align2::LEFT_TOP,
+                content,
+                egui::FontId::proportional(26.0),
+                stroke.color,
+            );
         }
     };
     for mark in markup.visible() {
@@ -254,10 +252,7 @@ pub(crate) fn show_native_selection(
                 egui::Frame::popup(ui.style()).show(ui, |ui| {
                     ui.horizontal(|ui| {
                         ui.label("文字内容");
-                        ui.add(
-                            egui::TextEdit::singleline(text_buffer)
-                                .desired_width(200.0),
-                        );
+                        ui.add(egui::TextEdit::singleline(text_buffer).desired_width(200.0));
                         ui.small("在画面中单击放置");
                     });
                 });
@@ -388,10 +383,6 @@ impl ProbeEgui {
             self.repaint = true;
         }
         changed
-    }
-
-    pub(crate) fn markup_count(&self) -> usize {
-        self.markup.as_ref().map_or(0, |markup| markup.visible().len())
     }
 
     pub(crate) fn selection_result(&self) -> Option<shot_core::RectPx> {
