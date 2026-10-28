@@ -121,6 +121,10 @@ mod native {
     use shot_core::glass_toolbar::{GlassToolbarAction, PreviewTheme};
     use shot_core::ime::{ImeKeyRoute, ImeKeyRouting};
     use shot_core::native_annotation::NativeEditReply;
+    use shot_core::native_key_routing::{
+        NativeKeyDecision, NativeKeyDown, NativeShortcutAction, NativeShortcutRouter,
+        ShortcutModifiers,
+    };
     use shot_core::native_markup::NativeMarkup;
     use shot_core::native_panel::{PanelSurfaceLifecycle, PanelSurfaceUpdate};
     use shot_core::native_selection::{AppKitSelectionFrame, NativeSelectionReply};
@@ -331,6 +335,7 @@ mod native {
         }
         let mut ime_bridge = ProbeImeBridge::new(mtm, &content_view);
         let mut key_routing = ImeKeyRouting::default();
+        let mut keyboard_shortcuts = NativeShortcutRouter::default();
         ime_bridge.set_cursor(egui_ui.ime_cursor_rect());
         ime_bridge.set_active(panel.isKeyWindow() && egui_ui.wants_text_input());
         let mut preview_theme = PreviewTheme::Dark;
@@ -357,48 +362,70 @@ mod native {
                     mode,
                     true,
                 ) {
-                    let escape = event.windowNumber() == panel.windowNumber()
-                        && event.r#type() == NSEventType::KeyDown
-                        && event.keyCode() == 53;
-                    let enter = selection_mode
-                        && !egui_ui.wants_text_input()
-                        && event.windowNumber() == panel.windowNumber()
-                        && event.r#type() == NSEventType::KeyDown
-                        && matches!(event.keyCode(), 36 | 76);
-                    let pointer_down = matches!(
-                        event.r#type(),
-                        NSEventType::LeftMouseDown
-                            | NSEventType::RightMouseDown
-                            | NSEventType::OtherMouseDown
-                    );
-                    let native_text_active =
-                        ime_bridge.is_active() && event.windowNumber() == panel.windowNumber();
-                    // Cocoa produces the text/preedit callbacks. Do not also
-                    // inject NSEvent.characters() for the same key press.
-                    // Preserve normal Command/Control shortcuts in egui.
-                    let native_eligible = native_text_active
-                        && !event.modifierFlags().intersects(
-                            NSEventModifierFlags::Command | NSEventModifierFlags::Control,
-                        );
-                    let route = match event.r#type() {
-                        NSEventType::KeyDown => {
-                            let handled = native_eligible && ime_bridge.handle_key(&event);
-                            key_routing.key_down(event.keyCode(), native_eligible, handled)
+                    // Capture the panel's shortcuts before Cocoa/egui/IME dispatch.
+                    // charactersIgnoringModifiers follows the active keyboard
+                    // layout instead of assuming US-QWERTY keycode 6 for Z.
+                    let shortcut_decision = if event.windowNumber() == panel.windowNumber() {
+                        match event.r#type() {
+                            NSEventType::KeyDown => {
+                                let chars = event
+                                    .charactersIgnoringModifiers()
+                                    .map(|value| value.to_string());
+                                let flags = event.modifierFlags();
+                                keyboard_shortcuts.key_down(NativeKeyDown {
+                                    key_code: event.keyCode(),
+                                    characters_ignoring_modifiers: chars.as_deref(),
+                                    modifiers: ShortcutModifiers {
+                                        command: flags.contains(NSEventModifierFlags::Command),
+                                        shift: flags.contains(NSEventModifierFlags::Shift),
+                                        control: flags.contains(NSEventModifierFlags::Control),
+                                        option: flags.contains(NSEventModifierFlags::Option),
+                                    },
+                                    repeat: event.isARepeat(),
+                                    text_input_active: egui_ui.wants_text_input(),
+                                    selection_mode,
+                                    panel_focused: panel.isKeyWindow(),
+                                })
+                            }
+                            NSEventType::KeyUp => keyboard_shortcuts.key_up(event.keyCode()),
+                            _ => NativeKeyDecision::Pass,
                         }
-                        NSEventType::KeyUp => key_routing.key_up(event.keyCode()),
-                        _ => ImeKeyRoute::Egui,
+                    } else {
+                        NativeKeyDecision::Pass
                     };
-                    if route == ImeKeyRoute::Egui
-                        && (!pointer_down
-                            || glass_toolbar.as_ref().is_none_or(|toolbar| {
-                                !toolbar.contains_pointer(&event, &content_view)
-                            }))
-                    {
-                        // This key was not consumed by the native context; allow
-                        // the original ASCII fallback for this event.
-                        egui_ui.on_event(&event, &panel, &content_view, false);
+                    if shortcut_decision == NativeKeyDecision::Pass {
+                        let pointer_down = matches!(
+                            event.r#type(),
+                            NSEventType::LeftMouseDown
+                                | NSEventType::RightMouseDown
+                                | NSEventType::OtherMouseDown
+                        );
+                        let native_text_active =
+                            ime_bridge.is_active() && event.windowNumber() == panel.windowNumber();
+                        // Cocoa produces the text/preedit callbacks. Do not
+                        // also inject characters for native-handled keypresses.
+                        let native_eligible = native_text_active
+                            && !event.modifierFlags().intersects(
+                                NSEventModifierFlags::Command | NSEventModifierFlags::Control,
+                            );
+                        let route = match event.r#type() {
+                            NSEventType::KeyDown => {
+                                let handled = native_eligible && ime_bridge.handle_key(&event);
+                                key_routing.key_down(event.keyCode(), native_eligible, handled)
+                            }
+                            NSEventType::KeyUp => key_routing.key_up(event.keyCode()),
+                            _ => ImeKeyRoute::Egui,
+                        };
+                        if route == ImeKeyRoute::Egui
+                            && (!pointer_down
+                                || glass_toolbar.as_ref().is_none_or(|toolbar| {
+                                    !toolbar.contains_pointer(&event, &content_view)
+                                }))
+                        {
+                            egui_ui.on_event(&event, &panel, &content_view, false);
+                        }
+                        application.sendEvent(&event);
                     }
-                    application.sendEvent(&event);
                     for change in ime_bridge.drain() {
                         egui_ui.push_ime_change(change);
                     }
@@ -430,15 +457,31 @@ mod native {
                             }
                         }
                     }
-                    if enter && egui_ui.confirm_selection() {
-                        panel.orderOut(None);
-                    }
-                    if escape {
-                        if selection_mode {
-                            egui_ui.cancel_selection();
+                    // Process only explicit shortcut actions; their KeyDown
+                    // and matching KeyUp never enter a second event handler.
+                    match shortcut_decision {
+                        NativeKeyDecision::Action(NativeShortcutAction::Undo) => {
+                            egui_ui.undo_markup();
                         }
-                        panel.orderOut(None);
+                        NativeKeyDecision::Action(NativeShortcutAction::Redo) => {
+                            egui_ui.redo_markup();
+                        }
+                        NativeKeyDecision::Action(NativeShortcutAction::Confirm) => {
+                            if egui_ui.confirm_selection() {
+                                panel.orderOut(None);
+                            }
+                        }
+                        NativeKeyDecision::Action(NativeShortcutAction::Cancel) => {
+                            if selection_mode {
+                                egui_ui.cancel_selection();
+                            }
+                            panel.orderOut(None);
+                        }
+                        NativeKeyDecision::Pass | NativeKeyDecision::Consumed => {}
                     }
+                }
+                if !panel.isKeyWindow() {
+                    keyboard_shortcuts.reset();
                 }
                 egui_ui.set_focus(panel.isKeyWindow());
                 let should_activate_ime = panel.isKeyWindow() && egui_ui.wants_text_input();
