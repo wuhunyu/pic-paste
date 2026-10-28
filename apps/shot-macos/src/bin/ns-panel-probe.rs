@@ -73,8 +73,8 @@ mod native {
     use super::panel_egui::{ProbeEgui, ProbeViewport};
     use objc2::{MainThreadMarker, MainThreadOnly};
     use objc2_app_kit::{
-        NSApplication, NSBackingStoreType, NSEventMask, NSEventModifierFlags, NSEventType,
-        NSPanel, NSWindowStyleMask,
+        NSApplication, NSBackingStoreType, NSEventMask, NSEventModifierFlags, NSEventType, NSPanel,
+        NSWindowStyleMask,
     };
     use objc2_foundation::{NSDate, NSDefaultRunLoopMode, NSPoint, NSRect, NSSize, ns_string};
     use raw_window_handle::{AppKitWindowHandle, RawWindowHandle};
@@ -205,8 +205,8 @@ mod native {
                             | NSEventType::RightMouseDown
                             | NSEventType::OtherMouseDown
                     );
-                    let native_text_active = ime_bridge.is_active()
-                        && event.windowNumber() == panel.windowNumber();
+                    let native_text_active =
+                        ime_bridge.is_active() && event.windowNumber() == panel.windowNumber();
                     // Cocoa produces the text/preedit callbacks. Do not also
                     // inject NSEvent.characters() for the same key press.
                     // Preserve normal Command/Control shortcuts in egui.
@@ -219,12 +219,7 @@ mod native {
                         let _handled = ime_bridge.handle_key(&event);
                     }
                     if !pointer_down || !glass_toolbar.contains_pointer(&event, &content_view) {
-                        egui_ui.on_event(
-                            &event,
-                            &panel,
-                            &content_view,
-                            native_text_active,
-                        );
+                        egui_ui.on_event(&event, &panel, &content_view, native_text_active);
                     }
                     application.sendEvent(&event);
                     for change in ime_bridge.drain() {
@@ -388,19 +383,20 @@ mod tests {
             was_marked: false,
         });
         assert!(matches!(ascii, Some(egui::Event::Text(ref text)) if text == "abc"));
-        assert!(panel_egui::egui_event_for_ime_change(ImeChange::Commit {
-            text: String::new(),
-            was_marked: false,
-        }).is_none());
+        assert!(
+            panel_egui::egui_event_for_ime_change(ImeChange::Commit {
+                text: String::new(),
+                was_marked: false,
+            })
+            .is_none()
+        );
     }
 
     #[cfg(target_os = "macos")]
     #[test]
     fn native_text_input_exports_context_and_composition_event_queue() {
-        let _key_handler: fn(
-            &ime::ProbeImeBridge,
-            &objc2_app_kit::NSEvent,
-        ) -> bool = ime::ProbeImeBridge::handle_key;
+        let _key_handler: fn(&ime::ProbeImeBridge, &objc2_app_kit::NSEvent) -> bool =
+            ime::ProbeImeBridge::handle_key;
         let _drain: fn(&ime::ProbeImeBridge) -> Vec<shot_core::ime::ImeChange> =
             ime::ProbeImeBridge::drain;
     }

@@ -11,8 +11,8 @@ use objc2::runtime::{AnyObject, ProtocolObject, Sel};
 use objc2::{MainThreadMarker, MainThreadOnly, define_class, msg_send};
 use objc2_app_kit::{NSEvent, NSTextInputClient, NSTextInputContext, NSView};
 use objc2_foundation::{
-    NSArray, NSAttributedString, NSAttributedStringKey, NSObject, NSObjectProtocol, NSPoint, NSRange,
-    NSRangePointer, NSRect, NSSize, NSString,
+    NSArray, NSAttributedString, NSAttributedStringKey, NSObject, NSObjectProtocol, NSPoint,
+    NSRange, NSRangePointer, NSRect, NSSize, NSString,
 };
 use shot_core::ime::{ImeChange, ImeComposition};
 
@@ -172,7 +172,9 @@ impl NativeImeClient {
         if let Some(text) = value.downcast_ref::<NSString>() {
             Some(text.to_string())
         } else {
-            value.downcast_ref::<NSAttributedString>().map(|value| value.string().to_string())
+            value
+                .downcast_ref::<NSAttributedString>()
+                .map(|value| value.string().to_string())
         }
     }
 

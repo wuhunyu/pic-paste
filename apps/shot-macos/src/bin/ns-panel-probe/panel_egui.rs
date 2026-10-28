@@ -350,7 +350,11 @@ impl ProbeEgui {
         let output = self.ctx.run_ui(raw, |ui| controls.ui(ui));
         // egui reports the actual text caret in logical points. The native
         // NSTextInputClient converts it to AppKit screen coordinates.
-        self.ime_cursor = output.platform_output.ime.as_ref().map(|ime| ime.cursor_rect);
+        self.ime_cursor = output
+            .platform_output
+            .ime
+            .as_ref()
+            .map(|ime| ime.cursor_rect);
         let screen = egui_wgpu::ScreenDescriptor {
             size_in_pixels: [viewport.size.width, viewport.size.height],
             pixels_per_point: output.pixels_per_point,
