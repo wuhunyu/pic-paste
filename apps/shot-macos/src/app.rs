@@ -2932,8 +2932,7 @@ mod tests {
     #[test]
     fn automatic_native_capture_validates_frozen_source_and_capture_revision() {
         let screen = test_screen(77);
-        let placement =
-            OverlayPlacement::new(DisplayId(1), (-100.0, 20.0), (80.0, 60.0)).unwrap();
+        let placement = OverlayPlacement::new(DisplayId(1), (-100.0, 20.0), (80.0, 60.0)).unwrap();
         let original = screen.source.rgba.clone();
         let (snapshot, revision) = screen.native_capture_request(placement).unwrap();
         assert_eq!(revision, (77, 0));
