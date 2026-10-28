@@ -79,6 +79,7 @@ mod native {
     use objc2_foundation::{NSDate, NSDefaultRunLoopMode, NSPoint, NSRect, NSSize, ns_string};
     use raw_window_handle::{AppKitWindowHandle, RawWindowHandle};
     use shot_core::glass_toolbar::{GlassToolbarAction, PreviewTheme};
+    use shot_core::ime::{ImeKeyRoute, ImeKeyRouting};
     use shot_core::native_panel::{PanelSurfaceLifecycle, PanelSurfaceUpdate};
     use std::ptr::NonNull;
 
@@ -174,6 +175,7 @@ mod native {
         let glass_toolbar = ProbeGlassToolbar::new(mtm, &content_view);
         println!("Experimental native toolbar: {:?}", glass_toolbar.material);
         let mut ime_bridge = ProbeImeBridge::new(mtm, &content_view);
+        let mut key_routing = ImeKeyRouting::default();
         ime_bridge.set_cursor(egui_ui.ime_cursor_rect());
         ime_bridge.set_active(panel.isKeyWindow() && egui_ui.wants_text_input());
         let mut preview_theme = PreviewTheme::Dark;
@@ -210,15 +212,21 @@ mod native {
                     // Cocoa produces the text/preedit callbacks. Do not also
                     // inject NSEvent.characters() for the same key press.
                     // Preserve normal Command/Control shortcuts in egui.
-                    if native_text_active
-                        && event.r#type() == NSEventType::KeyDown
+                    let native_eligible = native_text_active
                         && !event.modifierFlags().intersects(
                             NSEventModifierFlags::Command | NSEventModifierFlags::Control,
-                        )
+                        );
+                    let route = match event.r#type() {
+                        NSEventType::KeyDown => {
+                            let handled = native_eligible && ime_bridge.handle_key(&event);
+                            key_routing.key_down(event.keyCode(), native_eligible, handled)
+                        }
+                        NSEventType::KeyUp => key_routing.key_up(event.keyCode()),
+                        _ => ImeKeyRoute::Egui,
+                    };
+                    if route == ImeKeyRoute::Egui
+                        && (!pointer_down || !glass_toolbar.contains_pointer(&event, &content_view))
                     {
-                        let _handled = ime_bridge.handle_key(&event);
-                    }
-                    if !pointer_down || !glass_toolbar.contains_pointer(&event, &content_view) {
                         egui_ui.on_event(&event, &panel, &content_view, native_text_active);
                     }
                     application.sendEvent(&event);
@@ -240,7 +248,11 @@ mod native {
                     }
                 }
                 egui_ui.set_focus(panel.isKeyWindow());
-                ime_bridge.set_active(panel.isKeyWindow() && egui_ui.wants_text_input());
+                let should_activate_ime = panel.isKeyWindow() && egui_ui.wants_text_input();
+                if ime_bridge.is_active() && !should_activate_ime {
+                    key_routing.reset();
+                }
+                ime_bridge.set_active(should_activate_ime);
                 for change in ime_bridge.drain() {
                     egui_ui.push_ime_change(change);
                 }
