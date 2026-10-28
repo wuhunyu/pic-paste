@@ -6,7 +6,9 @@
 pub enum CanaryPhase {
     #[default]
     Legacy,
-    AwaitingNative { request_id: u64 },
+    AwaitingNative {
+        request_id: u64,
+    },
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -28,9 +30,7 @@ impl CanaryPhase {
     /// suppress the stable screenshot editor.
     pub fn begin(opted_in: bool, started_id: Option<u64>) -> Self {
         match (opted_in, started_id) {
-            (true, Some(request_id)) if request_id != 0 => {
-                Self::AwaitingNative { request_id }
-            }
+            (true, Some(request_id)) if request_id != 0 => Self::AwaitingNative { request_id },
             _ => Self::Legacy,
         }
     }
