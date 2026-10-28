@@ -250,10 +250,9 @@ impl SelectionView {
     /// selection, annotation history, texture or PNG preview state.
     #[cfg(feature = "native-panel-probe")]
     fn import_native_reply(&mut self, reply: &NativeEditReply) -> Result<Option<usize>, String> {
-        let Some((rect, marks)) = reply.validated_in(
-            self.display_id,
-            (self.source.width, self.source.height),
-        )? else {
+        let Some((rect, marks)) =
+            reply.validated_in(self.display_id, (self.source.width, self.source.height))?
+        else {
             return Ok(None); // Cancelled: preserve selection, markup and PNG.
         };
         if !marks.is_empty() {
