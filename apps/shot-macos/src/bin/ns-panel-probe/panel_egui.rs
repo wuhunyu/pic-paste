@@ -79,6 +79,55 @@ pub(crate) fn show_snapshot(root: &mut egui::Ui, texture: &egui::TextureHandle) 
         });
 }
 
+/// Full-display, read-only screenshot with one native drag-selection gesture.
+/// Pointer values are local top-left *logical points*. The pure selection
+/// state converts them to source-display-local physical pixels.
+pub(crate) fn show_native_selection(
+    root: &mut egui::Ui,
+    texture: &egui::TextureHandle,
+    selection: &mut shot_core::native_selection::NativeSelection,
+    selected: &mut Option<shot_core::RectPx>,
+) {
+    egui::CentralPanel::default()
+        .frame(egui::Frame::NONE)
+        .show(root, |ui| {
+            let bounds = ui.max_rect();
+            let response = ui.allocate_rect(bounds, egui::Sense::click_and_drag());
+            ui.painter().image(
+                texture.id(),
+                bounds,
+                egui::Rect::from_min_max(egui::Pos2::ZERO, egui::pos2(1.0, 1.0)),
+                egui::Color32::WHITE,
+            );
+            if let Some(cursor) = response.interact_pointer_pos() {
+                let point = (cursor.x - bounds.min.x, cursor.y - bounds.min.y);
+                if response.drag_started() {
+                    selection.press(point);
+                }
+                if response.dragged() {
+                    selection.drag(point);
+                }
+                if response.drag_stopped() {
+                    *selected = selection.release(point);
+                }
+            }
+            if let Some((x, y, width, height)) = selection.preview_rect_points()
+                && width > 0.0
+                && height > 0.0
+            {
+                ui.painter().rect_stroke(
+                    egui::Rect::from_min_size(
+                        bounds.min + egui::vec2(x, y),
+                        egui::vec2(width, height),
+                    ),
+                    0.0,
+                    egui::Stroke::new(2.0, egui::Color32::YELLOW),
+                    egui::StrokeKind::Inside,
+                );
+            }
+        });
+}
+
 pub(crate) struct ProbeViewport {
     pub size: PanelSurfaceSize,
     pub width_points: f64,
@@ -118,6 +167,8 @@ pub(crate) struct ProbeEgui {
     renderer: egui_wgpu::Renderer,
     controls: ProbeControls,
     snapshot: Option<egui::TextureHandle>,
+    selection: Option<shot_core::native_selection::NativeSelection>,
+    selection_result: Option<shot_core::RectPx>,
     events: Vec<egui::Event>,
     modifiers: egui::Modifiers,
     focused: bool,
@@ -130,6 +181,7 @@ impl ProbeEgui {
         device: &wgpu::Device,
         format: wgpu::TextureFormat,
         image: Option<shot_core::RgbaFrame>,
+        selection: Option<shot_core::native_selection::NativeSelection>,
     ) -> Self {
         let ctx = egui::Context::default();
         apply_preview_theme(&ctx, PreviewTheme::Dark);
@@ -143,12 +195,18 @@ impl ProbeEgui {
             ),
             controls: ProbeControls::default(),
             snapshot,
+            selection,
+            selection_result: None,
             events: Vec::new(),
             modifiers: egui::Modifiers::default(),
             focused: false,
             repaint: true,
             ime_cursor: None,
         }
+    }
+
+    pub(crate) fn selection_result(&self) -> Option<shot_core::RectPx> {
+        self.selection_result
     }
 
     pub(crate) fn set_preview_theme(&mut self, theme: PreviewTheme) {
@@ -396,9 +454,15 @@ impl ProbeEgui {
         }
         let controls = &mut self.controls;
         let snapshot = self.snapshot.as_ref();
+        let selection = &mut self.selection;
+        let selection_result = &mut self.selection_result;
         let output = self.ctx.run_ui(raw, |ui| {
             if let Some(texture) = snapshot {
-                show_snapshot(ui, texture);
+                if let Some(selection) = selection.as_mut() {
+                    show_native_selection(ui, texture, selection, selection_result);
+                } else {
+                    show_snapshot(ui, texture);
+                }
             } else {
                 controls.ui(ui);
             }
