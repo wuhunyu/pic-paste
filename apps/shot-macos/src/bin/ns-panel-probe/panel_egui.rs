@@ -110,6 +110,7 @@ pub(crate) fn resolve_selection_action(
 /// Marks are drawn in a separate WGPU/egui layer, never composited into
 /// the immutable screenshot texture. Their coordinates are physical source
 /// pixels projected into the panel's local logical-point canvas.
+#[cfg(test)]
 pub(crate) fn paint_native_marks(ui: &egui::Ui, origin: egui::Pos2, markup: &NativeMarkup) {
     paint_native_marks_with_mode(ui, origin, markup, false);
 }
