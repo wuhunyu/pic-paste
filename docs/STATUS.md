@@ -108,3 +108,10 @@
 - [x] [PR #39](https://github.com/wuhunyu/pic-paste/pull/39) prevents duplicate AppKit-consumed key events in the probe, CI #40615197102 success, merged as `2760542`.
 - [ ] [PR #40](https://github.com/wuhunyu/pic-paste/pull/40) adds a manual native-probe launch entry from the regular settings window **only when compiled with the optional `native-panel-probe` feature**. The separate helper binary must already exist next to the app executable, and the settings page reports failure without changing screenshot routing. Headless CI and actual Mac GUI acceptance are distinct.
 - [ ] **Not completed:** a production NSPanel capture/editor replacement; normal capture, selection and pins remain eframe/winit. No claim of actual Liquid Glass appearance, IME, Retina, Spaces, Accessibility, TCC or latency verification without device evidence.
+
+
+## 2026-10-28 — PR #41：真实截图冻结画面进入 NSPanel（开发 Feature）
+
+- [x] 跨进程原始 RGBA 的 `PPSNAP01` 有界协议（128 MiB、8192 px 边长、明确区分桌面逻辑点和屏幕局部物理像素）；输入非法或截断数据在 AppKit 初始化前拒绝。
+- [x] `native-panel-probe` 功能构建可用 `ns-panel-probe --snapshot` 通过匿名 stdin 管道只读显示真实截图；截图编辑器中需显式点击实验入口，主程序异步写入，关闭/下次截图前回收子进程。既有 eframe 选区/标注/PNG/贴图路径不变。
+- [ ] 必须记录 PR #41 完整 Linux/macOS CI success、真实 macOS 14+/26 GUI 显示/色彩/Retina/Spaces/权限/性能验收；这是只读预览，不具备 NSPanel 原生选区和编辑器等价功能。Issue #5/#10 不关闭。

@@ -97,3 +97,19 @@ cargo run --locked -p shot-macos --features native-panel-probe --bin shot-macos
 ```
 
 In the main settings UI expand **原生 NSPanel 实验（不替换截图）** and click **启动独立 NSPanel 实验窗口**. Check macOS 14+/26 display presentation, Liquid Glass/vibrancy/Reduce Transparency, CJK candidate placement, keyboard/mouse, 1x/2x, Spaces/focus and teardown. The helper is not bundled by default; without it the UI must show an error and regular screenshot features must still work. This is a **test access seam** rather than native screenshot UI migration. Gate any actual capture/pin NSPanel rollout on GUI acceptance and editor-feature parity.
+
+
+## PR #41 — True frozen RGBA screenshot preview in isolated native NSPanel (2026-10-28)
+
+With the `native-panel-probe` feature explicitly enabled, the current production **eframe** screenshot editor exposes a developer-only **NSPanel 冻结画面预览（实验）** button. It sends the already captured display-local unpremultiplied RGBA pixels to the same-directory, checked `ns-panel-probe --snapshot` child via a private anonymous stdin pipe. The `PPSNAP01` envelope includes a bounded version, the physical image dimensions and length (≤8192 edge, ≤128 MiB), target display ID and **independent global logical-point origin/size**. No temporary image file, shell command, PATH discovery, data mutation or PNG recapture is involved. The parent retains the child and stops it before the next screenshot; the transfer runs in a writer thread rather than the UI loop.
+
+The child validates the entire frame before AppKit/WGPU initialization and paints a read-only image texture fitted to its **experimental** NSPanel. The logical-point placement is carried by the transport but **does not yet position the native panel over the target display**. This is a real-frame renderer/data bridge, **not** a fullscreen screenshot selection editor, a native annotation toolbar, a production window backend switch or performance validation. Existing screenshot selection, pin, OCR, long-capture and PNG-only paths are unchanged, including the macOS 14–25 and Reduce Transparency toolbar fallbacks from earlier probes.
+
+Manual test in an interactive macOS 14+/26 session:
+
+```sh
+cargo build --locked -p shot-macos --features native-panel-probe --bins
+cargo run --locked -p shot-macos --features native-panel-probe --bin shot-macos
+```
+
+Capture normally, click **NSPanel 冻结画面预览（实验）**, check actual displayed source pixels (including alpha, dark/light, 1×/2×) and close/reopen; then capture again and ensure the previous separate process exits. On a mixed-DPI setup include negative display origins and Spaces. Also verify the default build without the feature, ordinary screenshots, saved PNG, clipboard and multi-pin behavior. Device findings, sample screenshots, hardware/OS and memory observations are still required in Issues #5/#10; a green headless CI is not evidence of those results. The next gated milestone is a native selection rectangle and trustworthy handoff into the existing editor, not automatic rollout.

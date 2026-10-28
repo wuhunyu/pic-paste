@@ -103,3 +103,10 @@
 ## 2026-10-28 — P0-T3 NSPanel incremental bridge, not a backend switch
 
 PR #38 (CJK marked-text) and PR #39 (native-consumed key routing) are merged with full CI green. PR #40 adds a separate, feature-gated launch entry for the native NSPanel probe in the main app settings. Production screenshot/selection/pins, PNG-only output and hotkeys remain on the established eframe/winit backend. P0-T3/P0-T4 and Issue #5 remain **partially implemented** until genuine NSPanel editor parity and macOS 14+/26 device evidence are complete.
+
+
+## 2026-10-28 — P0-T3 增量：原生冻结截图数据桥接（PR #41）
+
+- [x] `native_snapshot` 有界、带版本号的一次性 RGBA stdin 协议与显示器逻辑点/本地物理像素分离单测。
+- [x] 仅开发功能启用时，截图编辑器显式触发独立 NSPanel/Metal/egui 的真实冻结画面只读预览；启动与失败不影响默认 eframe/PNG/贴图路径。
+- [ ] 不等于完成 P0-T3 的原生截图选区和工具栏迁移；macOS 14+/26 真机 Retina/Spaces/TCC/性能及选区回传尚待开发验证，原有 20 项任务分类暂不变。
