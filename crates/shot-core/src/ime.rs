@@ -52,8 +52,9 @@ impl ImeComposition {
         selection_len_utf16: usize,
     ) -> ImeChange {
         let text = text.into();
-        let active_range_chars = selection_start_utf16
-            .checked_add(selection_len_utf16)
+        let active_range_chars = (!text.is_empty())
+            .then_some(())
+            .and_then(|()| selection_start_utf16.checked_add(selection_len_utf16))
             .and_then(|end| {
                 Some((
                     char_offset_for_utf16(&text, selection_start_utf16)?,
