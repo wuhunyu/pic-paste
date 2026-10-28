@@ -16,6 +16,7 @@ pub enum NativeMarkupTool {
     Brush,
     Arrow,
     Rectangle,
+    Ellipse,
     Text,
 }
 
@@ -29,6 +30,10 @@ pub enum NativeMark {
         to: (u32, u32),
     },
     Rectangle {
+        top_left: (u32, u32),
+        bottom_right: (u32, u32),
+    },
+    Ellipse {
         top_left: (u32, u32),
         bottom_right: (u32, u32),
     },
@@ -185,14 +190,23 @@ impl NativeMarkup {
                     to: gesture.end,
                 })
             }
-            NativeMarkupTool::Rectangle => {
+            NativeMarkupTool::Rectangle | NativeMarkupTool::Ellipse => {
                 let (a, b) = (gesture.start, gesture.end);
                 if a.0 == b.0 || a.1 == b.1 {
                     None
                 } else {
-                    Some(NativeMark::Rectangle {
-                        top_left: (a.0.min(b.0), a.1.min(b.1)),
-                        bottom_right: (a.0.max(b.0), a.1.max(b.1)),
+                    let top_left = (a.0.min(b.0), a.1.min(b.1));
+                    let bottom_right = (a.0.max(b.0), a.1.max(b.1));
+                    Some(if gesture.tool == NativeMarkupTool::Ellipse {
+                        NativeMark::Ellipse {
+                            top_left,
+                            bottom_right,
+                        }
+                    } else {
+                        NativeMark::Rectangle {
+                            top_left,
+                            bottom_right,
+                        }
                     })
                 }
             }

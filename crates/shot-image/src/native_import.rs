@@ -41,6 +41,21 @@ pub fn import_native_marks(
                 rgba: CYAN,
                 width: STROKE,
             },
+            NativeMark::Ellipse {
+                top_left,
+                bottom_right,
+            } => Annotation::Ellipse {
+                center: (
+                    (top_left.0 as f32 + bottom_right.0 as f32) / 2.0,
+                    (top_left.1 as f32 + bottom_right.1 as f32) / 2.0,
+                ),
+                radius: (
+                    (bottom_right.0 - top_left.0) as f32 / 2.0,
+                    (bottom_right.1 - top_left.1) as f32 / 2.0,
+                ),
+                rgba: CYAN,
+                width: STROKE,
+            },
             NativeMark::Text { at, content } => Annotation::Text {
                 at: (at.0 as f32, at.1 as f32),
                 content: content.clone(),
