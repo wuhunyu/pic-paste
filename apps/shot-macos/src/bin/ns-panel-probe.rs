@@ -325,6 +325,17 @@ mod tests {
 
     #[cfg(target_os = "macos")]
     #[test]
+    fn native_text_input_exports_context_and_composition_event_queue() {
+        let _key_handler: fn(
+            &ime::ProbeImeBridge,
+            &objc2_app_kit::NSEvent,
+        ) -> bool = ime::ProbeImeBridge::handle_key;
+        let _drain: fn(&ime::ProbeImeBridge) -> Vec<shot_core::ime::ImeChange> =
+            ime::ProbeImeBridge::drain;
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
     fn native_glass_controls_provide_action_queue_contract() {
         let _callback: fn(
             &glass_toolbar::ProbeGlassToolbar,
