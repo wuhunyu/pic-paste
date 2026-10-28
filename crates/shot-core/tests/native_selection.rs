@@ -61,7 +61,12 @@ fn selection_preserves_single_physical_pixel_when_drag_is_subpoint() {
     assert!(state.press((1.25, 1.25)));
     assert_eq!(
         state.release((1.5, 1.5)),
-        Some(RectPx { x: 2, y: 2, width: 1, height: 1 })
+        Some(RectPx {
+            x: 2,
+            y: 2,
+            width: 1,
+            height: 1
+        })
     );
 }
 
@@ -69,7 +74,12 @@ fn selection_preserves_single_physical_pixel_when_drag_is_subpoint() {
 fn selection_reply_roundtrips_and_checks_active_display_and_bounds() {
     let reply = NativeSelectionReply::Selected {
         display: DisplayId(47),
-        rect: RectPx { x: 20, y: 40, width: 180, height: 120 },
+        rect: RectPx {
+            x: 20,
+            y: 40,
+            width: 180,
+            height: 120,
+        },
     };
     let mut data = Vec::new();
     reply.write_to(&mut data).unwrap();
@@ -81,7 +91,12 @@ fn selection_reply_roundtrips_and_checks_active_display_and_bounds() {
     );
     assert_eq!(
         reply.validated_in(DisplayId(47), (2880, 1800)).unwrap(),
-        Some(RectPx { x: 20, y: 40, width: 180, height: 120 })
+        Some(RectPx {
+            x: 20,
+            y: 40,
+            width: 180,
+            height: 120
+        })
     );
     assert!(reply.validated_in(DisplayId(1), (2880, 1800)).is_err());
     assert!(reply.validated_in(DisplayId(47), (100, 100)).is_err());
@@ -89,11 +104,19 @@ fn selection_reply_roundtrips_and_checks_active_display_and_bounds() {
 
 #[test]
 fn cancel_reply_preserves_display_id_and_never_creates_selection() {
-    let reply = NativeSelectionReply::Cancelled { display: DisplayId(47) };
+    let reply = NativeSelectionReply::Cancelled {
+        display: DisplayId(47),
+    };
     let mut bytes = Vec::new();
     reply.write_to(&mut bytes).unwrap();
-    assert_eq!(NativeSelectionReply::read_from(&mut bytes.as_slice()).unwrap(), reply);
-    assert_eq!(reply.validated_in(DisplayId(47), (2880, 1800)).unwrap(), None);
+    assert_eq!(
+        NativeSelectionReply::read_from(&mut bytes.as_slice()).unwrap(),
+        reply
+    );
+    assert_eq!(
+        reply.validated_in(DisplayId(47), (2880, 1800)).unwrap(),
+        None
+    );
     assert!(reply.validated_in(DisplayId(1), (2880, 1800)).is_err());
 }
 
@@ -101,7 +124,12 @@ fn cancel_reply_preserves_display_id_and_never_creates_selection() {
 fn wire_rejects_empty_invalid_truncated_unknown_status_and_trailing_bytes() {
     let reply = NativeSelectionReply::Selected {
         display: DisplayId(47),
-        rect: RectPx { x: 1, y: 2, width: 3, height: 4 },
+        rect: RectPx {
+            x: 1,
+            y: 2,
+            width: 3,
+            height: 4,
+        },
     };
     let mut data = Vec::new();
     reply.write_to(&mut data).unwrap();
