@@ -8,7 +8,7 @@ use std::cell::{Cell, RefCell};
 
 use objc2::rc::Retained;
 use objc2::runtime::{AnyObject, ProtocolObject, Sel};
-use objc2::{MainThreadMarker, MainThreadOnly, define_class, msg_send};
+use objc2::{DefinedClass, MainThreadMarker, MainThreadOnly, Message, define_class, msg_send};
 use objc2_app_kit::{NSEvent, NSTextInputClient, NSTextInputContext, NSView};
 use objc2_foundation::{
     NSArray, NSAttributedString, NSAttributedStringKey, NSObject, NSObjectProtocol, NSPoint,
@@ -89,7 +89,7 @@ define_class!(
             NSRange::new(location, length)
         }
 
-        #[unsafe(method(attributedSubstringForProposedRange:actualRange:))]
+        #[unsafe(method_id(attributedSubstringForProposedRange:actualRange:))]
         fn attributed_substring(&self, _range: NSRange, actual: NSRangePointer) -> Option<Retained<NSAttributedString>> {
             // We do not own egui's surrounding document. Never hand the
             // system a fake substring that could corrupt a replacement.
@@ -101,7 +101,7 @@ define_class!(
             None
         }
 
-        #[unsafe(method(validAttributesForMarkedText))]
+        #[unsafe(method_id(validAttributesForMarkedText))]
         fn valid_attributes(&self) -> Retained<NSArray<NSAttributedStringKey>> {
             NSArray::new()
         }
