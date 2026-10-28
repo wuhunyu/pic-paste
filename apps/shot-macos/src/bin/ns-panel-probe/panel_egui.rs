@@ -396,6 +396,14 @@ impl ProbeEgui {
         changed
     }
 
+    pub(crate) fn redo_markup(&mut self) -> bool {
+        let changed = self.markup.as_mut().is_some_and(NativeMarkup::redo);
+        if changed {
+            self.repaint = true;
+        }
+        changed
+    }
+
     /// Only committed marks can cross the IPC boundary; in-flight drafts are
     /// excluded. The caller copies them after explicit selection confirmation.
     pub(crate) fn committed_native_marks(&self) -> &[shot_core::native_markup::NativeMark] {
