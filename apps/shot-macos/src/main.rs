@@ -196,16 +196,18 @@ mod native_probe_launcher_tests {
                 .launch_select_from(
                     &dir.join("PicPaste"),
                     snapshot,
+                    101,
                     tx,
                     eframe::egui::Context::default(),
                 )
                 .unwrap(),
             ProbeLaunchResult::Started
         );
-        let observed = rx
+        let (session, observed) = rx
             .recv_timeout(std::time::Duration::from_secs(5))
-            .unwrap()
             .unwrap();
+        assert_eq!(session, 101);
+        let observed = observed.unwrap();
         assert_eq!(observed, NativeEditReply::Legacy(reply));
         launcher.stop_for_capture().unwrap();
         fs::remove_dir_all(dir).unwrap();
@@ -263,16 +265,18 @@ mod native_probe_launcher_tests {
                 .launch_select_from(
                     &dir.join("PicPaste"),
                     snapshot,
+                    202,
                     tx,
                     eframe::egui::Context::default(),
                 )
                 .unwrap(),
             ProbeLaunchResult::Started
         );
-        let observed = rx
+        let (session, observed) = rx
             .recv_timeout(std::time::Duration::from_secs(5))
-            .unwrap()
             .unwrap();
+        assert_eq!(session, 202);
+        let observed = observed.unwrap();
         assert_eq!(observed, annotated);
         assert_eq!(
             observed
@@ -306,17 +310,18 @@ mod native_probe_launcher_tests {
                 .launch_select_from(
                     &dir.join("PicPaste"),
                     snapshot,
+                    303,
                     tx,
                     eframe::egui::Context::default()
                 )
                 .unwrap(),
             ProbeLaunchResult::Started
         );
-        assert!(
-            rx.recv_timeout(std::time::Duration::from_secs(5))
-                .unwrap()
-                .is_err()
-        );
+        let (session, result) = rx
+            .recv_timeout(std::time::Duration::from_secs(5))
+            .unwrap();
+        assert_eq!(session, 303);
+        assert!(result.is_err());
         launcher.stop_for_capture().unwrap();
         fs::remove_dir_all(dir).unwrap();
     }
