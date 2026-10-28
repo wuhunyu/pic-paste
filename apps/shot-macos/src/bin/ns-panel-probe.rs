@@ -65,7 +65,6 @@ mod native {
 mod native {
     use super::PanelSurfaceSize;
     use super::glass_toolbar::ProbeGlassToolbar;
-    use shot_core::glass_toolbar::{GlassToolbarAction, PreviewTheme};
     use super::panel_egui::{ProbeEgui, ProbeViewport};
     use objc2::{MainThreadMarker, MainThreadOnly};
     use objc2_app_kit::{
@@ -73,6 +72,7 @@ mod native {
     };
     use objc2_foundation::{NSDate, NSDefaultRunLoopMode, NSPoint, NSRect, NSSize, ns_string};
     use raw_window_handle::{AppKitWindowHandle, RawWindowHandle};
+    use shot_core::glass_toolbar::{GlassToolbarAction, PreviewTheme};
     use shot_core::native_panel::{PanelSurfaceLifecycle, PanelSurfaceUpdate};
     use std::ptr::NonNull;
 

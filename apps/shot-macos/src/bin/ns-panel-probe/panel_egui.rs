@@ -16,7 +16,6 @@ pub(crate) fn apply_preview_theme(ctx: &egui::Context, theme: PreviewTheme) {
     });
 }
 
-
 pub(crate) struct ProbeViewport {
     pub size: PanelSurfaceSize,
     pub width_points: f64,
