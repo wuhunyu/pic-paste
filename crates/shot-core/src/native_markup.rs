@@ -59,6 +59,7 @@ pub struct NativeMarkup {
     physical_pixels: (u32, u32),
     tool: NativeMarkupTool,
     marks: Vec<NativeMark>,
+    redo: Vec<NativeMark>,
     gesture: Option<MarkGesture>,
 }
 
@@ -70,6 +71,7 @@ impl NativeMarkup {
             physical_pixels: pixels,
             tool: NativeMarkupTool::Select,
             marks: Vec::new(),
+            redo: Vec::new(),
             gesture: None,
         })
     }
@@ -225,6 +227,7 @@ impl NativeMarkup {
         if self.marks.len() >= MAX_MARKS {
             return false;
         }
+        self.redo.clear();
         self.marks.push(mark);
         true
     }
@@ -243,6 +246,7 @@ impl NativeMarkup {
         let Some(at) = self.physical_point(pt) else {
             return false;
         };
+        self.redo.clear();
         self.marks.push(NativeMark::Text {
             at,
             content: content.to_owned(),
@@ -252,6 +256,25 @@ impl NativeMarkup {
 
     pub fn undo(&mut self) -> bool {
         self.gesture = None;
-        self.marks.pop().is_some()
+        let Some(mark) = self.marks.pop() else {
+            return false;
+        };
+        self.redo.push(mark);
+        true
+    }
+
+    /// Restore only committed marks; a new successful edit clears the redo branch.
+    /// The draft is never part of the history and is discarded by this action.
+    pub fn redo(&mut self) -> bool {
+        self.gesture = None;
+        let Some(mark) = self.redo.pop() else {
+            return false;
+        };
+        if self.marks.len() >= MAX_MARKS {
+            self.redo.push(mark);
+            return false;
+        }
+        self.marks.push(mark);
+        true
     }
 }
