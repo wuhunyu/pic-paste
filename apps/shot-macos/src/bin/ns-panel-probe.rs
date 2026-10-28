@@ -38,7 +38,9 @@ impl ProbeCommand {
             ["--show"] => Ok(Self::Show),
             ["--snapshot"] => Ok(Self::Snapshot),
             ["--select"] => Ok(Self::Select),
-            _ => Err("usage: ns-panel-probe --check | --preflight | --show | --snapshot | --select"),
+            _ => {
+                Err("usage: ns-panel-probe --check | --preflight | --show | --snapshot | --select")
+            }
         }
     }
 }

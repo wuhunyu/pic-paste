@@ -1,7 +1,7 @@
 //! Read-only native Mac environment preflight; does not show an NSPanel,
 //! create a Metal surface, capture a screenshot, or request TCC permission.
-use objc2::runtime::AnyClass;
 use objc2::MainThreadMarker;
+use objc2::runtime::AnyClass;
 use objc2_app_kit::{NSScreen, NSWorkspace};
 use objc2_foundation::NSProcessInfo;
 use shot_core::native_acceptance::{NativePreflightReport, NativeScreenDiagnostic};
@@ -15,16 +15,13 @@ unsafe extern "C" {
 }
 
 pub(crate) fn run() -> Result<(), String> {
-    let mtm = MainThreadMarker::new()
-        .ok_or("macOS preflight must run on the AppKit main thread")?;
+    let mtm =
+        MainThreadMarker::new().ok_or("macOS preflight must run on the AppKit main thread")?;
     let version = NSProcessInfo::processInfo().operatingSystemVersion();
     let os = (
-        u32::try_from(version.majorVersion)
-            .map_err(|_| "invalid macOS major version")?,
-        u32::try_from(version.minorVersion)
-            .map_err(|_| "invalid macOS minor version")?,
-        u32::try_from(version.patchVersion)
-            .map_err(|_| "invalid macOS patch version")?,
+        u32::try_from(version.majorVersion).map_err(|_| "invalid macOS major version")?,
+        u32::try_from(version.minorVersion).map_err(|_| "invalid macOS minor version")?,
+        u32::try_from(version.patchVersion).map_err(|_| "invalid macOS patch version")?,
     );
 
     // NSScreen.frame() is global *AppKit* bottom-left logical points, not
