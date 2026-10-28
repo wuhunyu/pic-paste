@@ -24,6 +24,9 @@ struct NativeImeIvars {
     // bridge must be destroyed before the NSPanel and Metal surface.
     host: Retained<NSView>,
     cursor: Cell<Option<egui::Rect>>,
+    // TextInputClient::unmarkText commits by default; discardMarkedText
+    // on focus loss must not accidentally commit the pending candidate.
+    discarding: Cell<bool>,
 }
 
 define_class!(
@@ -62,7 +65,12 @@ define_class!(
 
         #[unsafe(method(unmarkText))]
         fn unmark_text(&self) {
-            if let Some(change) = self.ivars().composition.borrow_mut().cancel() {
+            let change = if self.ivars().discarding.get() {
+                self.ivars().composition.borrow_mut().cancel()
+            } else {
+                self.ivars().composition.borrow_mut().unmark()
+            };
+            if let Some(change) = change {
                 self.ivars().queue.borrow_mut().push(change);
             }
         }
@@ -162,6 +170,7 @@ impl NativeImeClient {
             queue: RefCell::new(Vec::new()),
             host: host.retain(),
             cursor: Cell::new(None),
+            discarding: Cell::new(false),
         });
         // SAFETY: NSObject -init gives an initialized ObjC object; all
         // NativeImeIvars have already been initialized above.
@@ -218,7 +227,9 @@ impl ProbeImeBridge {
         if active {
             self.context.activate();
         } else {
+            self.client.ivars().discarding.set(true);
             self.context.discardMarkedText();
+            self.client.ivars().discarding.set(false);
             self.client.cancel();
             self.context.deactivate();
         }

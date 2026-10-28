@@ -86,6 +86,17 @@ impl ImeComposition {
         }
     }
 
+    /// NSTextInputClient::unmarkText accepts the current composition as
+    /// ordinary text; it must not silently discard the final candidate.
+    pub fn unmark(&mut self) -> Option<ImeChange> {
+        if self.marked.is_empty() {
+            None
+        } else {
+            let text = self.marked.clone();
+            Some(self.commit(text))
+        }
+    }
+
     /// Dismiss the current preedit without submitting any text.
     /// Repeated cancellation is idempotent.
     pub fn cancel(&mut self) -> Option<ImeChange> {
