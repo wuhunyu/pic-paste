@@ -2,6 +2,8 @@ use crate::hotkey::{HotkeyAction, HotkeyController};
 use crate::menu::{MenuAction, MenuBar};
 #[cfg(feature = "native-panel-probe")]
 use crate::native_probe_launcher::{NativeProbeLauncher, ProbeLaunchResult};
+#[cfg(feature = "native-panel-probe")]
+use shot_core::native_snapshot::NativeSnapshot;
 use crate::ocr;
 use crate::overlay;
 use crate::pin::{PinEvent, PinnedImage};
@@ -2126,6 +2128,8 @@ impl PicPasteApp {
             }
 
             let mut selected_action = None;
+            #[cfg(feature = "native-panel-probe")]
+            let mut requested_native_preview = false;
             let mut start_scroll = None;
             let mut recognize_text = None;
             let mut recognize_qr = false;
@@ -2140,6 +2144,10 @@ impl PicPasteApp {
                     }
                     if ui.button("贴图").clicked() {
                         selected_action = Some(PrepareAction::Pin);
+                    }
+                    #[cfg(feature = "native-panel-probe")]
+                    if ui.button("NSPanel 冻结画面预览（实验）").clicked() {
+                        requested_native_preview = true;
                     }
                     if ui.button("重置选区").clicked() {
                         screen.set_selection(None);
@@ -2325,6 +2333,35 @@ impl PicPasteApp {
                     "按 {} 开始截图；或点击“截图”。",
                     self.shortcuts.label(ShortcutAction::Capture)
                 ));
+            }
+            #[cfg(feature = "native-panel-probe")]
+            if requested_native_preview {
+                // Validate before cloning the potentially large frame. Both
+                // transfer and rendering remain opt-in and read-only.
+                let snapshot = (|| -> Result<NativeSnapshot, String> {
+                    let screen = self.screen.as_ref().ok_or("截图尚未就绪")?;
+                    let placement = self.overlay_placement.ok_or("截图显示器位置不可用")?;
+                    if !placement.belongs_to(screen.display_id) {
+                        return Err(String::from("原生预览显示器与截图不一致"));
+                    }
+                    NativeSnapshot::validate_dimensions(
+                        screen.source.width,
+                        screen.source.height,
+                    )?;
+                    NativeSnapshot::new(placement, screen.source.as_ref().clone())
+                })();
+                self.status = match snapshot {
+                    Ok(snapshot) => match self.native_probe.launch_snapshot(snapshot) {
+                        Ok(ProbeLaunchResult::Started) => String::from(
+                            "已启动原生冻结画面预览进程；需真机确认 Metal 显示，原截图未修改",
+                        ),
+                        Ok(ProbeLaunchResult::AlreadyRunning) => {
+                            String::from("原生实验窗口仍在运行，请先关闭后再次预览")
+                        }
+                        Err(error) => format!("原生冻结画面预览未启动：{error}"),
+                    },
+                    Err(error) => format!("原生冻结画面预览不可用：{error}"),
+                };
             }
             if let Some(color) = color_to_copy {
                 self.status =
