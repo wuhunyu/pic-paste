@@ -760,7 +760,7 @@ mod tests {
 
         let placement = OverlayPlacement::new(DisplayId(4), (-200.0, 0.0), (100.0, 80.0)).unwrap();
         let mut markup = NativeMarkup::new(placement, (200, 160)).unwrap();
-        markup.set_tool(NativeMarkupTool::Arrow);
+        markup.set_tool(NativeMarkupTool::Ellipse);
         assert!(markup.begin((10.0, 20.0)));
         assert!(markup.end((30.0, 40.0)));
         let ctx = egui::Context::default();
