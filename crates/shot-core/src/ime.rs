@@ -142,7 +142,12 @@ pub struct ImeKeyRouting {
 }
 
 impl ImeKeyRouting {
-    pub fn key_down(&mut self, key_code: u16, native_eligible: bool, native_handled: bool) -> ImeKeyRoute {
+    pub fn key_down(
+        &mut self,
+        key_code: u16,
+        native_eligible: bool,
+        native_handled: bool,
+    ) -> ImeKeyRoute {
         if native_eligible && native_handled {
             self.consumed.insert(key_code);
             ImeKeyRoute::NativeOnly
