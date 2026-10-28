@@ -65,6 +65,7 @@ mod native {
 mod native {
     use super::PanelSurfaceSize;
     use super::glass_toolbar::ProbeGlassToolbar;
+    use shot_core::glass_toolbar::{GlassToolbarAction, PreviewTheme};
     use super::panel_egui::{ProbeEgui, ProbeViewport};
     use objc2::{MainThreadMarker, MainThreadOnly};
     use objc2_app_kit::{
@@ -166,6 +167,7 @@ mod native {
         // still the WGPU Surface owner; screenshot pixels remain untouched.
         let glass_toolbar = ProbeGlassToolbar::new(mtm, &content_view);
         println!("Experimental native toolbar: {:?}", glass_toolbar.material);
+        let mut preview_theme = PreviewTheme::Dark;
 
         let mut lifecycle = PanelSurfaceLifecycle::new(size);
         println!(
@@ -198,6 +200,16 @@ mod native {
                         egui_ui.on_event(&event, &panel, &content_view);
                     }
                     application.sendEvent(&event);
+                    if let Some(action) = glass_toolbar.take_action() {
+                        match action {
+                            GlassToolbarAction::ToggleTheme => {
+                                preview_theme = preview_theme.toggle();
+                                glass_toolbar.set_preview_theme(preview_theme);
+                                egui_ui.set_preview_theme(preview_theme);
+                            }
+                            GlassToolbarAction::CloseProbe => panel.orderOut(None),
+                        }
+                    }
                     if escape {
                         panel.orderOut(None);
                     }

@@ -1,20 +1,68 @@
-//! Optional AppKit floating capsule above the WGPU-backed NSPanel.
-//!
-//! This is a native material proof, NOT the production screenshot toolbar.
-//! The label lives *inside* NSGlassEffectView.contentView (WWDC25 guidance).
+//! Interactive native controls inside the opt-in NSPanel material capsule.
+//! Cocoa retains the actual buttons; we separately retain their action target
+//! because NSControl.target is weak. Captured pixels and production UI are
+//! not changed by these proof-only actions.
+use std::cell::Cell;
+
 use objc2::rc::Retained;
-use objc2::runtime::AnyClass;
-use objc2::{MainThreadMarker, MainThreadOnly};
+use objc2::runtime::{AnyClass, AnyObject};
+use objc2::{Ivars, MainThreadMarker, MainThreadOnly, define_class, msg_send, sel};
 use objc2_app_kit::{
-    NSBox, NSBoxType, NSColor, NSEvent, NSGlassEffectView, NSTextField, NSView,
+    NSBox, NSBoxType, NSButton, NSColor, NSEvent, NSGlassEffectView, NSView,
     NSVisualEffectBlendingMode, NSVisualEffectMaterial, NSVisualEffectState, NSVisualEffectView,
     NSWorkspace,
 };
-use objc2_foundation::{NSPoint, NSProcessInfo, NSRect, NSSize, ns_string};
-use shot_core::glass_toolbar::{FloatingBarFrame, GlassMaterial, select_glass_material};
+use objc2_foundation::{
+    NSObject, NSObjectProtocol, NSPoint, NSProcessInfo, NSRect, NSSize, ns_string,
+};
+use shot_core::glass_toolbar::{
+    FloatingBarFrame, GlassMaterial, GlassToolbarAction, PreviewTheme, select_glass_material,
+};
 
 const BAR_WIDTH: f64 = 236.0;
 const BAR_HEIGHT: f64 = 44.0;
+
+define_class!(
+    // SAFETY: NSObject has no special subclassing requirements, and this
+    // type has no Drop implementation. All AppKit actions stay on the
+    // AppKit main thread. Method signatures match their Objective-C selectors.
+    #[unsafe(super(NSObject))]
+    #[thread_kind = MainThreadOnly]
+    #[derive(Debug)]
+    struct GlassActionTarget {
+        pending: Cell<Option<GlassToolbarAction>>,
+    }
+
+    unsafe impl NSObjectProtocol for GlassActionTarget {}
+
+    impl GlassActionTarget {
+        #[unsafe(method(togglePreviewTheme:))]
+        fn toggle_theme(&self, _sender: &AnyObject) {
+            self.pending().set(Some(GlassToolbarAction::ToggleTheme));
+        }
+
+        #[unsafe(method(closeProbe:))]
+        fn close_probe(&self, _sender: &AnyObject) {
+            self.pending().set(Some(GlassToolbarAction::CloseProbe));
+        }
+    }
+);
+
+impl GlassActionTarget {
+    fn new(mtm: MainThreadMarker) -> Retained<Self> {
+        let obj = Self::alloc(mtm);
+        let obj = obj.set_ivars(Ivars::<Self> {
+            pending: Cell::new(None),
+        });
+        // SAFETY: NSObject initialization creates a valid instance of the
+        // registered main-thread-only subclass.
+        unsafe { msg_send![super(obj), init] }
+    }
+
+    fn take_action(&self) -> Option<GlassToolbarAction> {
+        self.pending().take()
+    }
+}
 
 fn current_material() -> GlassMaterial {
     let os = NSProcessInfo::processInfo().operatingSystemVersion();
@@ -29,6 +77,9 @@ fn current_material() -> GlassMaterial {
 /// remains unchanged and must outlive the WGPU Surface during shutdown.
 pub(crate) struct ProbeGlassToolbar {
     view: Retained<NSView>,
+    theme_button: Retained<NSButton>,
+    // Must outlive the NSButtons: NSControl stores its target weakly.
+    _target: Retained<GlassActionTarget>,
     pub(crate) material: GlassMaterial,
 }
 
@@ -37,21 +88,37 @@ impl ProbeGlassToolbar {
         let material = current_material();
         let local_rect = NSRect::new(NSPoint::new(0.0, 0.0), NSSize::new(BAR_WIDTH, BAR_HEIGHT));
         let content = NSView::initWithFrame(NSView::alloc(mtm), local_rect);
-        let text = match material {
-            GlassMaterial::Native => ns_string!("PicPaste · Liquid Glass"),
-            GlassMaterial::Vibrancy => ns_string!("PicPaste · Vibrancy"),
-            GlassMaterial::Opaque => ns_string!("PicPaste · 高对比"),
-        };
-        let label = NSTextField::labelWithString(text, mtm);
-        label.setFrame(NSRect::new(
-            NSPoint::new(14.0, 12.0),
-            NSSize::new(BAR_WIDTH - 28.0, 20.0),
+        let target = GlassActionTarget::new(mtm);
+        let theme_button = NSButton::buttonWithTitle_target_action(
+            ns_string!("浅色预览"),
+            Some(&*target),
+            Some(sel!(togglePreviewTheme:)),
+            mtm,
+        );
+        theme_button.setFrame(NSRect::new(
+            NSPoint::new(8.0, 6.0),
+            NSSize::new(120.0, 32.0),
         ));
-        label.setTextColor(Some(&NSColor::labelColor()));
-        content.addSubview(&label);
+        // Avoid a nested bezel/glass surface; AppKit still handles button
+        // tracking, keyboard actions, focus and accessibility labels.
+        theme_button.setBordered(false);
+        content.addSubview(&theme_button);
 
-        // Only the single status capsule is glass. A second glass element
-        // would need an NSGlassEffectContainerView to combine sampling.
+        let close_button = NSButton::buttonWithTitle_target_action(
+            ns_string!("关闭"),
+            Some(&*target),
+            Some(sel!(closeProbe:)),
+            mtm,
+        );
+        close_button.setFrame(NSRect::new(
+            NSPoint::new(134.0, 6.0),
+            NSSize::new(94.0, 32.0),
+        ));
+        close_button.setBordered(false);
+        content.addSubview(&close_button);
+
+        // One parent glass material. Child buttons are native controls
+        // rather than additional nested glass effects.
         let view: Retained<NSView> = match material {
             GlassMaterial::Native => {
                 let glass =
@@ -82,9 +149,25 @@ impl ProbeGlassToolbar {
             }
         };
         host.addSubview(&view);
-        let toolbar = Self { view, material };
+        let toolbar = Self {
+            view,
+            theme_button,
+            _target: target,
+            material,
+        };
         toolbar.relayout(host.bounds());
         toolbar
+    }
+
+    pub(crate) fn take_action(&self) -> Option<GlassToolbarAction> {
+        self._target.take_action()
+    }
+
+    pub(crate) fn set_preview_theme(&self, theme: PreviewTheme) {
+        match theme {
+            PreviewTheme::Dark => self.theme_button.setTitle(ns_string!("浅色预览")),
+            PreviewTheme::Light => self.theme_button.setTitle(ns_string!("深色预览")),
+        }
     }
 
     pub(crate) fn relayout(&self, bounds: NSRect) {
@@ -101,7 +184,8 @@ impl ProbeGlassToolbar {
     }
 
     /// Prevent new egui pointer presses underneath the native capsule.
-    /// Mouse-up is always forwarded, including when a drag ends over it.
+    /// Mouse-up remains forwarded so a drag initiated on the canvas cannot
+    /// get stuck when it ends over the native toolbar.
     pub(crate) fn contains_pointer(&self, event: &NSEvent, host: &NSView) -> bool {
         if self.view.isHidden() {
             return false;

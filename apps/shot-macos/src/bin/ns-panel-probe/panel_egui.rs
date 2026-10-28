@@ -4,7 +4,18 @@
 //! particular, handling direct-key text here is NOT an NSTextInputClient
 //! implementation: marked-text IME composition requires a separate bridge.
 use objc2_app_kit::{NSEvent, NSEventModifierFlags, NSEventType, NSPanel, NSView};
+use shot_core::glass_toolbar::PreviewTheme;
 use shot_core::native_panel::{PanelPointerPoint, PanelSurfaceSize};
+
+/// Theme changes only the egui demo canvas. This does not change system
+/// Liquid Glass or any screenshot/PNG source pixels.
+pub(crate) fn apply_preview_theme(ctx: &egui::Context, theme: PreviewTheme) {
+    ctx.set_theme(match theme {
+        PreviewTheme::Dark => egui::Theme::Dark,
+        PreviewTheme::Light => egui::Theme::Light,
+    });
+}
+
 
 pub(crate) struct ProbeViewport {
     pub size: PanelSurfaceSize,
@@ -53,7 +64,7 @@ pub(crate) struct ProbeEgui {
 impl ProbeEgui {
     pub(crate) fn new(device: &wgpu::Device, format: wgpu::TextureFormat) -> Self {
         let ctx = egui::Context::default();
-        ctx.set_visuals(egui::Visuals::dark());
+        apply_preview_theme(&ctx, PreviewTheme::Dark);
         Self {
             ctx,
             renderer: egui_wgpu::Renderer::new(
@@ -67,6 +78,11 @@ impl ProbeEgui {
             focused: false,
             repaint: true,
         }
+    }
+
+    pub(crate) fn set_preview_theme(&mut self, theme: PreviewTheme) {
+        apply_preview_theme(&self.ctx, theme);
+        self.repaint = true;
     }
 
     pub(crate) fn needs_repaint(&self) -> bool {

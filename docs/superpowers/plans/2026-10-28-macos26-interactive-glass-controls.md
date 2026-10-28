@@ -25,8 +25,8 @@
 
 **Interfaces:** `PreviewTheme::{Dark,Light}`, `PreviewTheme::toggle(self)->Self`, `PreviewTheme::toggle_label(self)->&'static str` (label describes action, not current appearance).
 
-- [ ] RED: add test asserting Dark → Light → Dark and button labels `浅色预览` and `深色预览`. Run `cargo test -p shot-core --test glass_toolbar --locked` in CI and confirm expected missing-symbol compile failure; do not mislabel formatting failures as RED.
-- [ ] GREEN: add minimal `PreviewTheme` implementation; run Linux core test, strict Clippy.
+- [x] RED: add test asserting Dark → Light → Dark and button labels `浅色预览` and `深色预览`. Run `cargo test -p shot-core --test glass_toolbar --locked` in CI and confirm expected missing-symbol compile failure; do not mislabel formatting failures as RED.
+- [x] GREEN: add minimal `PreviewTheme` implementation; run Linux core test, strict Clippy.
 
 ### Task 2 — Native actionable toolbar
 
@@ -39,7 +39,7 @@
 - Retain an ObjC `GlassActionTarget` with `#[thread_kind=MainThreadOnly]`; target/action callbacks write pending action, never mutate Metal or NSPanel directly.
 - Place two real `NSButton` controls within `NSGlassEffectView.contentView` / legacy content / opaque content (same 236×44-point pill), with semantic visible titles and native keyboard/accessibility behavior.
 
-- [ ] RED: introduce test/usage expecting `take_action` and `set_preview_theme`, making the macOS feature test fail against the static-toolbar API.
+- [x] RED: introduce test/usage expecting `take_action` and `set_preview_theme`, making the macOS feature test fail against the static-toolbar API.
 - [ ] GREEN: replace the static label, add native buttons and selectors with a retained target; update `objc2-app-kit` feature list with `NSButton` and `NSButtonCell` only as needed.
 - [ ] Verify macOS opt-in tests, binary `--check`, strict Clippy, and original default `cargo test --workspace`.
 
@@ -47,7 +47,7 @@
 
 **Files:** `apps/shot-macos/src/bin/ns-panel-probe.rs`, `apps/shot-macos/src/bin/ns-panel-probe/panel_egui.rs`, `docs/macos-window-strategy.md`, `docs/REMAINING.md`, `docs/STATUS.md`.
 
-- [ ] RED: add a headless egui test showing preview visuals change Dark→Light→Dark without GPU/window. Reuse `PreviewTheme`; test does not instantiate AppKit.
+- [x] RED: add a headless egui test showing preview visuals change Dark→Light→Dark without GPU/window. Reuse `PreviewTheme`; test does not instantiate AppKit.
 - [ ] GREEN: add `ProbeEgui::set_preview_theme`, drain native queued actions after `NSApplication.sendEvent`; Toggle changes egui visuals and button's next-action label and requests repaint; Close hides the panel then follows existing WGPU/surface/view teardown.
 - [ ] Full latest PR CI must pass: Linux core tests, macOS Swift helper/IPC, feature opt-in tests, probe headless binary/Clippy, default workspace, Release, Lite/Full/Add-on bundles.
 - [ ] Update Issue #5 while keeping it open. Real macOS 26 and 14–25 UI tests and keyboard/VoiceOver/Reduce Transparency/Retina/Spaces/IME and production capture/pin integration remain outstanding.

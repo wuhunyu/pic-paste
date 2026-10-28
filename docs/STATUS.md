@@ -96,3 +96,8 @@
 - [x] [PR #35](https://github.com/wuhunyu/pic-paste/pull/35) was merged after complete [CI #40491725274](https://github.com/wuhunyu/pic-paste/actions/runs/40491725274) success. Its new egui-wgpu/mouse/ASCII input code is **only** in the opt-in native panel probe; no physical GUI validation.
 - [x] [PR #36](https://github.com/wuhunyu/pic-paste/pull/36) adds portable material/geometry tests, a single native `NSGlassEffectView` capsule, legacy `NSVisualEffectView`, and accessibility solid `NSBox`, without changing screenshot pixels or default app/packaging code.
 - [ ] **Do not equate code commit with acceptance**: the final PR full CI and interactive macOS 26/14+, accessibility, Retina/Spaces/focus/performance evidence must be recorded separately. This badge is a noninteractive proof, not the finished toolbar or CJK IME.
+
+## 2026-10-28 — PR #37 interactive glass demo
+
+- [x] Theme/next-action label TDD RED [CI #40606391694](https://github.com/wuhunyu/pic-paste/actions/runs/40606391694) (missing `PreviewTheme`); pure theme contract GREEN with Linux core tests/Clippy.
+- [ ] Add native NSButton target/actions for preview theme and safe close, retain target lifetime and preserve fallback; latest complete PR CI and real Mac GUI still pending. Do **not** claim production glass toolbar completion.

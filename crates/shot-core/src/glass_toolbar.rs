@@ -95,3 +95,11 @@ impl PreviewTheme {
         }
     }
 }
+
+/// Commands issued by the AppKit-native toolbar. They are queued on the
+/// main thread and applied by the probe event loop after Cocoa dispatch.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum GlassToolbarAction {
+    ToggleTheme,
+    CloseProbe,
+}
