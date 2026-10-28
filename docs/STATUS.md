@@ -123,3 +123,10 @@
 - [x] 严格 33 字节 `PPSEL001` 回传协议：固定版本、状态、显示器 ID 和局部物理像素矩形，拒绝乱码、截断、追加字节、越界与跨显示器结果。
 - [x] 仅 `native-panel-probe` Feature 增加 `ns-panel-probe --select` 及编辑器“NSPanel 原生框选（实验）”：原生窗口在所选屏幕上作为独立 AppKit/Metal 浮层，拖动后异步 stdout 回传并由 eframe 编辑器二次校验版本及边界；取消/进程异常均保留编辑器。
 - [ ] 真实 macOS 14+/26、Retina 1x/2x、负原点多屏、Spaces/fullscreen、TCC、焦点、GPU 和 CPU/RSS 验收；完整原生标注工具栏/保存/贴图尚未迁移，默认路径不变。
+
+
+## 2026-10-28 — PR #43：NSPanel 八方向选区调整与确认/取消
+
+- [x] 新增 `native_selection_edit` 纯 Rust 物理像素状态机：创建、内部整体移动、八方向手柄、反向与越界缩放、最低 1px、无效坐标拒绝、单次拖拽撤销；Linux 测试验证 Retina 2× 与负坐标显示器的局部像素操作。
+- [x] `ns-panel-probe --select` 在保持真实 RGBA 冻结帧的前提下绘制八个白色手柄、黄色选区轮廓、大小信息及独立的 egui 确认/取消悬浮操作区；鼠标松开只更新本地选区，Enter/确认才通过既有 `PPSEL001` 回传。Escape/取消与关闭返回取消。
+- [ ] macOS 14+/26 真机鼠标、Retina、多屏、Spaces/TCC、焦点以及 GPU/CPU/RSS 验收；系统 Liquid Glass 原生标注工具栏和完整原生编辑器仍未迁移，Issue #5/#10 保持开放。

@@ -7,6 +7,7 @@ use objc2_app_kit::{NSEvent, NSEventModifierFlags, NSEventType, NSPanel, NSView}
 use shot_core::glass_toolbar::PreviewTheme;
 use shot_core::ime::ImeChange;
 use shot_core::native_panel::{PanelPointerPoint, PanelSurfaceSize};
+use shot_core::native_selection_edit::NativeSelectionEdit;
 
 /// Convert native input-context callbacks to exactly one egui event.
 pub(crate) fn egui_event_for_ime_change(change: ImeChange) -> Option<egui::Event> {
@@ -79,14 +80,39 @@ pub(crate) fn show_snapshot(root: &mut egui::Ui, texture: &egui::TextureHandle) 
         });
 }
 
-/// Full-display, read-only screenshot with one native drag-selection gesture.
-/// Pointer values are local top-left *logical points*. The pure selection
-/// state converts them to source-display-local physical pixels.
+/// A native selection is not returned when the first drag is released.
+/// The user may adjust it indefinitely, then explicitly confirm or cancel.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum SelectionAction {
+    Confirm,
+    Cancel,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum SelectionDecision {
+    Confirmed(shot_core::RectPx),
+    Cancelled,
+}
+
+pub(crate) fn resolve_selection_action(
+    selection: &NativeSelectionEdit,
+    action: SelectionAction,
+) -> Option<SelectionDecision> {
+    match action {
+        SelectionAction::Confirm => selection.confirmed().map(SelectionDecision::Confirmed),
+        SelectionAction::Cancel => Some(SelectionDecision::Cancelled),
+    }
+}
+
+/// Read-only snapshot, eight resize grips and body drag. This only edits the
+/// capture-local selection geometry; no source bytes, PNG or annotations are
+/// changed. The egui action capsule floats above rather than inside the
+/// screenshot texture.
 pub(crate) fn show_native_selection(
     root: &mut egui::Ui,
     texture: &egui::TextureHandle,
-    selection: &mut shot_core::native_selection::NativeSelection,
-    selected: &mut Option<shot_core::RectPx>,
+    selection: &mut NativeSelectionEdit,
+    action: &mut Option<SelectionAction>,
 ) {
     egui::CentralPanel::default()
         .frame(egui::Frame::NONE)
@@ -99,32 +125,80 @@ pub(crate) fn show_native_selection(
                 egui::Rect::from_min_max(egui::Pos2::ZERO, egui::pos2(1.0, 1.0)),
                 egui::Color32::WHITE,
             );
-            if let Some(cursor) = response.interact_pointer_pos() {
+            let cursor = response
+                .interact_pointer_pos()
+                .or_else(|| ui.ctx().input(|input| input.pointer.latest_pos()));
+            if let Some(cursor) = cursor {
                 let point = (cursor.x - bounds.min.x, cursor.y - bounds.min.y);
                 if response.drag_started() {
-                    selection.press(point);
+                    selection.begin(point);
                 }
                 if response.dragged() {
-                    selection.drag(point);
+                    selection.update(point);
                 }
                 if response.drag_stopped() {
-                    *selected = selection.release(point);
+                    selection.end(point);
                 }
             }
             if let Some((x, y, width, height)) = selection.preview_rect_points()
                 && width > 0.0
                 && height > 0.0
             {
+                let rect = egui::Rect::from_min_size(
+                    bounds.min + egui::vec2(x, y),
+                    egui::vec2(width, height),
+                );
+                ui.painter()
+                    .rect_filled(rect, 0.0, egui::Color32::from_white_alpha(20));
                 ui.painter().rect_stroke(
-                    egui::Rect::from_min_size(
-                        bounds.min + egui::vec2(x, y),
-                        egui::vec2(width, height),
-                    ),
+                    rect,
                     0.0,
                     egui::Stroke::new(2.0, egui::Color32::YELLOW),
                     egui::StrokeKind::Inside,
                 );
+                if let Some(handles) = selection.grip_centers_points() {
+                    for (_grip, (hx, hy)) in handles {
+                        let grip_rect = egui::Rect::from_center_size(
+                            bounds.min + egui::vec2(hx, hy),
+                            egui::vec2(9.0, 9.0),
+                        );
+                        ui.painter()
+                            .rect_filled(grip_rect, 2.0, egui::Color32::WHITE);
+                        ui.painter().rect_stroke(
+                            grip_rect,
+                            2.0,
+                            egui::Stroke::new(1.0, egui::Color32::BLACK),
+                            egui::StrokeKind::Outside,
+                        );
+                    }
+                }
             }
+        });
+
+    egui::Area::new(egui::Id::unique("native-selection-actions"))
+        .order(egui::Order::Foreground)
+        .anchor(egui::Align2::RIGHT_BOTTOM, egui::vec2(-18.0, -18.0))
+        .show(root.ctx(), |ui| {
+            egui::Frame::popup(ui.style()).show(ui, |ui| {
+                ui.horizontal(|ui| {
+                    ui.small("拖动绘制 · 内部移动 · 八方向缩放");
+                    if let Some(rect) = selection.current_rect() {
+                        ui.label(format!("{} × {} px", rect.width, rect.height));
+                    }
+                    if ui
+                        .add_enabled(
+                            selection.confirmed().is_some(),
+                            egui::Button::new("确认 (Enter)"),
+                        )
+                        .clicked()
+                    {
+                        *action = Some(SelectionAction::Confirm);
+                    }
+                    if ui.button("取消 (Esc)").clicked() {
+                        *action = Some(SelectionAction::Cancel);
+                    }
+                });
+            });
         });
 }
 
@@ -167,8 +241,9 @@ pub(crate) struct ProbeEgui {
     renderer: egui_wgpu::Renderer,
     controls: ProbeControls,
     snapshot: Option<egui::TextureHandle>,
-    selection: Option<shot_core::native_selection::NativeSelection>,
+    selection: Option<NativeSelectionEdit>,
     selection_result: Option<shot_core::RectPx>,
+    selection_finished: bool,
     events: Vec<egui::Event>,
     modifiers: egui::Modifiers,
     focused: bool,
@@ -181,7 +256,7 @@ impl ProbeEgui {
         device: &wgpu::Device,
         format: wgpu::TextureFormat,
         image: Option<shot_core::RgbaFrame>,
-        selection: Option<shot_core::native_selection::NativeSelection>,
+        selection: Option<NativeSelectionEdit>,
     ) -> Self {
         let ctx = egui::Context::default();
         apply_preview_theme(&ctx, PreviewTheme::Dark);
@@ -197,6 +272,7 @@ impl ProbeEgui {
             snapshot,
             selection,
             selection_result: None,
+            selection_finished: false,
             events: Vec::new(),
             modifiers: egui::Modifiers::default(),
             focused: false,
@@ -207,6 +283,37 @@ impl ProbeEgui {
 
     pub(crate) fn selection_result(&self) -> Option<shot_core::RectPx> {
         self.selection_result
+    }
+
+    pub(crate) fn selection_finished(&self) -> bool {
+        self.selection_finished
+    }
+
+    pub(crate) fn confirm_selection(&mut self) -> bool {
+        self.apply_selection_action(SelectionAction::Confirm)
+    }
+
+    pub(crate) fn cancel_selection(&mut self) {
+        self.apply_selection_action(SelectionAction::Cancel);
+    }
+
+    fn apply_selection_action(&mut self, action: SelectionAction) -> bool {
+        let Some(selection) = self.selection.as_ref() else {
+            return false;
+        };
+        let Some(decision) = resolve_selection_action(selection, action) else {
+            return false;
+        };
+        if self.selection_finished {
+            return false;
+        }
+        self.selection_result = match decision {
+            SelectionDecision::Confirmed(rect) => Some(rect),
+            SelectionDecision::Cancelled => None,
+        };
+        self.selection_finished = true;
+        self.repaint = true;
+        true
     }
 
     pub(crate) fn set_preview_theme(&mut self, theme: PreviewTheme) {
@@ -455,11 +562,11 @@ impl ProbeEgui {
         let controls = &mut self.controls;
         let snapshot = self.snapshot.as_ref();
         let selection = &mut self.selection;
-        let selection_result = &mut self.selection_result;
+        let mut selection_action = None;
         let output = self.ctx.run_ui(raw, |ui| {
             if let Some(texture) = snapshot {
                 if let Some(selection) = selection.as_mut() {
-                    show_native_selection(ui, texture, selection, selection_result);
+                    show_native_selection(ui, texture, selection, &mut selection_action);
                 } else {
                     show_snapshot(ui, texture);
                 }
@@ -467,6 +574,9 @@ impl ProbeEgui {
                 controls.ui(ui);
             }
         });
+        if let Some(action) = selection_action {
+            self.apply_selection_action(action);
+        }
         // egui reports the actual text caret in logical points. The native
         // NSTextInputClient converts it to AppKit screen coordinates.
         self.ime_cursor = output

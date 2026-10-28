@@ -102,9 +102,8 @@ mod native {
     use shot_core::glass_toolbar::{GlassToolbarAction, PreviewTheme};
     use shot_core::ime::{ImeKeyRoute, ImeKeyRouting};
     use shot_core::native_panel::{PanelSurfaceLifecycle, PanelSurfaceUpdate};
-    use shot_core::native_selection::{
-        AppKitSelectionFrame, NativeSelection, NativeSelectionReply,
-    };
+    use shot_core::native_selection::{AppKitSelectionFrame, NativeSelectionReply};
+    use shot_core::native_selection_edit::NativeSelectionEdit;
     use std::ptr::NonNull;
 
     /// This opt-in probe must run on AppKit's main thread. It pumps native
@@ -256,7 +255,7 @@ mod native {
                 .as_ref()
                 .ok_or("selection frame unavailable")?
                 .image();
-            Some(NativeSelection::new(
+            Some(NativeSelectionEdit::new(
                 placement,
                 (frame.width, frame.height),
             )?)
@@ -318,6 +317,10 @@ mod native {
                     let escape = event.windowNumber() == panel.windowNumber()
                         && event.r#type() == NSEventType::KeyDown
                         && event.keyCode() == 53;
+                    let enter = selection_mode
+                        && event.windowNumber() == panel.windowNumber()
+                        && event.r#type() == NSEventType::KeyDown
+                        && matches!(event.keyCode(), 36 | 76);
                     let pointer_down = matches!(
                         event.r#type(),
                         NSEventType::LeftMouseDown
@@ -367,7 +370,13 @@ mod native {
                             GlassToolbarAction::CloseProbe => panel.orderOut(None),
                         }
                     }
+                    if enter && egui_ui.confirm_selection() {
+                        panel.orderOut(None);
+                    }
                     if escape {
+                        if selection_mode {
+                            egui_ui.cancel_selection();
+                        }
                         panel.orderOut(None);
                     }
                 }
@@ -429,7 +438,7 @@ mod native {
                     )?;
                     ime_bridge.set_cursor(egui_ui.ime_cursor_rect());
                     ime_bridge.set_active(panel.isKeyWindow() && egui_ui.wants_text_input());
-                    if selection_mode && egui_ui.selection_result().is_some() {
+                    if selection_mode && egui_ui.selection_finished() {
                         panel.orderOut(None);
                     }
                 }
@@ -538,7 +547,8 @@ mod tests {
         let placement =
             OverlayPlacement::new(DisplayId(17), (-100.0, -20.0), (100.0, 80.0)).unwrap();
         let mut selection =
-            shot_core::native_selection::NativeSelection::new(placement, (200, 160)).unwrap();
+            shot_core::native_selection_edit::NativeSelectionEdit::new(placement, (200, 160))
+                .unwrap();
         let ctx = egui::Context::default();
         let frame = shot_core::RgbaFrame::new(2, 2, vec![255; 16]).unwrap();
         let texture = panel_egui::snapshot_texture(&ctx, &frame);
@@ -567,6 +577,45 @@ mod tests {
         assert_eq!(ctx.theme(), egui::Theme::Light);
         panel_egui::apply_preview_theme(&ctx, PreviewTheme::Dark);
         assert_eq!(ctx.theme(), egui::Theme::Dark);
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn native_selection_action_requires_committed_region_and_explicit_confirm() {
+        use panel_egui::{SelectionAction, SelectionDecision, resolve_selection_action};
+        use shot_core::RectPx;
+        use shot_core::display::OverlayPlacement;
+        use shot_core::native_selection_edit::NativeSelectionEdit;
+        use shot_core::platform::DisplayId;
+
+        let placement =
+            OverlayPlacement::new(DisplayId(6), (-1440.0, -60.0), (100.0, 80.0)).unwrap();
+        let mut selection = NativeSelectionEdit::new(placement, (200, 160)).unwrap();
+        assert_eq!(
+            resolve_selection_action(&selection, SelectionAction::Confirm),
+            None
+        );
+        assert_eq!(
+            resolve_selection_action(&selection, SelectionAction::Cancel),
+            Some(SelectionDecision::Cancelled)
+        );
+        selection.begin((10.0, 20.0));
+        selection.update((35.0, 50.0));
+        assert_eq!(
+            resolve_selection_action(&selection, SelectionAction::Confirm),
+            None,
+            "must not confirm a live/uncommitted drag"
+        );
+        selection.end((35.0, 50.0));
+        assert_eq!(
+            resolve_selection_action(&selection, SelectionAction::Confirm),
+            Some(SelectionDecision::Confirmed(RectPx {
+                x: 20,
+                y: 40,
+                width: 50,
+                height: 60,
+            }))
+        );
     }
 
     #[cfg(target_os = "macos")]

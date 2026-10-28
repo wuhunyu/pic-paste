@@ -6,6 +6,7 @@ pub mod ime;
 pub mod input;
 pub mod native_panel;
 pub mod native_selection;
+pub mod native_selection_edit;
 pub mod native_snapshot;
 pub mod overlay;
 pub mod pin_texture_budget;
