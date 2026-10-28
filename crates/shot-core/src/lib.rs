@@ -2,6 +2,7 @@
 pub mod async_ticket;
 pub mod display;
 pub mod glass_toolbar;
+pub mod ime;
 pub mod input;
 pub mod native_panel;
 pub mod overlay;
