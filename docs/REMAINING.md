@@ -80,3 +80,10 @@
 
 - [x] [PR #37](https://github.com/wuhunyu/pic-paste/pull/37) adds two native AppKit `NSButton` controls to the existing opt-in glass/vibrancy/opaque capsule: theme toggle of the **demo only** and safe window close. Merged to main after [CI #40609033351](https://github.com/wuhunyu/pic-paste/actions/runs/40609033351) succeeded.
 - [ ] Real macOS 26/14+ visual and mouse/keyboard/VoiceOver/Retina/Spaces/Reduce Transparency acceptance, actual screenshot toolbar actions, clipboard/save/annotate and production rollout switch remain **open**.
+
+## 2026-10-28 — #38/#39 native IME and #40 explicit companion entry
+
+- [x] [#38](https://github.com/wuhunyu/pic-paste/pull/38): opt-in NSPanel NSTextInputClient preedit/candidate coordinates, UTF-16 range tracking and text commit; merged after [full CI #40613304167](https://github.com/wuhunyu/pic-paste/actions/runs/40613304167) success. GUI input not physically checked.
+- [x] [#39](https://github.com/wuhunyu/pic-paste/pull/39): native-consumed key-down/key-up suppression, other keys and Command/Control shortcuts preserved, focus-loss reset; merged after [full CI #40615197102](https://github.com/wuhunyu/pic-paste/actions/runs/40615197102) success.
+- [ ] [#40](https://github.com/wuhunyu/pic-paste/pull/40): optional main-app button launching a same-directory, out-of-process NSPanel experiment. This is a **developer-only manual test entry**, not an actual native screenshot/editor backend. Test-only feature, single child, no PATH fallback, errors leave normal capture untouched. Latest CI and physical Mac GUI remain independent gates.
+- [ ] Dedicated production screenshot/pin NSPanel with complete capture/editor/clipboard/annotation parity, real macOS 14+/26 GUI/IME/Retina/Spaces/VoiceOver/TCC tests and rollback acceptance. **Issue #5 stays open.**

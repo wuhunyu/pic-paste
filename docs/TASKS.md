@@ -99,3 +99,7 @@
 - [x] macOS >=26 class-guarded native `NSGlassEffectView`, older `NSVisualEffectView`, accessibility opaque `NSBox`; pure Rust fallback/layout tests before implementation.
 - [ ] Latest full CI including macOS SDK probe, strict Clippy, workspace/Release/Lite/Full/Add-on, and device-independent confirmation, before merging.
 - [ ] Real macOS 26 and macOS 14–25 GUI visual/interaction test, Reduce Transparency and theme switches, Retina/Spaces, performance and fallback; native functional toolbar integration is **not done**.
+
+## 2026-10-28 — P0-T3 NSPanel incremental bridge, not a backend switch
+
+PR #38 (CJK marked-text) and PR #39 (native-consumed key routing) are merged with full CI green. PR #40 adds a separate, feature-gated launch entry for the native NSPanel probe in the main app settings. Production screenshot/selection/pins, PNG-only output and hotkeys remain on the established eframe/winit backend. P0-T3/P0-T4 and Issue #5 remain **partially implemented** until genuine NSPanel editor parity and macOS 14+/26 device evidence are complete.
