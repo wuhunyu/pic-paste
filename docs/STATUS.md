@@ -4,7 +4,7 @@
 
 ## 当前基线
 
-- 已合并基线更新至 PR #49（#1–#3、#12–#49，共 **41 个 PR**）。#46 只读真机预检工具、#47 实验原生椭圆标注与 #48 原生撤销/重做都属于代码里程碑，不能替代实际 Mac GUI 验收。
+- 已合并基线更新至 PR #50（#1–#3、#12–#50，共 **42 个 PR**）。#46 只读真机预检工具、#47 实验原生椭圆标注与 #48 原生撤销/重做都属于代码里程碑，不能替代实际 Mac GUI 验收。
 - 最新原生实验功能：[#47 椭圆标注](https://github.com/wuhunyu/pic-paste/pull/47)已通过[全量 CI #40655168318](https://github.com/wuhunyu/pic-paste/actions/runs/40655168318)，[#48 原生撤销/重做](https://github.com/wuhunyu/pic-paste/pull/48)新增独立的本地重做历史及工具栏操作。默认生产截图/贴图仍用 eframe；真实 GUI/Retina/Spaces/TCC/IME/性能必须另行验收。
 - #17 合并提交 `7e492a4bb91f6062c225dfb33f524cc51756e556`；[main CI #40297130672](https://github.com/wuhunyu/pic-paste/actions/runs/40297130672) **success**。
 - 历史增量：[#23 手动失败恢复](https://github.com/wuhunyu/pic-paste/pull/23)、[#24 手动固定栏排除](https://github.com/wuhunyu/pic-paste/pull/24)、[#25 长图圆角](https://github.com/wuhunyu/pic-paste/pull/25)、[#26 长图标注/贴图](https://github.com/wuhunyu/pic-paste/pull/26) 均已合并；对应测试记录详见各 PR。合并后的主分支 CI 已在 #40440845772 覆盖这些功能。
@@ -163,3 +163,10 @@
 - [x] 单次效果区域 ≤400 万物理像素；无效、越界、超限和损坏协议拒绝，未提交草稿不跨进程，编辑器的 PNG 与撤销/重做复用 `shot-image` 原生绘制、固定 12px 马赛克块和 6px 模糊半径。源 RGBA 不改变。
 - [x] macOS 26 系统 Glass、14–25 Vibrancy 与降低透明度回退继续适用；工具栏改两排六列，宽度 560pt。**马赛克、模糊 NSPanel 内仅框选范围，不是最终像素预览**，需确认后看原编辑器合成效果。
 - [ ] CI 编译验证和真实 macOS GUI 是两种不同证据；混合 Retina/Spaces/TCC/中文 IME/色彩/性能与生产 NSPanel 迁移仍未验收，#5/#6/#10 不关闭。
+
+## 2026-10-28 — PR #50：原生 NSPanel 键盘撤销/重做与 IME 事件隔离
+
+- [x] 可选原生面板支持 `⌘Z`、`⇧⌘Z`、Enter 确认、Escape 取消；只拦截当前面板和非文字编辑态事件，匹配的 KeyUp 也被消费，按住不重复执行。
+- [x] 用 AppKit `charactersIgnoringModifiers` 识别布局相关的 Z，不依赖美式键位扫描码；Cmd+Option/Control 修饰组合不覆盖。在文字编辑框激活时，不再由面板层强制处理 Escape/Enter，交给 egui / `NSTextInputClient`。
+- [x] Rust Core 纯状态机单测覆盖输入法态隔离、焦点失效、修饰组合、按键重放与释放；macOS CI 仅执行非 GUI 构建测试。
+- [ ] 真实 macOS 14/26 多键盘布局、中文/日韩 IME 候选窗、焦点和 Spaces/TCC 的手动验收未完成；实验 Feature 不替代生产 UI，#5/#10 不关闭。

@@ -6,6 +6,7 @@ pub mod ime;
 pub mod input;
 pub mod native_acceptance;
 pub mod native_annotation;
+pub mod native_key_routing;
 pub mod native_markup;
 pub mod native_panel;
 pub mod native_selection;

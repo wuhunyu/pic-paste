@@ -1,6 +1,6 @@
 # PicPaste 未完成任务与 Issue 对账台账
 
-> **核对日期：2026-10-28** · 已合并基线扩展至 [PR #49](https://github.com/wuhunyu/pic-paste/pull/49)（#47 椭圆、#48 原生 Undo/Redo；#47 全量 CI #40655168318 success）。实验性原生标注已进入 PNG 保存链路，但 NSPanel/Retina/Spaces/TCC/IME/性能仍无真实设备验收。
+> **核对日期：2026-10-28** · 已合并基线扩展至 [PR #50](https://github.com/wuhunyu/pic-paste/pull/50)（#47 椭圆、#48 原生 Undo/Redo；#47 全量 CI #40655168318 success）。实验性原生标注已进入 PNG 保存链路，但 NSPanel/Retina/Spaces/TCC/IME/性能仍无真实设备验收。
 >
 > 此文档与 [TASKS.md](TASKS.md)、[STATUS.md](STATUS.md) 和 [Issues](https://github.com/wuhunyu/pic-paste/issues?q=is%3Aissue+is%3Aopen) 同步。以下任务状态指 **代码与证据**，不能将单元测试、编译成功等同于操作系统真机功能验收。独立的当前 Issue 正文是每项工作的逐条关闭清单。
 
@@ -10,7 +10,7 @@
 | --- | --- |
 | 原始 v1.2 任务 | 20 项：**8 项代码基本完成、9 项部分实现、3 项未开始** |
 | GitHub Issues（非 PR） | **7 个未关闭：#5–#11**；最初 workspace/CI 对应的 #4 已关闭 |
-| GitHub Pull Requests | **41 个已合并**（#1–#3、#12–#49）；#46 是只读环境预检/真机验收流程，不代表真实设备测试完成 |
+| GitHub Pull Requests | **42 个已合并**（#1–#3、#12–#50）；#46 是只读环境预检/真机验收流程，不代表真实设备测试完成 |
 | macOS 开发包 | ARM64 Lite/Full ad-hoc 签名 ZIP、SHA256；**不是正式发行件** |
 | GitHub Releases | **0** |
 | Windows 原生能力 | 未开始；Rust 核心接口存在，不代表 Windows 构建可用 |
@@ -129,3 +129,7 @@ NSPanel 代码已加入真正 AppKit 系统材质工具栏，画笔/箭头/矩�
 ## 2026-10-28 — PR #49 原生三工具增量
 
 可选 NSPanel 补齐直线、马赛克、模糊的源像素手势、区域边界与有界协议回传；父编辑器复用原有非破坏性 PNG 合成与撤销重做。双排系统材质工具栏不超过 560pt 宽。原生马赛克/模糊是框选范围提示，**真实像素级预览在确认后原编辑器展示**；这不是生产原生后端完成。仍需真实 Mac 14/26、Retina/Spaces/TCC/IME、PNG 对照与资源预算验收。
+
+## 2026-10-28 — 原生键盘路由增量 #50
+
+可选 NSPanel 已接入 Cmd+Z、Shift+Cmd+Z、Enter、Escape 的原生按键路由，成对拦截 KeyDown/KeyUp，重复按键不会多次执行；文字输入/IME 激活时由 egui/NSTextInputClient 处理，不再强制把 Escape 当作整窗取消。按 `charactersIgnoringModifiers` 支持键盘布局的字符映射。仍待真机 macOS 14/26 非美式布局、中文/日文预编辑、候选框、焦点/Spaces/TCC/实际性能测试；默认 eframe 和 PNG 输出不改，原 20 任务计数不变。
