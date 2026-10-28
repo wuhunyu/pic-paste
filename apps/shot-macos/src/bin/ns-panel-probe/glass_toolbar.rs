@@ -6,7 +6,7 @@ use std::cell::Cell;
 
 use objc2::rc::Retained;
 use objc2::runtime::{AnyClass, AnyObject};
-use objc2::{Ivars, MainThreadMarker, MainThreadOnly, define_class, msg_send, sel};
+use objc2::{ClassType, DefinedClass, MainThreadMarker, MainThreadOnly, define_class, msg_send, sel};
 use objc2_app_kit::{
     NSBox, NSBoxType, NSButton, NSColor, NSEvent, NSGlassEffectView, NSView,
     NSVisualEffectBlendingMode, NSVisualEffectMaterial, NSVisualEffectState, NSVisualEffectView,
@@ -22,28 +22,32 @@ use shot_core::glass_toolbar::{
 const BAR_WIDTH: f64 = 236.0;
 const BAR_HEIGHT: f64 = 44.0;
 
+#[derive(Debug)]
+struct GlassTargetIvars {
+    pending: Cell<Option<GlassToolbarAction>>,
+}
+
 define_class!(
     // SAFETY: NSObject has no special subclassing requirements, and this
     // type has no Drop implementation. All AppKit actions stay on the
     // AppKit main thread. Method signatures match their Objective-C selectors.
     #[unsafe(super(NSObject))]
     #[thread_kind = MainThreadOnly]
+    #[ivars = GlassTargetIvars]
     #[derive(Debug)]
-    struct GlassActionTarget {
-        pending: Cell<Option<GlassToolbarAction>>,
-    }
+    struct GlassActionTarget;
 
     unsafe impl NSObjectProtocol for GlassActionTarget {}
 
     impl GlassActionTarget {
         #[unsafe(method(togglePreviewTheme:))]
         fn toggle_theme(&self, _sender: &AnyObject) {
-            self.pending().set(Some(GlassToolbarAction::ToggleTheme));
+            self.ivars().pending.set(Some(GlassToolbarAction::ToggleTheme));
         }
 
         #[unsafe(method(closeProbe:))]
         fn close_probe(&self, _sender: &AnyObject) {
-            self.pending().set(Some(GlassToolbarAction::CloseProbe));
+            self.ivars().pending.set(Some(GlassToolbarAction::CloseProbe));
         }
     }
 );
@@ -51,7 +55,7 @@ define_class!(
 impl GlassActionTarget {
     fn new(mtm: MainThreadMarker) -> Retained<Self> {
         let obj = Self::alloc(mtm);
-        let obj = obj.set_ivars(Ivars::<Self> {
+        let obj = obj.set_ivars(GlassTargetIvars {
             pending: Cell::new(None),
         });
         // SAFETY: NSObject initialization creates a valid instance of the
@@ -60,7 +64,7 @@ impl GlassActionTarget {
     }
 
     fn take_action(&self) -> Option<GlassToolbarAction> {
-        self.pending().take()
+        self.ivars().pending.take()
     }
 }
 
