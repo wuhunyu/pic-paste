@@ -112,3 +112,8 @@
 ## 2026-10-28 — PR #44 原生标注工具栏本地预览
 
 NSPanel 代码已加入真正 AppKit 系统材质工具栏，画笔/箭头/矩形/文字与撤销只操作受限的本地标注图层；已设定一条不可误解的交付边界：**本地标注不会保存到 PNG，也不会通过当前 PPSEL001 同步到 eframe**。后续必须以新的版本化、长度受限标注 IPC 验证传输，父进程在截图 revision/显示器/源尺寸核验通过后再把标注转成 shot-image AnnotationDocument 命令。macOS 26 真实 Liquid Glass、14–25 视觉回退、降低透明度/焦点/中文输入、Retina 多屏、Spaces 与 CPU/GPU/RSS 仍待真机验证。
+
+
+## 2026-10-28 — PR #45 原生标注回传已接入（仍为实验）
+
+此前 PR #44 标注只在独立 NSPanel 中预览。本阶段的版本化有界 `PPANN001` 将已提交标注转为原编辑器 `AnnotationDocument`，可撤销/重做并通过现有 PNG 合成/导出。取消、无效协议、超限/越界或过期截图均不修改历史。仍需 macOS 14–26 真机多屏 Retina、Spaces/TCC/焦点、降低透明度、中文 IME、GPU/CPU/RSS 与真实保存对比验收；不将自动化测试当作 GUI 完成认证。
