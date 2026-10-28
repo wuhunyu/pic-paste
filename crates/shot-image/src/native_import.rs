@@ -22,10 +22,7 @@ pub fn import_native_marks(
         .iter()
         .map(|mark| match mark {
             NativeMark::Brush { points } => Annotation::Brush {
-                points: points
-                    .iter()
-                    .map(|&(x, y)| (x as f32, y as f32))
-                    .collect(),
+                points: points.iter().map(|&(x, y)| (x as f32, y as f32)).collect(),
                 rgba: CYAN,
                 width: STROKE,
             },
@@ -35,7 +32,10 @@ pub fn import_native_marks(
                 rgba: CYAN,
                 width: STROKE,
             },
-            NativeMark::Rectangle { top_left, bottom_right } => Annotation::Rectangle {
+            NativeMark::Rectangle {
+                top_left,
+                bottom_right,
+            } => Annotation::Rectangle {
                 top_left: (top_left.0 as f32, top_left.1 as f32),
                 bottom_right: (bottom_right.0 as f32, bottom_right.1 as f32),
                 rgba: CYAN,

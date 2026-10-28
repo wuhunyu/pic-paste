@@ -2889,14 +2889,23 @@ mod tests {
         let packet = NativeEditReply::Annotated {
             selection: NativeSelectionReply::Selected {
                 display: DisplayId(1),
-                rect: RectPx { x: 2, y: 3, width: 50, height: 40 },
+                rect: RectPx {
+                    x: 2,
+                    y: 3,
+                    width: 50,
+                    height: 40,
+                },
             },
             pixels: (80, 60),
             marks: vec![
                 NativeMark::Rectangle {
-                    top_left: (5, 5), bottom_right: (25, 20),
+                    top_left: (5, 5),
+                    bottom_right: (25, 20),
                 },
-                NativeMark::Arrow { from: (3, 4), to: (30, 15) },
+                NativeMark::Arrow {
+                    from: (3, 4),
+                    to: (30, 15),
+                },
             ],
         };
         assert_eq!(screen.import_native_reply(&packet).unwrap(), Some(2));
@@ -2922,12 +2931,23 @@ mod tests {
         let packet = NativeEditReply::Annotated {
             selection: NativeSelectionReply::Selected {
                 display: DisplayId(1),
-                rect: RectPx { x: 2, y: 3, width: 50, height: 40 },
+                rect: RectPx {
+                    x: 2,
+                    y: 3,
+                    width: 50,
+                    height: 40,
+                },
             },
             pixels: (80, 60),
             marks: vec![
-                NativeMark::Arrow { from: (3, 4), to: (30, 15) },
-                NativeMark::Text { at: (80, 10), content: String::from("bad") },
+                NativeMark::Arrow {
+                    from: (3, 4),
+                    to: (30, 15),
+                },
+                NativeMark::Text {
+                    at: (80, 10),
+                    content: String::from("bad"),
+                },
             ],
         };
         assert!(screen.import_native_reply(&packet).is_err());
