@@ -139,19 +139,21 @@ impl NativeProbeLauncher {
     pub(crate) fn launch_select(
         &mut self,
         snapshot: NativeSnapshot,
-        replies: Sender<Result<NativeEditReply, String>>,
+        request_id: u64,
+        replies: Sender<(u64, Result<NativeEditReply, String>)>,
         wake: egui::Context,
     ) -> Result<ProbeLaunchResult, String> {
         let executable =
             std::env::current_exe().map_err(|error| format!("无法定位 PicPaste：{error}"))?;
-        self.launch_select_from(&executable, snapshot, replies, wake)
+        self.launch_select_from(&executable, snapshot, request_id, replies, wake)
     }
 
     pub(crate) fn launch_select_from(
         &mut self,
         executable: &Path,
         snapshot: NativeSnapshot,
-        replies: Sender<Result<NativeEditReply, String>>,
+        request_id: u64,
+        replies: Sender<(u64, Result<NativeEditReply, String>)>,
         wake: egui::Context,
     ) -> Result<ProbeLaunchResult, String> {
         if let Some(child) = self.child.as_mut() {
@@ -186,7 +188,7 @@ impl NativeProbeLauncher {
         });
         thread::spawn(move || {
             let result = NativeEditReply::read_from(&mut stdout);
-            let _ = replies.send(result);
+            let _ = replies.send((request_id, result));
             wake.request_repaint();
         });
         self.child = Some(child);
