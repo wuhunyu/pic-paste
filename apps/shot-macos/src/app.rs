@@ -2988,7 +2988,10 @@ mod tests {
 
         let expected = (screen.capture_revision, screen.edit_revision);
         assert!(screen.accepts_native_revision(expected));
+        assert!(screen.accepts_native_session((101, expected), 101));
+        assert!(!screen.accepts_native_session((101, expected), 100));
         screen.invalidate_ocr();
+        assert!(!screen.accepts_native_session((101, expected), 101));
         assert!(!screen.accepts_native_revision(expected));
         assert!(!screen.accepts_native_revision((76, screen.edit_revision)));
     }
