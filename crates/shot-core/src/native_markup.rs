@@ -22,13 +22,21 @@ pub enum NativeMarkupTool {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum NativeMark {
-    Brush { points: Vec<(u32, u32)> },
-    Arrow { from: (u32, u32), to: (u32, u32) },
+    Brush {
+        points: Vec<(u32, u32)>,
+    },
+    Arrow {
+        from: (u32, u32),
+        to: (u32, u32),
+    },
     Rectangle {
         top_left: (u32, u32),
         bottom_right: (u32, u32),
     },
-    Text { at: (u32, u32), content: String },
+    Text {
+        at: (u32, u32),
+        content: String,
+    },
 }
 
 #[derive(Clone, Debug)]
@@ -157,17 +165,15 @@ impl NativeMarkup {
 
     fn mark_for_gesture(gesture: &MarkGesture) -> Option<NativeMark> {
         match gesture.tool {
-            NativeMarkupTool::Brush => {
-                (gesture.points.len() >= 2).then(|| NativeMark::Brush {
-                    points: gesture.points.clone(),
-                })
-            }
-            NativeMarkupTool::Arrow => (gesture.start != gesture.end).then_some(
-                NativeMark::Arrow {
+            NativeMarkupTool::Brush => (gesture.points.len() >= 2).then(|| NativeMark::Brush {
+                points: gesture.points.clone(),
+            }),
+            NativeMarkupTool::Arrow => {
+                (gesture.start != gesture.end).then_some(NativeMark::Arrow {
                     from: gesture.start,
                     to: gesture.end,
-                },
-            ),
+                })
+            }
             NativeMarkupTool::Rectangle => {
                 let (a, b) = (gesture.start, gesture.end);
                 if a.0 == b.0 || a.1 == b.1 {
