@@ -72,3 +72,14 @@ Keep the stable eframe backend and prior development package available.
 Revert this PR if candidate metadata introduces compatibility failures.
 Because the Bundle ID changes, any restored older build may require explicit
 Screen Recording authorization; do not disable Gatekeeper or clear user data.
+
+## P6-T2 subtask: actual Universal 2 development binaries (NOT a release)
+
+See [Universal 2 development runbook](universal2-dev-runbook.md) for the
+arm64/x86_64 Rust + Swift build, lipo validation, and resulting
+Lite/Full UNSIGNED-DEV archives. The separate path-filtered Universal 2
+GitHub Actions workflow checks both actual binary slices and ZIP integrity.
+
+**Still blocked:** Developer ID signing/hardened runtime, notarization,
+stapling, physical Intel + Apple Silicon macOS 14/26 tests, clean-machine
+Gatekeeper launch and signed standalone OCR Add-on. No public release or tag.
