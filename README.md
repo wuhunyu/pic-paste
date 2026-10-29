@@ -224,3 +224,15 @@ verification, ZIP checks and the path-filtered macOS workflow. This does
 **not** produce a notarized release or prove Intel/Mac14 real-device QA;
 existing native-architecture and optional Canary development packages remain
 unchanged.
+
+
+### macOS Developer ID signing (manual, private release candidate)
+
+The [signed candidate runbook](docs/signed-release-candidate-runbook.md)
+describes a manually operated, QA-evidence-bound Developer ID / Notary
+workflow using `scripts/release-macos-signed.sh`. It produces **private
+CANDIDATE ZIPs only**, never a public GitHub Release. Signing is blocked
+without real macOS 14/26 and Intel/Apple Silicon device reviews, approved
+source SHA, a valid Developer ID Team, Keychain notarization credentials and
+a human provenance declaration. CI checks code syntax and failure cases
+without Apple secrets or claiming real QA completion.
