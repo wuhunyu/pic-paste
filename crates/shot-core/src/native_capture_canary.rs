@@ -60,3 +60,56 @@ impl CanaryPhase {
         *self = Self::Legacy;
     }
 }
+
+#[cfg(test)]
+mod selection_watchdog_tests {
+    use super::*;
+    use std::time::{Duration, Instant};
+
+    #[test]
+    fn timeout_only_applies_to_the_current_request_at_its_deadline() {
+        let start = Instant::now();
+        let watchdog = NativeSelectionWatchdog::new(7, start, Duration::from_millis(50)).unwrap();
+        assert!(!watchdog.expired_for(Some(7), start));
+        assert!(!watchdog.expired_for(Some(7), start + Duration::from_millis(49)));
+        assert!(watchdog.expired_for(Some(7), start + Duration::from_millis(50)));
+        assert!(!watchdog.expired_for(Some(8), start + Duration::from_secs(1)));
+        assert!(!watchdog.expired_for(None, start + Duration::from_secs(1)));
+    }
+
+    #[test]
+    fn a_new_session_must_not_inherit_the_previous_sessions_deadline() {
+        let start = Instant::now();
+        let old = NativeSelectionWatchdog::new(11, start, Duration::from_millis(100)).unwrap();
+        let newer = NativeSelectionWatchdog::new(
+            12,
+            start + Duration::from_millis(90),
+            Duration::from_millis(100),
+        )
+        .unwrap();
+        assert!(old.expired_for(Some(11), start + Duration::from_millis(100)));
+        assert!(!newer.expired_for(Some(12), start + Duration::from_millis(100)));
+        assert!(!old.expired_for(Some(12), start + Duration::from_secs(2)));
+        assert!(newer.expired_for(Some(12), start + Duration::from_millis(190)));
+    }
+
+    #[test]
+    fn invalid_watchdogs_cannot_block_the_stable_editor() {
+        let start = Instant::now();
+        assert!(NativeSelectionWatchdog::new(0, start, Duration::from_secs(1)).is_err());
+        assert!(NativeSelectionWatchdog::new(1, start, Duration::ZERO).is_err());
+        assert!(NativeSelectionWatchdog::new(1, start, Duration::from_secs(1)).is_ok());
+    }
+
+    #[test]
+    fn clock_rollback_does_not_falsely_expire_the_watchdog() {
+        let start = Instant::now();
+        let watchdog = NativeSelectionWatchdog::new(
+            9,
+            start + Duration::from_millis(100),
+            Duration::from_millis(20),
+        )
+        .unwrap();
+        assert!(!watchdog.expired_for(Some(9), start));
+    }
+}
