@@ -8,3 +8,5 @@
 /captures/
 
 /dist/
+# Never publish screenshots, OCR contents or real-device test samples
+/evidence/
