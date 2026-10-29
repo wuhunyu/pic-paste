@@ -229,3 +229,13 @@
   合成单测；签名脚本准备在保留候选包前调用。详见
   [候选包审核与回退清单](release-candidate-audit.md)。该项目**仍不能
   真正公测或发布**，因为实机、Apple 凭据、公证与用户数据回退验收未完成。
+
+
+## 2026-10-29 — P6-T3 真机 Gatekeeper/回退证据采集工具
+
+- PR #59 已合并 `a35162eb`，其 [main CI #40819202305](https://github.com/wuhunyu/pic-paste/actions/runs/40819202305) core/rust 全部 success。
+- 新增真实 Mac 上只读核查下载 ZIP、quarantine、签名 Team/Notary/双架构的
+  准入 CLI，以及默认 not_run 的 7 项人工验收与 PNG/配置回退哈希对比、
+  macOS14/26 x Intel/arm64 四格证据汇总。详见
+  [物理设备验收指南](physical-release-rehearsal.md)。**代码完成不代表已经执行
+  真机操作，也不代表正式发行获批**；#9/#10 的外部阻塞仍存在。
