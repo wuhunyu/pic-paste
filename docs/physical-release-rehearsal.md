@@ -130,3 +130,14 @@ These tests use synthetic data, **not actual hardware**. Apple Developer
 credentials, macOS 14/26 physical tests, initial TCC/IME/Retina/Spaces, true
 400-image OCR, 50 genuine scroll scenes and a separate manual distribution
 decision remain hard blockers. No tag or public GitHub Release is created.
+
+## Extracted archive and data-root identity checks
+
+The operator tool also compares the extracted app's main executable,
+Info.plist and icon (and embedded Full OCR), plus standalone Add-on bytes,
+against the **exact trusted downloaded ZIP members**. A swapped executable
+cannot be made acceptable merely by carrying another valid Developer ID
+signature. The before/after preservation snapshots are bound to a digest
+of the same canonical test-fixture directory: substituting a copied fixture
+at another path is rejected. Only path hashes and aggregate content hashes,
+not private paths, are included in the device report.
