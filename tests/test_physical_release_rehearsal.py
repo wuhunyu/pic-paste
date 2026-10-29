@@ -4,6 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from scripts.physical_release_integrity import directory_identity
 from scripts.physical_release_rehearsal import (
     CASE_IDS,
     add_case_evidence,
@@ -35,6 +36,7 @@ class RehearsalTests(unittest.TestCase):
             "macos_version": f"{os_major}.2.1",
             "architecture": arch,
             "host_label": host,
+            "preservation_root_sha256": directory_identity(self.sentinel),
             "source_sha": SOURCE_SHA,
             "team_id": TEAM_ID,
             "archive_sha256": HASHES,
@@ -168,6 +170,16 @@ class RehearsalTests(unittest.TestCase):
         r[3]["preflight"]["archive_sha256"]["Lite"] = "f" * 64
         with self.assertRaisesRegex(ValueError, "archive"):
             verify_matrix(r, [self.base] * 4)
+
+    def test_postcheck_does_not_accept_identical_copies_from_another_directory(self):
+        from scripts.physical_release_rehearsal import main
+        copied = self.base / "copied"
+        copied.mkdir()
+        (copied / "saved.png").write_bytes((self.sentinel / "saved.png").read_bytes())
+        (copied / "settings.json").write_bytes((self.sentinel / "settings.json").read_bytes())
+        report = self.base / "report.json"
+        report.write_text(json.dumps(self.report()))
+        self.assertEqual(main(["postcheck", "--report", str(report), "--data-root", str(copied)]), 1)
 
     def test_rejects_time_without_timezone_or_out_of_order(self):
         r = self.completed()
