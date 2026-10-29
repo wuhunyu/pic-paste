@@ -236,3 +236,15 @@ without real macOS 14/26 and Intel/Apple Silicon device reviews, approved
 source SHA, a valid Developer ID Team, Keychain notarization credentials and
 a human provenance declaration. CI checks code syntax and failure cases
 without Apple secrets or claiming real QA completion.
+
+
+### Signed candidate audit (P6-T3 preparation)
+
+The [candidate integrity and rollback hold guide](docs/release-candidate-audit.md)
+explains the additional fail-closed check before private signed candidate
+archives are retained. It validates exact three ZIP hashes, captured Notary
+status, bundle contents and SHA linkage to real QA evidence and manual review.
+Mac native mode also checks the Developer ID Team, hardened runtime and
+stapled .app ticket. **Neither CI nor this audit authorizes a public
+release**; real downloaded Gatekeeper, upgrades, rollback and final approval
+remain required.
