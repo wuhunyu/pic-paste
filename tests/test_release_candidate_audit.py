@@ -113,7 +113,7 @@ class CandidateAuditTests(unittest.TestCase):
             if variant == "Full":
                 (app / "Helpers").mkdir(exist_ok=True)
                 (app / "Helpers" / "PicPasteOCR").write_bytes(b"FAT-OCR-SYNTHETIC")
-        (self.candidate / "OCR-AddOn").mkdir()
+        (self.candidate / "OCR-AddOn").mkdir(exist_ok=True)
         (self.candidate / "OCR-AddOn" / "PicPasteOCR").write_bytes(b"ADDON-DUMMY")
         for variant in ("Lite", "Full", "addon"):
             (self.candidate / f"notary-{variant}.json").write_text(
