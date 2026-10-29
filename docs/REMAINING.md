@@ -169,3 +169,20 @@ NSPanel 代码已加入真正 AppKit 系统材质工具栏，画笔/箭头/矩�
 - 两个生成包分别为 `PicPaste-macos-universal2-Lite-UNSIGNED-DEV.zip` 和 `Full-UNSIGNED-DEV.zip`，包含真实双架构主程序，Full 还包含双架构 OCR；原有 arm64 / Canary 打包不变。
 - 独立按需/发布文件变更触发的 CI 验证双架构编译、应用包、Code Sign（**仅 ad-hoc**）及 SHA256；其通过不等于双架构真机启动/授权/UI 验收。
 - #9 仍须完成 Developer ID、Notary、Staple、Gatekeeper、配套 Add-on 的正式签名/公证、真实 Intel/macOS14 及 macOS26 设备验证；**本子任务不创建任何正式 Release**。
+
+
+## 2026-10-29 — P6-T2 Developer ID/Notary 受控候选包工具（未完成真实签名）
+
+- 独立分支新增 `scripts/release_signing_policy.py`、15 项纯 Python 单测与
+  `scripts/release-macos-signed.sh`：对最终源码 SHA、真实 macOS14/26
+  采样汇总、手工复核、Intel/Apple Silicon、严重缺陷数量和匹配 Apple
+  Team ID 作前置失败即拒绝检查。报告变更会使审批 SHA256 失效。
+- 受控 Mac 上重新双架构构建；对 Full 内置 OCR、主程序、Bundle 与独立
+  OCR Add-on 使用相同 Developer ID、Hardened Runtime + timestamp
+  签名，公证必须 Accepted 后 staple .app、Gatekeeper 预检、最终 ZIP
+  校验。生成仅供后续净机验证的 `*-CANDIDATE.zip`，**不创建公开 Release**。
+- PR CI 只测试证据政策与 Bash 语法，不调用真实证书/Notary 服务。
+  **当前没有**可信 Apple 证书、Mac14/26 真机原始验收数据或人工 QA
+  审批输入，因而未实际签名、公证或执行干净 Mac 下载验收。
+  #9、#10 继续保持 Open；详见
+  [签名候选包操作手册](signed-release-candidate-runbook.md)。

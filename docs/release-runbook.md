@@ -83,3 +83,22 @@ GitHub Actions workflow checks both actual binary slices and ZIP integrity.
 **Still blocked:** Developer ID signing/hardened runtime, notarization,
 stapling, physical Intel + Apple Silicon macOS 14/26 tests, clean-machine
 Gatekeeper launch and signed standalone OCR Add-on. No public release or tag.
+
+
+## P6-T2: Developer ID and notarization candidate infrastructure
+
+See the [signed candidate runbook](signed-release-candidate-runbook.md).
+The `scripts/release-macos-signed.sh` command requires a clean checkout
+at the manually approved QA source SHA, real measurement reports, a
+separately hash-bound human approval, Apple Team-matched Developer ID
+certificate and Keychain notary profile. After fresh Universal 2 builds
+it signs nested OCR/helper/main/outer bundle in order, checks runtime and
+Team ID, requires Notary Accepted, staples the .app and assembles
+`*-CANDIDATE.zip` with checksums.
+
+The script **does not** create a release tag, public GitHub Release or
+replace an installed app. Real Intel/Apple Silicon downloaded-package
+Gatekeeper/TCC/upgrade/rollback testing and final release approval remain
+blocked in P6-T3. The standalone notarized OCR helper ZIP cannot have a
+stapler ticket attached to the raw executable. Keep private QA and Apple
+credentials out of the public repository and Actions artifacts.

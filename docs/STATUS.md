@@ -206,3 +206,17 @@
 
 - PR #56 已合并（`f7dee79d`），此前 P6-T1 元数据、图标与基本开发包 CI 通过。新增独立 Universal 2 开发脚本、结构验证单测和只在相关文件变化/手动触发的 macOS 双架构 CI，详见 [开发说明](universal2-dev-runbook.md)。
 - 目前只允许发布用于内部验证的 `UNSIGNED-DEV` 包；**正式 P6-T2 Developer ID/Notary 与 P6-T3 Release 未完成**。真实 macOS14/26、Apple Silicon/Intel、TCC/IME/Retina、OCR/长图/性能与来源验证仍由 #9/#10 跟踪，不能将构建成功等同于功能验收。
+
+
+## 2026-10-29 — 受控签名候选包工作（P6-T2 工具准备）
+
+- PR #57 已合并 `94d2102a`；同 SHA 的
+  [Rust CI #40813045043](https://github.com/wuhunyu/pic-paste/actions/runs/40813045043)
+  与 [Universal 2 CI #40813045042](https://github.com/wuhunyu/pic-paste/actions/runs/40813045042)
+  全部成功，开发版 Lite/Full 双架构真实编译可复验。
+- 新增源码 SHA/真实验收/人工审查哈希约束、Developer ID 同 Team
+  签名、Hardened Runtime、Notary Accepted、Stapler/Gatekeeper
+  验证及独立 OCR Add-on 的候选包脚本。其纯 Python + Bash CI 可执行；
+  但**未拥有或执行真实 Apple Developer ID/Notary 凭据，未提供真机
+  证据，不能宣称 P6 已通过，更不能自动创建 v1.0.0 Release**。
+- [操作与剩余依赖](signed-release-candidate-runbook.md)。
