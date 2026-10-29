@@ -186,3 +186,16 @@ NSPanel 代码已加入真正 AppKit 系统材质工具栏，画笔/箭头/矩�
   审批输入，因而未实际签名、公证或执行干净 Mac 下载验收。
   #9、#10 继续保持 Open；详见
   [签名候选包操作手册](signed-release-candidate-runbook.md)。
+
+
+## 2026-10-29 — P6-T3 候选包完整性审核及回退前置（待 PR CI）
+
+- 新增 release_candidate_audit.py：校验三个候选 ZIP 的精确 SHA256 和内部
+  文件清单、Lite/Full/OCR 的签名后阶段文件一致性、bundle 版本与标识、
+  Notary Accepted 唯一提交号、正式验收与人工审批文件的哈希绑定。
+- 受控签名器在最终候选目录落盘前强制运行 `--verify-macos` 模式；在真实
+  macOS 上复核相同 Team 的 Developer ID、Hardened Runtime、app stapler
+  票据和本地 Gatekeeper assessment；通用 CI 仅跑纯 Python 合成负例。
+- 代码检查**始终不宣称**完成真正下载后 Gatekeeper 首次启动、Mac14/26
+  Intel/ARM 安装、TCC 重授权、Lite/Full/独立 OCR 升级回退或最终发行审批。
+  这些硬门槛继续保留于 #9/#10，且没有创建公共发布标签或附件。

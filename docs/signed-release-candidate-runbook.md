@@ -158,3 +158,17 @@ bash -n scripts/release-macos-signed.sh
 
 **CI is not signing:** public PR runners validate only the policy and shell
 syntax. They do not receive real QA evidence or Apple signing secrets.
+
+
+## Extra pre-publication audit (P6-T3 preparation)
+
+The signer now creates a SHA-linked manifest containing version, bundle ID,
+SHA256 of the preexisting QA gate and independent human review declaration.
+Before placing output into dist/release-candidate-<source-sha>/ it invokes
+scripts/release_candidate_audit.py --verify-macos. This audits every ZIP,
+archive-vs-signed-app binary hash, notary receipt and Apple signature using
+the same actual Team ID. Failure leaves no completed candidate directory.
+For independent reruns and the final **physical** rollout/rollback checklist,
+see [release-candidate-audit.md](release-candidate-audit.md).
+An approved original QA report is **not** final first-download Gatekeeper or
+rollback approval, and no GitHub Release is created.

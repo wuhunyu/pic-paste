@@ -163,19 +163,38 @@ notarize_zip "$ADDON_ZIP" "$STAGING/output/notary-addon.json"
   shasum -a 256 ./*-CANDIDATE.zip > SHA256SUMS.txt
   shasum -a 256 -c SHA256SUMS.txt
 )
-python3 - "$STAGING/output/release-manifest.json" "$SHA" "$PICPASTE_APPLE_TEAM_ID" <<'PY_MANIFEST'
+# Bind the final signed archives to the exact previously reviewed QA files.
+# All three notarization reports must be Accepted, every archive must match
+# its staged signed executable, and Gatekeeper/stapler checks are mandatory.
+python3 - "$STAGING/output/release-manifest.json" "$SHA" "$PICPASTE_APPLE_TEAM_ID" \
+    "$VERSION" "$PICPASTE_RELEASE_GATE" "$PICPASTE_RELEASE_APPROVAL" <<'PY_MANIFEST'
+import hashlib
 import json
 import sys
 from pathlib import Path
+
+def sha256(path):
+    return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
 Path(sys.argv[1]).write_text(json.dumps({
     "schema": "picpaste.signed-release-candidate/1",
     "source_sha": sys.argv[2],
     "apple_team_id": sys.argv[3],
+    "version": sys.argv[4],
+    "bundle_id": "com.wuhunyu.picpaste",
+    "gate_sha256": sha256(sys.argv[5]),
+    "approval_sha256": sha256(sys.argv[6]),
     "clean_download_gatekeeper_required": True,
     "manual_distribution_approval_required": True,
     "github_release_created": False,
 }, indent=2) + "\n", encoding="utf-8")
 PY_MANIFEST
+
+python3 "$ROOT/scripts/release_candidate_audit.py" \
+  --candidate "$STAGING/output" --source-sha "$SHA" \
+  --team-id "$PICPASTE_APPLE_TEAM_ID" \
+  --gate "$PICPASTE_RELEASE_GATE" --approval "$PICPASTE_RELEASE_APPROVAL" \
+  --verify-macos
 mv "$STAGING/output" "$OUT"
 echo "Signed + notarized PRIVATE candidates staged: $OUT"
 echo "STOP: test real downloaded macOS 14/26 Apple Silicon and Intel installations."
