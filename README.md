@@ -248,3 +248,14 @@ Mac native mode also checks the Developer ID Team, hardened runtime and
 stapled .app ticket. **Neither CI nor this audit authorizes a public
 release**; real downloaded Gatekeeper, upgrades, rollback and final approval
 remain required.
+
+
+### Physical macOS release rehearsal (operator-only)
+
+The [physical Gatekeeper/rollback rehearsal guide](docs/physical-release-rehearsal.md)
+explains the non-destructive, read-only checks and the 7 manually observed
+cases required on macOS14/26 and Apple Silicon/Intel. The associated CLI
+collects source SHA, same-Team Developer ID/Notary evidence, ZIP checksums,
+quarantine flags and PNG/config preservation hashes. **It never installs,
+opens, signs or publishes any app automatically.** Complete physical evidence
+and a separately authorized release decision are still required.
