@@ -193,3 +193,9 @@
 
 - [PR #53](https://github.com/wuhunyu/pic-paste/pull/53) 已合入 `main`（`3f34693`），[CI #40801194484](https://github.com/wuhunyu/pic-paste/actions/runs/40801194484) core/rust success。该合并后累计 **45 个 PR**（此前顶部 44 为 #52 时点快照）。
 - 发布证据总门禁代码与合成单测正在独立 PR 开发，详见 [release-evidence-runbook.md](release-evidence-runbook.md)。这些工作是验收自动化，不是 macOS 原生 UI 真机验收，也不是正式发行。
+
+## 2026-10-29 — PR #54 发布证据门禁与 P1-T3 超时恢复
+
+- [PR #54](https://github.com/wuhunyu/pic-paste/pull/54) 已合入主线（`ce00f024`），[CI #40803407613](https://github.com/wuhunyu/pic-paste/actions/runs/40803407613) `core`/`rust` 均 success；截至该合并，共 **46 个已合并 PR**，七个核心 Issue #5–#11 仍为 Open。
+- [PR #55](https://github.com/wuhunyu/pic-paste/pull/55) 在独立开发分支新增 300 秒请求级 watchdog（P1-T3 部分代码工作），停止无响应独立原生进程、使旧 IPC 回复失效，并为原生启动/关闭、菜单恢复、截止时间边界补自动化测试。**该 PR 仍须在最新 HEAD 上通过完整 CI 才能合并**。
+- macOS 真机 NSPanel、Retina/Spaces/TCC/IME、OCR 400 图、50 场景长图、真实性能及正式签名公证 **仍缺验收材料**。PR #55 的超时回退必须在 macOS 14 和 26 真实设备复测，不宣称 GUI 完成。
