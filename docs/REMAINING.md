@@ -1,6 +1,6 @@
 # PicPaste 未完成任务与 Issue 对账台账
 
-> **核对日期：2026-10-28** · 已合并基线扩展至 [PR #51](https://github.com/wuhunyu/pic-paste/pull/51)（#47 椭圆、#48 原生 Undo/Redo；#47 全量 CI #40655168318 success）。实验性原生标注已进入 PNG 保存链路，但 NSPanel/Retina/Spaces/TCC/IME/性能仍无真实设备验收。
+> **核对日期：2026-10-29** · 已合并基线扩展至 [PR #52](https://github.com/wuhunyu/pic-paste/pull/51)（#47 椭圆、#48 原生 Undo/Redo；#47 全量 CI #40655168318 success）。实验性原生标注已进入 PNG 保存链路，但 NSPanel/Retina/Spaces/TCC/IME/性能仍无真实设备验收。
 >
 > 此文档与 [TASKS.md](TASKS.md)、[STATUS.md](STATUS.md) 和 [Issues](https://github.com/wuhunyu/pic-paste/issues?q=is%3Aissue+is%3Aopen) 同步。以下任务状态指 **代码与证据**，不能将单元测试、编译成功等同于操作系统真机功能验收。独立的当前 Issue 正文是每项工作的逐条关闭清单。
 
@@ -10,7 +10,7 @@
 | --- | --- |
 | 原始 v1.2 任务 | 20 项：**8 项代码基本完成、9 项部分实现、3 项未开始** |
 | GitHub Issues（非 PR） | **7 个未关闭：#5–#11**；最初 workspace/CI 对应的 #4 已关闭 |
-| GitHub Pull Requests | **43 个已合并**（#1–#3、#12–#51）；#46 是只读环境预检/真机验收流程，不代表真实设备测试完成 |
+| GitHub Pull Requests | **44 个已合并**（#1–#3、#12–#52）；#46 是只读环境预检/真机验收流程，不代表真实设备测试完成 |
 | macOS 开发包 | ARM64 Lite/Full ad-hoc 签名 ZIP、SHA256；**不是正式发行件** |
 | GitHub Releases | **0** |
 | Windows 原生能力 | 未开始；Rust 核心接口存在，不代表 Windows 构建可用 |
@@ -142,6 +142,6 @@ NSPanel 代码已加入真正 AppKit 系统材质工具栏，画笔/箭头/矩�
 
 - [x] PR #52 在 `native-panel-probe` 开发 Feature 下实现 **显式原生优先**截图路由、request ID 和截图/标注 revision 校验、崩溃/协议错误回退、自动取消结束截图，以及菜单恢复稳定 eframe 编辑器的路径；原本的生产默认捕获不变。
 - [x] 增加独立命名的 Lite/Full ad-hoc canary 包及 companion 文件安全检查，CI 中验证签名/ZIP；普通包不携带未经验收的原生 companion。
-- [ ] 等待最新 PR CI 真实结果；本清单不提前打勾 macOS GUI、TCC、Retina、IME、CPU/GPU/RSS/P95。
+- [ ] PR #52 完整 PR CI [#40677034954](https://github.com/wuhunyu/pic-paste/actions/runs/40677034954) 与主线 CI [#40678378483](https://github.com/wuhunyu/pic-paste/actions/runs/40678378483) 均已 success；**仍不能打勾** macOS GUI、TCC、Retina、IME、CPU/GPU/RSS/P95。
 - [ ] 在真实 macOS 14/26 上验证**每个**自动接入分支：成功选区/标注到 PNG、取消不弹回原编辑器、缺少 companion 自动退回、原生卡死后托盘“显示窗口”恢复、重启回滚；收集回放和原始测量数据。
 - [ ] 默认稳定原生生产面板仍需通过 #5/#10 全套兼容性/性能门槛才能切换；#9 正式发布与 #11 Windows 无变化。
