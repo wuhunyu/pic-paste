@@ -18,8 +18,14 @@ import re
 import subprocess
 import sys
 import tempfile
+import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
+
+if __package__:
+    from .physical_release_integrity import directory_identity, verify_extraction
+else:
+    from physical_release_integrity import directory_identity, verify_extraction
 
 SCHEMA = "picpaste.physical-release-rehearsal/1"
 SOURCE_RE = re.compile(r"[0-9a-f]{40}\Z")
@@ -141,6 +147,7 @@ def _validate_preflight(preflight: dict, *, expected_sha: str | None = None,
         raise ValueError("expected three verified archive SHA256 hashes")
     for k in REQUIRED_ARCHIVES:
         _require_sha(hashes[k], f"{k} archive SHA256")
+    _require_sha(preflight.get("preservation_root_sha256"), "preservation directory SHA256")
     if preflight.get("quarantine_zip") != dict.fromkeys(REQUIRED_ARCHIVES, True):
         raise ValueError("all three browser-downloaded ZIPs must retain quarantine")
     if preflight.get("quarantine_apps") != {"Lite": True, "Full": True}:
@@ -363,6 +370,9 @@ def _native_prepare(args) -> dict:
     _app(args.full_app, args.team_id, full=True)
     _signature(args.addon_exe, args.team_id)
     _run("lipo", str(args.addon_exe), "-verify_arch", "arm64", "x86_64")
+    verify_extraction(args.lite_zip, args.lite_app, "Lite")
+    verify_extraction(args.full_zip, args.full_app, "Full")
+    verify_extraction(args.addon_zip, args.addon_exe, "AddOn")
     app_quarantine = {}
     for name, app in (("Lite", args.lite_app), ("Full", args.full_app)):
         app_quarantine[name] = bool(_run("xattr", "-p", "com.apple.quarantine", str(app)).strip())
@@ -372,6 +382,7 @@ def _native_prepare(args) -> dict:
         "macos_version": os_major,
         "architecture": arch,
         "host_label": args.host_label,
+        "preservation_root_sha256": directory_identity(args.data_root),
         "source_sha": args.source_sha,
         "team_id": args.team_id,
         "archive_sha256": hashes,
@@ -438,6 +449,8 @@ def main(argv=None) -> int:
             print(f"Recorded operator-observed {args.case}={args.status}; not release authorization.")
         elif args.action == "postcheck":
             data = read_report(args.report)
+            if data.get("preflight", {}).get("preservation_root_sha256") != directory_identity(args.data_root):
+                raise ValueError("PNG/config preservation root directory differs from preflight")
             data["data_after"] = fingerprint_tree(args.data_root)
             data["completed_at_utc"] = _now()
             _save(args.report, data, overwrite=True)
@@ -452,7 +465,7 @@ def main(argv=None) -> int:
             result = verify_matrix([read_report(x) for x in files], [x.parent for x in files])
             print(json.dumps(result, indent=2))
         return 0
-    except (OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError, plistlib.InvalidFileException) as exc:
+    except (OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError, plistlib.InvalidFileException, zipfile.BadZipFile) as exc:
         print(f"Physical release rehearsal rejected: {exc}", file=sys.stderr)
         return 1
 
