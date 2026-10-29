@@ -1,10 +1,13 @@
 # PicPaste 开发与验收状态
 
-> **核对日期：2026-10-28。** 此文件以 [`main`](https://github.com/wuhunyu/pic-paste/tree/main) 中已合并的代码为依据；[REMAINING.md](REMAINING.md) 汇总当前七个未关闭 Issue，原始 v1.2 执行计划的 20 个任务逐项记录在 [TASKS.md](TASKS.md)。**代码完成、自动化测试成功、真机验收通过是三个不同的状态。**
+> **核对日期：2026-10-29。** 此文件以 [`main`](https://github.com/wuhunyu/pic-paste/tree/main) 中已合并的代码为依据；[REMAINING.md](REMAINING.md) 汇总当前七个未关闭 Issue，原始 v1.2 执行计划的 20 个任务逐项记录在 [TASKS.md](TASKS.md)。**代码完成、自动化测试成功、真机验收通过是三个不同的状态。**
 
 ## 当前基线
 
-- 已合并基线更新至 PR #51（#1–#3、#12–#51，共 **43 个 PR**）。#46 只读真机预检工具、#47 实验原生椭圆标注与 #48 原生撤销/重做都属于代码里程碑，不能替代实际 Mac GUI 验收。
+- 2026-10-29 实测 GitHub 基线：`main` [`4083926`](https://github.com/wuhunyu/pic-paste/commit/40839263fccde7042b132bf6bb5f616fa32fa6d8)；PR #52 已合并；`main` [Actions #40678378483](https://github.com/wuhunyu/pic-paste/actions/runs/40678378483) 成功。已合并 PR **44**，未关闭 Issues **7（#5–#11）**，GitHub Releases **0**。Canary 为可选开发包，真实 macOS 14/26 GUI、OCR 400 图、长图 50 场景、性能和正式签名仍未验收。
+
+
+- 已合并基线更新至 PR #52（#1–#3、#12–#52，共 **44 个 PR**）。#46 只读真机预检工具、#47 实验原生椭圆标注与 #48 原生撤销/重做都属于代码里程碑，不能替代实际 Mac GUI 验收。
 - 最新原生实验功能：[#47 椭圆标注](https://github.com/wuhunyu/pic-paste/pull/47)已通过[全量 CI #40655168318](https://github.com/wuhunyu/pic-paste/actions/runs/40655168318)，[#48 原生撤销/重做](https://github.com/wuhunyu/pic-paste/pull/48)新增独立的本地重做历史及工具栏操作。默认生产截图/贴图仍用 eframe；真实 GUI/Retina/Spaces/TCC/IME/性能必须另行验收。
 - #17 合并提交 `7e492a4bb91f6062c225dfb33f524cc51756e556`；[main CI #40297130672](https://github.com/wuhunyu/pic-paste/actions/runs/40297130672) **success**。
 - 历史增量：[#23 手动失败恢复](https://github.com/wuhunyu/pic-paste/pull/23)、[#24 手动固定栏排除](https://github.com/wuhunyu/pic-paste/pull/24)、[#25 长图圆角](https://github.com/wuhunyu/pic-paste/pull/25)、[#26 长图标注/贴图](https://github.com/wuhunyu/pic-paste/pull/26) 均已合并；对应测试记录详见各 PR。合并后的主分支 CI 已在 #40440845772 覆盖这些功能。
@@ -183,5 +186,5 @@
 - [x] 原生试运行的纯 Rust 状态机：默认保持旧编辑器，只有主动开启且成功启动匹配 request ID 才隐藏旧浮层；旧请求回复忽略，成功/异常回到旧编辑器，自动模式取消结束截图。
 - [x] 可选 `native-panel-probe` 功能构建接入实际截图后自动启动 companion；复用已有 `NativeSnapshot` 源像素/显示器/编辑 revision 验证，原生标注结果只交回父编辑器 PNG 历史。设置页开关不持久化，菜单“显示窗口”可退出卡住的试运行。
 - [x] `PICPASTE_NATIVE_CANARY=1` 将同目录 helper 作为独立 ad-hoc 开发版打包；没有 helper 则拒绝打包且不删除旧包。CI 额外构建 release feature-gated binaries 与验证 Lite/Full canary ZIP；默认开发发行包不变。
-- [ ] 在 PR #52 的最新同头 CI 完整通过之前，**不得声称这一增量已经验证或合并**；真实 Mac 原生试运行仍须按 [验收清单](native-macos-acceptance.md)执行，Issue #5/#10 保持开放。
+- [ ] PR #52 已合并（`4083926`），主线完整 CI [#40678378483](https://github.com/wuhunyu/pic-paste/actions/runs/40678378483) 的 `core` 和 `rust` 均为 success；**这仅证明自动化检查与构建，不代表原生 GUI 真机验收**；真实 Mac 原生试运行仍须按 [验收清单](native-macos-acceptance.md)执行，Issue #5/#10 保持开放。
 - [ ] 默认 NSPanel 接管完整生产截图/贴图、签名、公证、性能验收及 Windows 尚未完成；原始 20 项任务数量不变。

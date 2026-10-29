@@ -1,12 +1,12 @@
 # 原始 v1.2 执行计划：20 项任务同步台账
 
-核对于 **2026-10-28**，对应 [STATUS.md](STATUS.md)、[REMAINING.md](REMAINING.md) 与 [GitHub Issues](https://github.com/wuhunyu/pic-paste/issues)。**20 项按任务数：8 项代码基本完成、9 项部分实现、3 项未开始**。`代码基本完成` 指核心实现与自动化测试存在，**不表示功能已通过真实 macOS/Windows 验收**；`部分实现` 指原任务至少有一项实质性缺口；`未开始` 指该目标尚无功能代码。
+核对于 **2026-10-29**，对应 [STATUS.md](STATUS.md)、[REMAINING.md](REMAINING.md) 与 [GitHub Issues](https://github.com/wuhunyu/pic-paste/issues)。**20 项按任务数：8 项代码基本完成、9 项部分实现、3 项未开始**。`代码基本完成` 指核心实现与自动化测试存在，**不表示功能已通过真实 macOS/Windows 验收**；`部分实现` 指原任务至少有一项实质性缺口；`未开始` 指该目标尚无功能代码。
 
 | 序号 | 原计划任务 | 当前状态 | 可核验代码 / 剩余缺口 | 跟踪 |
 | --- | --- | --- | --- | --- |
 | P0-T1 | Rust Cargo workspace 与 CI | **代码基本完成** | `Cargo.lock`、macOS/Linux fmt/test/Clippy/Release、Swift IPC、Lite/Full 构建；缺真机基准 | [#5](https://github.com/wuhunyu/pic-paste/issues/5)、[#10](https://github.com/wuhunyu/pic-paste/issues/10) |
 | P0-T2 | AppKit 菜单栏、全局快捷键 | **部分实现** | 菜单栏、四功能快捷键、Ctrl+Option+1–9 自定义及失败回滚（PR #14）；真机冲突/恢复/权限未验收 | [#5](https://github.com/wuhunyu/pic-paste/issues/5) |
-| P0-T3 | ScreenCaptureKit、多屏与选区浮层 | **部分实现** | 选显示器、八手柄、窗口候选、放大镜；#31 局部像素/逻辑点隔离；#32–#51 已形成独立 AppKit NSPanel/WGPU Metal/egui 实验选区、直线/几何/马赛克/模糊及 Undo/Redo 回传（不替换正式 UI；缺真机验收） | [#5](https://github.com/wuhunyu/pic-paste/issues/5) |
+| P0-T3 | ScreenCaptureKit、多屏与选区浮层 | **部分实现** | 选显示器、八手柄、窗口候选、放大镜；#31 局部像素/逻辑点隔离；#32–#52 已形成独立 AppKit NSPanel/WGPU Metal/egui 实验选区、直线/几何/马赛克/模糊及 Undo/Redo 回传（不替换正式 UI；缺真机验收） | [#5](https://github.com/wuhunyu/pic-paste/issues/5) |
 | P0-T4 | 原生贴图、鼠标穿透与性能 | **部分实现** | 多贴图/穿透/恢复与 #30 纹理预算；#31 独立 Pin 初始不激活/无阴影、仅穿透模式透传鼠标；真实跨 Spaces、焦点/拖动与性能未验收 | [#5](https://github.com/wuhunyu/pic-paste/issues/5) |
 | P1-T1 | 选区、窗口识别、取色/放大镜 | **代码基本完成** | 窗口点击选择 #15、9×9 放大镜/HEX；真实重叠窗口和负坐标验证未完成 | [#5](https://github.com/wuhunyu/pic-paste/issues/5) |
 | P1-T2 | 标注、撤销重做 | **代码基本完成** | 线/箭头/画笔/几何/模糊/马赛克、文字 #17、Undo/Redo；原生实验 NSPanel #47/#48 补椭圆和本地重做；CJK 系统字体实际覆盖需验证 | [#6](https://github.com/wuhunyu/pic-paste/issues/6) |
@@ -167,3 +167,9 @@ PR #38 (CJK marked-text) and PR #39 (native-consumed key routing) are merged wit
 - [x] 新增仅 ROI 范围的原 PNG 合成算法复用与逐字节 RGBA/Alpha 对照测试；在原生 Metal egui 图层单独缓存小纹理，提交/撤销/重做时失效，原图不可变。
 - [x] 精确预览限定源 RGBA≤32MiB、所有效果面积≤1MP、全部标注都是互不重叠的马赛克/模糊。所有超限、草稿、混合标注退回区域框，不能误称最终效果。
 - [ ] 真实 macOS 14/26 GPU/UI、Retina、透明边缘、GPU/CPU/RSS/P95 和全原生编辑器切换仍缺验收，不改变原 20 项任务数量统计。
+
+## 2026-10-29 — P0 基线复核
+
+- 已核实 PR #52 合并（main `4083926`），主线 CI #40678378483 的 Ubuntu/core 和 macOS/rust 均 success；可选 NSPanel Canary 仍非生产默认，也未完成真实设备验收。
+- 原始 20 项任务的当前分类维持 **8 项代码基本完成、9 项部分实现、3 项未开始**；此分类不是实际项目完成百分比。
+- 仍有 **7 个 Open Issue（#5–#11）**，Release **0**。任何真实设备质量或正式发版条件在上传可复现证据前不得关闭。
