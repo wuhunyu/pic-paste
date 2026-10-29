@@ -325,7 +325,11 @@ mod native_probe_launcher_tests {
         let dir = unique_dir();
         fs::create_dir_all(&dir).unwrap();
         let helper = dir.join("ns-panel-probe");
-        fs::write(&helper, "#!/bin/sh\n/bin/cat >/dev/null\nexec /bin/sleep 15\n").unwrap();
+        fs::write(
+            &helper,
+            "#!/bin/sh\n/bin/cat >/dev/null\nexec /bin/sleep 15\n",
+        )
+        .unwrap();
         fs::set_permissions(&helper, fs::Permissions::from_mode(0o700)).unwrap();
         let snapshot = NativeSnapshot::new(
             OverlayPlacement::new(DisplayId(9), (0.0, 0.0), (10.0, 10.0)).unwrap(),
@@ -355,7 +359,10 @@ mod native_probe_launcher_tests {
         launcher.stop_for_capture().unwrap();
         let (request_id, result) = rx.recv_timeout(std::time::Duration::from_secs(5)).unwrap();
         assert_eq!(request_id, 404);
-        assert!(result.is_err(), "a silent helper must never produce fake selection");
+        assert!(
+            result.is_err(),
+            "a silent helper must never produce fake selection"
+        );
         fs::remove_dir_all(dir).unwrap();
     }
 
