@@ -23,6 +23,7 @@ jobs:
         run: |
           python3 scripts/release_metadata.py --root .
           python3 -m unittest discover -s tests -p 'test_release_identity.py'
+          bash -n scripts/package-macos.sh
       - name: Test platform-independent crates
         run: cargo test -p shot-core -p shot-image -p shot-scroll -p shot-ocr-protocol --locked
       - name: Strict core lints
