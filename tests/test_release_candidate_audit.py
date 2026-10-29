@@ -105,13 +105,13 @@ class CandidateAuditTests(unittest.TestCase):
             self._zip(variant)
         for variant in ("Lite", "Full"):
             app = self.candidate / variant / "PicPaste.app" / "Contents"
-            (app / "MacOS").mkdir(parents=True)
-            (app / "Resources").mkdir()
+            (app / "MacOS").mkdir(parents=True, exist_ok=True)
+            (app / "Resources").mkdir(exist_ok=True)
             (app / "MacOS" / "PicPaste").write_bytes(b"FAT-MAIN-SYNTHETIC")
             (app / "Info.plist").write_bytes(self._app_info())
             (app / "Resources" / "PicPaste.icns").write_bytes(b"icns-DUMMY")
             if variant == "Full":
-                (app / "Helpers").mkdir()
+                (app / "Helpers").mkdir(exist_ok=True)
                 (app / "Helpers" / "PicPasteOCR").write_bytes(b"FAT-OCR-SYNTHETIC")
         (self.candidate / "OCR-AddOn").mkdir()
         (self.candidate / "OCR-AddOn" / "PicPasteOCR").write_bytes(b"ADDON-DUMMY")
