@@ -29,6 +29,7 @@ jobs:
           python3 -m unittest discover -s tests -p 'test_release_signing_policy.py'
           python3 -m unittest discover -s tests -p 'test_release_candidate_audit.py' -v
           python3 -m unittest discover -s tests -p 'test_physical_release_rehearsal.py' -v
+          python3 -m unittest discover -s tests -p 'test_physical_release_integrity.py' -v
           python3 scripts/physical_release_rehearsal.py --help >/dev/null
           bash -n scripts/release-macos-signed.sh
       - name: Test platform-independent crates
