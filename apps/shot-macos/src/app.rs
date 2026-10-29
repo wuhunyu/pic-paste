@@ -45,9 +45,9 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::thread;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
 #[cfg(feature = "native-panel-probe")]
 use std::time::Instant;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 enum WorkerResult {
     Captured {
@@ -834,11 +834,8 @@ impl PicPasteApp {
             .native_selection_next_id
             .checked_add(1)
             .ok_or("原生框选会话 ID 已耗尽")?;
-        let watchdog = NativeSelectionWatchdog::new(
-            request_id,
-            Instant::now(),
-            NATIVE_SELECTION_TIMEOUT,
-        )?;
+        let watchdog =
+            NativeSelectionWatchdog::new(request_id, Instant::now(), NATIVE_SELECTION_TIMEOUT)?;
         match self.native_probe.launch_select(
             snapshot,
             request_id,
@@ -1692,9 +1689,9 @@ impl PicPasteApp {
                         Ok(()) => String::from(
                             "原生框选超过五分钟未回复，已停止实验进程并恢复稳定截图编辑器",
                         ),
-                        Err(error) => format!(
-                            "原生框选超时，恢复稳定截图编辑器；实验进程关闭异常：{error}"
-                        ),
+                        Err(error) => {
+                            format!("原生框选超时，恢复稳定截图编辑器；实验进程关闭异常：{error}")
+                        }
                     };
                     if self.overlay.is_fullscreen() {
                         let id = egui::ViewportId::from_hash_of((
