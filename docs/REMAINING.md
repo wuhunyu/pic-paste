@@ -1,5 +1,7 @@
 # PicPaste 未完成任务与 Issue 对账台账
 
+> **最新对账（2026-10-29）**：`main` 合并 PR #55（`2ba61d8`），47 个已合并 PR；GitHub 实际 **6 个 Open Issue：#6–#11**。#5 已在 2026-10-29 由仓库所有者关闭（见 [#5](https://github.com/wuhunyu/pic-paste/issues/5)），但原生窗口、权限、焦点、Retina/IME、真实性能证据并未完成；相关阻塞条件保留于 #10，不将 #5 的 Closed 推断为实测通过。
+
 > **核对日期：2026-10-29** · 已合并基线扩展至 [PR #52](https://github.com/wuhunyu/pic-paste/pull/52)（#47 椭圆、#48 原生 Undo/Redo；#47 全量 CI #40655168318 success）。实验性原生标注已进入 PNG 保存链路，但 NSPanel/Retina/Spaces/TCC/IME/性能仍无真实设备验收。
 >
 > 此文档与 [TASKS.md](TASKS.md)、[STATUS.md](STATUS.md) 和 [Issues](https://github.com/wuhunyu/pic-paste/issues?q=is%3Aissue+is%3Aopen) 同步。以下任务状态指 **代码与证据**，不能将单元测试、编译成功等同于操作系统真机功能验收。独立的当前 Issue 正文是每项工作的逐条关闭清单。
@@ -9,8 +11,8 @@
 | 口径 | 数量 / 状态 |
 | --- | --- |
 | 原始 v1.2 任务 | 20 项：**8 项代码基本完成、9 项部分实现、3 项未开始** |
-| GitHub Issues（非 PR） | **7 个未关闭：#5–#11**；最初 workspace/CI 对应的 #4 已关闭 |
-| GitHub Pull Requests | **44 个已合并**（#1–#3、#12–#52）；#46 是只读环境预检/真机验收流程，不代表真实设备测试完成 |
+| GitHub Issues（非 PR） | **6 个未关闭：#6–#11**；#5 由所有者关闭，但实际原生 GUI 验收仍由 #10 跟踪 |
+| GitHub Pull Requests | **47 个已合并**（#1–#3、#12–#55）；#46 是只读环境预检，#55 是超时恢复，不代表真实设备测试完成 |
 | macOS 开发包 | ARM64 Lite/Full ad-hoc 签名 ZIP、SHA256；**不是正式发行件** |
 | GitHub Releases | **0** |
 | Windows 原生能力 | 未开始；Rust 核心接口存在，不代表 Windows 构建可用 |
@@ -19,7 +21,7 @@
 
 | 优先级 | Issue / 任务覆盖 | 已有代码证据 | 尚需完成（关闭前必须确认） |
 | --- | --- | --- | --- |
-| P0 | [#5 macOS 浮层、多屏、输入](https://github.com/wuhunyu/pic-paste/issues/5)：P0-T2/T3/T4、P1-T1 | #12–#15、#20、#31；[#32](https://github.com/wuhunyu/pic-paste/pull/32) 独立 NSPanel + WGPU Metal 编译试验（非正式 UI） | 完整 NSPanel egui/事件桥接、真实 GUI/Spaces/TCC/焦点/热键和混合 DPI，窗口污染及延迟真机实测（见 [窗口策略](macos-window-strategy.md)） |
+| P0 / owner closed, physical QA still open in #10 | [#5 macOS 浮层、多屏、输入](https://github.com/wuhunyu/pic-paste/issues/5)：P0-T2/T3/T4、P1-T1 | #12–#15、#20、#31；[#32](https://github.com/wuhunyu/pic-paste/pull/32) 独立 NSPanel + WGPU Metal 编译试验（非正式 UI） | 完整 NSPanel egui/事件桥接、真实 GUI/Spaces/TCC/焦点/热键和混合 DPI，窗口污染及延迟真机实测（见 [窗口策略](macos-window-strategy.md)） |
 | P1 | [#6 标注、PNG、剪贴板、贴图](https://github.com/wuhunyu/pic-paste/issues/6)：P1-T2/T3、P2-T1/T2 | #16、#17、#22、#26 与 [#30](https://github.com/wuhunyu/pic-paste/pull/30)：PNG/Alpha、CJK、Pin OCR、长图选区及 64MiB GPU 纹理预算/复用/关闭回收代码 | 5-pin 帧 P95、RSS/CPU、焦点/拖动/穿透恢复、字体覆盖、macOS 真实粘贴 Alpha/色彩一致性 |
 | P1 | [#7 手动长截图](https://github.com/wuhunyu/pic-paste/issues/7)：P4-T1/T2/T3/T4 | #18、#20、#21、#23–#27：实时预览、拼接、手动慢速恢复、固定边距、PNG/标注/圆角、安全中间重拍 | ≥50 个真实网页/文档、可信拼接率 ≥95%、30k/60k/200MP 边界、动态场景与异常/内存/临时文件实测 |
 | P1 | [#8 OCR / QR / Add-on](https://github.com/wuhunyu/pic-paste/issues/8)：P3-T1/T2/T3、R-010 | Swift Vision Helper、SHOC IPC、#28 原生词/字符 bbox 与离线 QR、Lite 降级；独立 Add-on 安全安装/运行时代码已由 #29 合并且 CI 通过 | 开发者证书与匹配 Team 的真实安装、签名公证/跨版本、取消/错误生命周期、400 样本 CER 与真机验收 |

@@ -5,10 +5,11 @@
   <key>CFBundleName</key><string>PicPaste</string>
   <key>CFBundleDisplayName</key><string>PicPaste</string>
   <key>CFBundleExecutable</key><string>PicPaste</string>
-  <key>CFBundleIdentifier</key><string>com.example.picpaste</string>
+  <key>CFBundleIdentifier</key><string>com.wuhunyu.picpaste</string>
   <key>CFBundlePackageType</key><string>APPL</string>
-  <key>CFBundleShortVersionString</key><string>0.1.0</string>
-  <key>CFBundleVersion</key><string>1</string>
+  <key>CFBundleIconFile</key><string>PicPaste.icns</string>
+  <key>CFBundleShortVersionString</key><string>1.0.0</string>
+  <key>CFBundleVersion</key><string>10000</string>
   <key>LSMinimumSystemVersion</key><string>14.0</string>
   <key>NSHighResolutionCapable</key><true/>
   <key>NSScreenCaptureUsageDescription</key>

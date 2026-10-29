@@ -3441,11 +3441,11 @@ checksum = "f8fadd59c855ef2080decdef8ff161eb6661b86933c9d82e5ba29dc602a55aba"
 
 [[package]]
 name = "shot-core"
-version = "0.1.0"
+version = "1.0.0"
 
 [[package]]
 name = "shot-image"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "ab_glyph",
  "png",
@@ -3454,7 +3454,7 @@ dependencies = [
 
 [[package]]
 name = "shot-macos"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "arboard",
  "eframe",
@@ -3477,14 +3477,14 @@ dependencies = [
 
 [[package]]
 name = "shot-ocr-helper"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "shot-ocr-protocol",
 ]
 
 [[package]]
 name = "shot-ocr-protocol"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -3492,7 +3492,7 @@ dependencies = [
 
 [[package]]
 name = "shot-platform"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "screencapturekit",
  "shot-core",
@@ -3501,7 +3501,7 @@ dependencies = [
 
 [[package]]
 name = "shot-scroll"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "png",
  "shot-core",

@@ -19,6 +19,11 @@ jobs:
           components: rustfmt, clippy
       - name: Check source format
         run: cargo fmt --all -- --check
+      - name: Validate release candidate identity and icon generator (not notarization)
+        run: |
+          python3 scripts/release_metadata.py --root .
+          python3 -m unittest discover -s tests -p 'test_release_identity.py'
+          bash -n scripts/package-macos.sh
       - name: Test platform-independent crates
         run: cargo test -p shot-core -p shot-image -p shot-scroll -p shot-ocr-protocol --locked
       - name: Strict core lints
@@ -83,6 +88,20 @@ jobs:
         run: PICPASTE_VARIANT=Lite bash scripts/package-macos.sh
       - name: Assemble Full development app
         run: PICPASTE_VARIANT=Full bash scripts/package-macos.sh
+      - name: Inspect packaged icon and bundle metadata on macOS
+        run: |
+          for variant in Lite Full; do
+            app="dist/$variant/PicPaste.app"
+            plist="$app/Contents/Info.plist"
+            test -s "$app/Contents/Resources/PicPaste.icns"
+            plutil -lint "$plist"
+            test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$plist")" = "com.wuhunyu.picpaste"
+            test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$plist")" = "1.0.0"
+            test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIconFile' "$plist")" = "PicPaste.icns"
+            cmp "$app/Contents/Resources/PicPaste.icns" "dist/.resources/PicPaste.icns"
+          done
+          codesign --verify --deep --strict dist/Lite/PicPaste.app
+          codesign --verify --deep --strict dist/Full/PicPaste.app
       - name: Validate offline OCR Add-on and build independent dev archive
         run: |
           bash -n scripts/manage-ocr-addon.sh

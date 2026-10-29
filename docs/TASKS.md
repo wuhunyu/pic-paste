@@ -173,3 +173,9 @@ PR #38 (CJK marked-text) and PR #39 (native-consumed key routing) are merged wit
 - 已核实 PR #52 合并（main `4083926`），主线 CI #40678378483 的 Ubuntu/core 和 macOS/rust 均 success；可选 NSPanel Canary 仍非生产默认，也未完成真实设备验收。
 - 原始 20 项任务的当前分类维持 **8 项代码基本完成、9 项部分实现、3 项未开始**；此分类不是实际项目完成百分比。
 - 仍有 **7 个 Open Issue（#5–#11）**，Release **0**。任何真实设备质量或正式发版条件在上传可复现证据前不得关闭。
+
+## 2026-10-29 — P6-T1 macOS 1.0 候选标识与离线图标
+
+- 发布身份预备：com.wuhunyu.picpaste、1.0.0、build 10000、macOS 14 最低版本以及 RGBA 多分辨率 PicPaste.icns（脚本离线生成）；Cargo.lock 7 个 workspace 包版本严格对齐。
+- 打包前核查 Info.plist/Cargo/Lock，一致才生成 Lite/Full 开发包；CI 验证真实 .app 中图标、版本及 ad-hoc 签名。**保留 UNSIGNED-DEV，任何 1.0 字样仅为候选源版本，不能替代 Developer ID/公证/真机验收。**
+- 最新 GitHub Issue 对账为 6 Open（#6–#11）；#5 被所有者关闭，但真实原生 GUI 验收仍由 #10 跟踪。P6-T2/T3、P1/P5 实测及签名仍未完成。
