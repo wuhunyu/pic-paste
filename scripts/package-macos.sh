@@ -27,6 +27,31 @@ if [[ "$NATIVE_CANARY" == "1" ]] && { [[ ! -f "$NATIVE_PROBE_BINARY" ]] || [[ -L
   exit 5
 fi
 
+# Reject stale release identity before touching any existing package.
+python3 "$ROOT/scripts/release_metadata.py" --root "$ROOT"
+# Generate a deterministic offline icon. The SHA stamp avoids stale cached
+# assets when the drawing source changes without requiring network access.
+if [[ -n "${PICPASTE_ICON_BINARY:-}" ]]; then
+  ICON="$PICPASTE_ICON_BINARY"
+  if [[ ! -f "$ICON" || -L "$ICON" ]]; then
+    echo "PICPASTE_ICON_BINARY must be a regular .icns file" >&2
+    exit 6
+  fi
+else
+  ICON="$OUT/.resources/PicPaste.icns"
+  STAMP="$OUT/.resources/PicPaste.source.sha256"
+  SOURCE_SHA="$(shasum -a 256 "$ROOT/scripts/build_macos_icon.py" | awk '{print $1}')"
+  if [[ ! -f "$ICON" || ! -f "$STAMP" || "$(cat "$STAMP")" != "$SOURCE_SHA" ]]; then
+    mkdir -p "$OUT/.resources"
+    python3 "$ROOT/scripts/build_macos_icon.py" --output "$ICON.new"
+    mv "$ICON.new" "$ICON"
+    printf '%s\n' "$SOURCE_SHA" > "$STAMP"
+  fi
+fi
+if [[ "$(head -c 4 "$ICON")" != "icns" ]]; then
+  echo "Invalid PicPaste app icon: expected ICNS header" >&2
+  exit 6
+fi
 mkdir -p "$OUT/$VARIANT"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
@@ -34,6 +59,7 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BINARY" "$APP/Contents/MacOS/PicPaste"
 chmod 755 "$APP/Contents/MacOS/PicPaste"
 cp "$PLIST" "$APP/Contents/Info.plist"
+cp "$ICON" "$APP/Contents/Resources/PicPaste.icns"
 
 if [[ "$NATIVE_CANARY" == "1" ]]; then
   cp "$NATIVE_PROBE_BINARY" "$APP/Contents/MacOS/ns-panel-probe"
