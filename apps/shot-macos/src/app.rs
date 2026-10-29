@@ -13,7 +13,9 @@ use shot_core::display::{DisplaySelection, OverlayPlacement};
 #[cfg(feature = "native-panel-probe")]
 use shot_core::native_annotation::NativeEditReply;
 #[cfg(feature = "native-panel-probe")]
-use shot_core::native_capture_canary::{CanaryPhase, CanaryReply, CanaryTransition};
+use shot_core::native_capture_canary::{
+    CanaryPhase, CanaryReply, CanaryTransition, NATIVE_SELECTION_TIMEOUT, NativeSelectionWatchdog,
+};
 #[cfg(all(feature = "native-panel-probe", test))]
 use shot_core::native_selection::NativeSelectionReply;
 #[cfg(feature = "native-panel-probe")]
@@ -44,6 +46,8 @@ use std::sync::Arc;
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
+#[cfg(feature = "native-panel-probe")]
+use std::time::Instant;
 
 enum WorkerResult {
     Captured {
@@ -714,6 +718,8 @@ pub struct PicPasteApp {
     #[cfg(feature = "native-panel-probe")]
     native_selection_next_id: u64,
     #[cfg(feature = "native-panel-probe")]
+    native_selection_watchdog: Option<NativeSelectionWatchdog>,
+    #[cfg(feature = "native-panel-probe")]
     native_canary_enabled: bool,
     #[cfg(feature = "native-panel-probe")]
     native_canary_phase: CanaryPhase,
@@ -806,6 +812,8 @@ impl PicPasteApp {
             #[cfg(feature = "native-panel-probe")]
             native_selection_next_id: 0,
             #[cfg(feature = "native-panel-probe")]
+            native_selection_watchdog: None,
+            #[cfg(feature = "native-panel-probe")]
             native_canary_enabled: false,
             #[cfg(feature = "native-panel-probe")]
             native_canary_phase: CanaryPhase::default(),
@@ -826,6 +834,11 @@ impl PicPasteApp {
             .native_selection_next_id
             .checked_add(1)
             .ok_or("原生框选会话 ID 已耗尽")?;
+        let watchdog = NativeSelectionWatchdog::new(
+            request_id,
+            Instant::now(),
+            NATIVE_SELECTION_TIMEOUT,
+        )?;
         match self.native_probe.launch_select(
             snapshot,
             request_id,
@@ -835,6 +848,10 @@ impl PicPasteApp {
             ProbeLaunchResult::Started => {
                 self.native_selection_next_id = request_id;
                 self.native_selection_revision = Some((request_id, revision));
+                self.native_selection_watchdog = Some(watchdog);
+                // The hidden root viewport must keep checking for a blocked
+                // companion; no mouse or keyboard activity is required.
+                ctx.request_repaint_after(Duration::from_secs(1));
                 Ok(ProbeLaunchResult::Started)
             }
             ProbeLaunchResult::AlreadyRunning => Ok(ProbeLaunchResult::AlreadyRunning),
@@ -887,6 +904,10 @@ impl PicPasteApp {
         }
         #[cfg(feature = "native-panel-probe")]
         self.native_canary_phase.reset();
+        #[cfg(feature = "native-panel-probe")]
+        {
+            self.native_selection_watchdog = None;
+        }
         if !self.overlay.begin_capture() {
             return;
         }
@@ -1598,6 +1619,7 @@ impl PicPasteApp {
                     continue; // Never consume a newer session.
                 }
                 self.native_selection_revision = None;
+                self.native_selection_watchdog = None;
                 let revision = active.1;
                 if !self.overlay.is_fullscreen() {
                     self.native_canary_phase.reset();
@@ -1657,6 +1679,39 @@ impl PicPasteApp {
                 let id = egui::ViewportId::from_hash_of(("picpaste-capture", revision.0));
                 ctx.send_viewport_cmd_to(id, egui::ViewportCommand::Focus);
             }
+
+            if let Some(watchdog) = self.native_selection_watchdog {
+                let active_id = self.native_selection_revision.map(|(id, _)| id);
+                if watchdog.expired_for(active_id, Instant::now()) {
+                    // Fail closed and invalidate the ID before killing the
+                    // companion. Its eventual EOF/error reply stays stale.
+                    self.native_selection_revision = None;
+                    self.native_selection_watchdog = None;
+                    self.native_canary_phase.reset();
+                    self.status = match self.native_probe.stop_for_capture() {
+                        Ok(()) => String::from(
+                            "原生框选超过五分钟未回复，已停止实验进程并恢复稳定截图编辑器",
+                        ),
+                        Err(error) => format!(
+                            "原生框选超时，恢复稳定截图编辑器；实验进程关闭异常：{error}"
+                        ),
+                    };
+                    if self.overlay.is_fullscreen() {
+                        let id = egui::ViewportId::from_hash_of((
+                            "picpaste-capture",
+                            self.capture_revision,
+                        ));
+                        ctx.send_viewport_cmd_to(id, egui::ViewportCommand::Focus);
+                    } else {
+                        ctx.send_viewport_cmd(egui::ViewportCommand::Visible(true));
+                    }
+                } else if active_id.is_some() {
+                    ctx.request_repaint_after(Duration::from_secs(1));
+                } else {
+                    // Cancelled sessions cannot leave an armed deadline.
+                    self.native_selection_watchdog = None;
+                }
+            }
         }
         let menu_actions: Vec<_> = self.menu_rx.try_iter().collect();
         for action in menu_actions {
@@ -1669,9 +1724,12 @@ impl PicPasteApp {
                 MenuAction::CancelScroll => self.cancel_manual_scroll(),
                 MenuAction::Show => {
                     #[cfg(feature = "native-panel-probe")]
-                    if self.native_canary_phase.hides_legacy() {
+                    if self.native_canary_phase.hides_legacy()
+                        || self.native_selection_revision.is_some()
+                    {
                         self.native_canary_phase.reset();
                         self.native_selection_revision = None;
+                        self.native_selection_watchdog = None;
                         self.status = match self.native_probe.stop_for_capture() {
                             Ok(()) => String::from("已停止原生试运行窗口，恢复稳定截图编辑器"),
                             Err(error) => {
@@ -2109,6 +2167,7 @@ impl eframe::App for PicPasteApp {
                 {
                     self.native_canary_phase.reset();
                     self.native_selection_revision = None;
+                    self.native_selection_watchdog = None;
                     let _ = self.native_probe.stop_for_capture();
                 }
                 self.screen = None;
@@ -2366,6 +2425,7 @@ impl PicPasteApp {
                 {
                     self.native_canary_phase.reset();
                     self.native_selection_revision = None;
+                    self.native_selection_watchdog = None;
                     let _ = self.native_probe.stop_for_capture();
                 }
                 self.screen = None;
@@ -2651,6 +2711,7 @@ impl PicPasteApp {
                 {
                     self.native_canary_phase.reset();
                     self.native_selection_revision = None;
+                    self.native_selection_watchdog = None;
                     let _ = self.native_probe.stop_for_capture();
                 }
                 self.request_prepared(ui.ctx(), action);
