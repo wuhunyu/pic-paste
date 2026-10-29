@@ -201,3 +201,8 @@
 - [PR #54](https://github.com/wuhunyu/pic-paste/pull/54) 已合入主线（`ce00f024`），[CI #40803407613](https://github.com/wuhunyu/pic-paste/actions/runs/40803407613) `core`/`rust` 均 success；截至该合并，共 **46 个已合并 PR**，七个核心 Issue #5–#11 仍为 Open。
 - [PR #55](https://github.com/wuhunyu/pic-paste/pull/55) 在独立开发分支新增 300 秒请求级 watchdog（P1-T3 部分代码工作），停止无响应独立原生进程、使旧 IPC 回复失效，并为原生启动/关闭、菜单恢复、截止时间边界补自动化测试。**该 PR 仍须在最新 HEAD 上通过完整 CI 才能合并**。
 - macOS 真机 NSPanel、Retina/Spaces/TCC/IME、OCR 400 图、50 场景长图、真实性能及正式签名公证 **仍缺验收材料**。PR #55 的超时回退必须在 macOS 14 和 26 真实设备复测，不宣称 GUI 完成。
+
+## 2026-10-29 — Universal 2 开发产物与正式发行区分
+
+- PR #56 已合并（`f7dee79d`），此前 P6-T1 元数据、图标与基本开发包 CI 通过。新增独立 Universal 2 开发脚本、结构验证单测和只在相关文件变化/手动触发的 macOS 双架构 CI，详见 [开发说明](universal2-dev-runbook.md)。
+- 目前只允许发布用于内部验证的 `UNSIGNED-DEV` 包；**正式 P6-T2 Developer ID/Notary 与 P6-T3 Release 未完成**。真实 macOS14/26、Apple Silicon/Intel、TCC/IME/Retina、OCR/长图/性能与来源验证仍由 #9/#10 跟踪，不能将构建成功等同于功能验收。
