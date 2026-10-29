@@ -188,3 +188,8 @@
 - [x] `PICPASTE_NATIVE_CANARY=1` 将同目录 helper 作为独立 ad-hoc 开发版打包；没有 helper 则拒绝打包且不删除旧包。CI 额外构建 release feature-gated binaries 与验证 Lite/Full canary ZIP；默认开发发行包不变。
 - [ ] PR #52 已合并（`4083926`），主线完整 CI [#40678378483](https://github.com/wuhunyu/pic-paste/actions/runs/40678378483) 的 `core` 和 `rust` 均为 success；**这仅证明自动化检查与构建，不代表原生 GUI 真机验收**；真实 Mac 原生试运行仍须按 [验收清单](native-macos-acceptance.md)执行，Issue #5/#10 保持开放。
 - [ ] 默认 NSPanel 接管完整生产截图/贴图、签名、公证、性能验收及 Windows 尚未完成；原始 20 项任务数量不变。
+
+## 2026-10-29 — 合并与质量门禁增量
+
+- [PR #53](https://github.com/wuhunyu/pic-paste/pull/53) 已合入 `main`（`3f34693`），[CI #40801194484](https://github.com/wuhunyu/pic-paste/actions/runs/40801194484) core/rust success。该合并后累计 **45 个 PR**（此前顶部 44 为 #52 时点快照）。
+- 发布证据总门禁代码与合成单测正在独立 PR 开发，详见 [release-evidence-runbook.md](release-evidence-runbook.md)。这些工作是验收自动化，不是 macOS 原生 UI 真机验收，也不是正式发行。
