@@ -1,3 +1,5 @@
+> **Current checkpoint (2026-10-29):** `main` at [`2ba61d8`](https://github.com/wuhunyu/pic-paste/commit/2ba61d81c67637242eed5fdc932bc751177ac071) merges PR #55. [Main CI #40806711107](https://github.com/wuhunyu/pic-paste/actions/runs/40806711107) is successful. 47 PRs merged; **6 open Issues (#6–#11)**. Issue #5 was owner-closed on Oct 29, although outstanding physical NSPanel acceptance remains tracked in #10. **The 1.0.0 Bundle ID/icon/version changes under review are candidate metadata only, not a signed/notarized public release.** See [release preparation](docs/release-runbook.md).
+
 > **2026-10-29 confirmed baseline:** `main` at `4083926` merges PR #52 (44 merged PRs in total). Post-merge [CI #40678378483](https://github.com/wuhunyu/pic-paste/actions/runs/40678378483) passed `core` and `rust` jobs. Native NSPanel automatic screenshot routing remains an opt-in developer canary; no physical macOS GUI acceptance or signed/notarized release is claimed.
 
 # PicPaste
