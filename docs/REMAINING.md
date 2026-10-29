@@ -145,3 +145,9 @@ NSPanel 代码已加入真正 AppKit 系统材质工具栏，画笔/箭头/矩�
 - [ ] PR #52 完整 PR CI [#40677034954](https://github.com/wuhunyu/pic-paste/actions/runs/40677034954) 与主线 CI [#40678378483](https://github.com/wuhunyu/pic-paste/actions/runs/40678378483) 均已 success；**仍不能打勾** macOS GUI、TCC、Retina、IME、CPU/GPU/RSS/P95。
 - [ ] 在真实 macOS 14/26 上验证**每个**自动接入分支：成功选区/标注到 PNG、取消不弹回原编辑器、缺少 companion 自动退回、原生卡死后托盘“显示窗口”恢复、重启回滚；收集回放和原始测量数据。
 - [ ] 默认稳定原生生产面板仍需通过 #5/#10 全套兼容性/性能门槛才能切换；#9 正式发布与 #11 Windows 无变化。
+
+## 2026-10-29 — 发布证据汇总门禁代码（P5-T3 工具预备）
+
+- 新增 `scripts/release_evidence_gate.py`，复用现有真实设备、OCR 和 P95 统计逻辑，对 macOS 14/26 双报告、原始延迟、≥400 OCR、≥50 长截图与源码 SHA 执行失败即阻断检查。
+- 新增 `tests/test_release_evidence_gate.py` 的合成数据拒绝测试，以及 [证据采集指南](release-evidence-runbook.md)，并将私密 `evidence/` 路径加入 gitignore。
+- **仅准备验收工具**：真实 macOS 14/26 GUI、CPU/RSS/P95、50 长图、400 OCR、签名/公证都仍缺实测数据；不能关闭 #5–#10，也不能把合成单测当真实测试通过。完整 CI 以本变更 PR 和 SHA 为准。
