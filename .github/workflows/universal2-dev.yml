@@ -59,10 +59,10 @@ jobs:
             python3 scripts/universal_macho.py --universal "$app/Contents/MacOS/PicPaste"
             codesign --verify --deep --strict "$app"
             shasum -a 256 -c "$zip.sha256"
-            unzip -Z1 "$zip" | grep -q 'PicPaste.app/Contents/MacOS/PicPaste'
+            unzip -Z1 "$zip" | grep -F 'PicPaste.app/Contents/MacOS/PicPaste' > /dev/null
             if [[ "$variant" == "Full" ]]; then
               python3 scripts/universal_macho.py --universal "$app/Contents/Helpers/PicPasteOCR"
-              unzip -Z1 "$zip" | grep -q 'PicPaste.app/Contents/Helpers/PicPasteOCR'
+              unzip -Z1 "$zip" | grep -F 'PicPaste.app/Contents/Helpers/PicPasteOCR' > /dev/null
             else
               test ! -e "$app/Contents/Helpers/PicPasteOCR"
             fi
