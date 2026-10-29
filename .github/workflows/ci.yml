@@ -24,6 +24,8 @@ jobs:
           python3 scripts/release_metadata.py --root .
           python3 -m unittest discover -s tests -p 'test_release_identity.py'
           bash -n scripts/package-macos.sh
+          bash -n scripts/package-macos-test-dmg.sh
+          python3 -m unittest discover -s tests -p 'test_macos_test_dmg.py' -v
           bash -n scripts/build-macos-universal-dev.sh
           python3 -m unittest discover -s tests -p 'test_universal_macho.py'
           python3 -m unittest discover -s tests -p 'test_release_signing_policy.py'
@@ -110,6 +112,17 @@ jobs:
           done
           codesign --verify --deep --strict dist/Lite/PicPaste.app
           codesign --verify --deep --strict dist/Full/PicPaste.app
+      - name: Assemble stable Lite/Full ad-hoc DMG test installers (not notarized)
+        run: |
+          PICPASTE_NATIVE_CANARY=0 PICPASTE_VARIANT=Lite bash scripts/package-macos-test-dmg.sh
+          PICPASTE_NATIVE_CANARY=0 PICPASTE_VARIANT=Full bash scripts/package-macos-test-dmg.sh
+          arch="$(uname -m)"
+          for variant in Lite Full; do
+            dmg="dist/PicPaste-macos-$arch-$variant-UNNOTARIZED-TEST.dmg"
+            test -s "$dmg"
+            hdiutil verify -quiet "$dmg"
+            shasum -a 256 -c "$dmg.sha256"
+          done
       - name: Validate offline OCR Add-on and build independent dev archive
         run: |
           bash -n scripts/manage-ocr-addon.sh
@@ -159,4 +172,13 @@ jobs:
             dist/PicPaste-macos-*-UNSIGNED-DEV.zip.sha256
             dist/PicPaste-OCR-AddOn-macos-*-UNSIGNED-DEV.zip
             dist/PicPaste-OCR-AddOn-macos-*-UNSIGNED-DEV.zip.sha256
+          if-no-files-found: error
+      - name: Upload installable macOS ad-hoc test DMGs (Lite and Full)
+        uses: actions/upload-artifact@v4
+        with:
+          name: picpaste-macos-test-dmg-${{ runner.arch }}
+          path: |
+            dist/PicPaste-macos-*-UNNOTARIZED-TEST.dmg
+            dist/PicPaste-macos-*-UNNOTARIZED-TEST.dmg.sha256
+            docs/unsigned-macos-test-install.md
           if-no-files-found: error
