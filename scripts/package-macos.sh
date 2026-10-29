@@ -29,6 +29,41 @@ fi
 
 # Reject stale release identity before touching any existing package.
 python3 "$ROOT/scripts/release_metadata.py" --root "$ROOT"
+
+# Explicit architecture labels are allowed only when every bundled executable
+# has that ACTUAL Mach-O architecture. Do not mislabel a thin binary as
+# Universal 2 or publish a misleading ZIP name.
+ARCH="${PICPASTE_PACKAGE_ARCH:-$(uname -m)}"
+case "$ARCH" in
+  arm64|x86_64|universal2) ;;
+  *) echo "Invalid PICPASTE_PACKAGE_ARCH: $ARCH" >&2; exit 6 ;;
+esac
+
+OCR_BINARY="${PICPASTE_OCR_BINARY:-$ROOT/target/release/PicPasteOCR}"
+# Check Full resources BEFORE removing any previous working package.
+if [[ "$VARIANT" == "Full" ]] && { [[ ! -f "$OCR_BINARY" ]] || [[ -L "$OCR_BINARY" ]]; }; then
+  echo "Full variant requires a regular Vision OCR helper at $OCR_BINARY" >&2
+  exit 4
+fi
+if [[ -n "${PICPASTE_PACKAGE_ARCH:-}" ]]; then
+  if [[ "$ARCH" == "universal2" ]]; then
+    python3 "$ROOT/scripts/universal_macho.py" --universal "$BINARY"
+    if [[ "$VARIANT" == "Full" ]]; then
+      python3 "$ROOT/scripts/universal_macho.py" --universal "$OCR_BINARY"
+    fi
+    if [[ "$NATIVE_CANARY" == "1" ]]; then
+      python3 "$ROOT/scripts/universal_macho.py" --universal "$NATIVE_PROBE_BINARY"
+    fi
+  else
+    python3 "$ROOT/scripts/universal_macho.py" --thin "$ARCH" "$BINARY"
+    if [[ "$VARIANT" == "Full" ]]; then
+      python3 "$ROOT/scripts/universal_macho.py" --thin "$ARCH" "$OCR_BINARY"
+    fi
+    if [[ "$NATIVE_CANARY" == "1" ]]; then
+      python3 "$ROOT/scripts/universal_macho.py" --thin "$ARCH" "$NATIVE_PROBE_BINARY"
+    fi
+  fi
+fi
 # Generate a deterministic offline icon. The SHA stamp avoids stale cached
 # assets when the drawing source changes without requiring network access.
 if [[ -n "${PICPASTE_ICON_BINARY:-}" ]]; then
@@ -86,7 +121,7 @@ codesign --force --sign - --timestamp=none "$APP/Contents/MacOS/PicPaste"
 codesign --force --sign - --timestamp=none "$APP"
 codesign --verify --deep --strict "$APP"
 
-ARCH="$(uname -m)"
+
 LABEL=""
 if [[ "$NATIVE_CANARY" == "1" ]]; then
   LABEL="-NATIVE-CANARY"
