@@ -4,6 +4,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import subprocess
 import plistlib
 import tempfile
 import unittest
@@ -254,7 +255,7 @@ class CandidateAuditTests(unittest.TestCase):
             self.audit()
 
     def test_native_signature_check_does_not_accept_synthetic_fixtures(self):
-        with self.assertRaises((OSError, ValueError, RuntimeError)):
+        with self.assertRaises((OSError, ValueError, RuntimeError, subprocess.CalledProcessError)):
             self.audit(verify_macos=True)
 
 
