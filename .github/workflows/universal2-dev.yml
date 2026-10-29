@@ -1,0 +1,90 @@
+name: macOS Universal 2 Dev QA
+# Costly cross-architecture compilation runs only when release packaging
+# inputs change (or on explicit manual request), not for every PR.
+concurrency:
+  group: universal2-${{ github.event_name }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/universal2-dev.yml"
+      - "scripts/build-macos-universal-dev.sh"
+      - "scripts/universal_macho.py"
+      - "scripts/package-macos.sh"
+      - "scripts/release_metadata.py"
+      - "tests/test_universal_macho.py"
+      - "packaging/macos/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+  pull_request:
+    paths:
+      - ".github/workflows/universal2-dev.yml"
+      - "scripts/build-macos-universal-dev.sh"
+      - "scripts/universal_macho.py"
+      - "scripts/package-macos.sh"
+      - "scripts/release_metadata.py"
+      - "tests/test_universal_macho.py"
+      - "packaging/macos/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+  workflow_dispatch:
+jobs:
+  universal2:
+    runs-on: macos-26
+    timeout-minutes: 50
+    env:
+      MACOSX_DEPLOYMENT_TARGET: "14.0"
+      CARGO_INCREMENTAL: "0"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Verify host, Xcode, release identity and scripts
+        run: |
+          test "$(uname -s)" = "Darwin"
+          xcodebuild -version
+          python3 scripts/release_metadata.py --root .
+          bash -n scripts/package-macos.sh
+          bash -n scripts/build-macos-universal-dev.sh
+      - name: Run fail-closed Mach-O architecture regression tests
+        run: python3 -m unittest discover -s tests -p test_universal_macho.py -v
+      - name: Build actual arm64 and x86_64 Universal 2 development apps
+        run: bash scripts/build-macos-universal-dev.sh
+      - name: Verify both Lite and Full archives and reject misleading labels
+        run: |
+          for variant in Lite Full; do
+            app="dist-universal2/$variant/PicPaste.app"
+            zip="dist-universal2/PicPaste-macos-universal2-$variant-UNSIGNED-DEV.zip"
+            test -s "$zip"
+            python3 scripts/universal_macho.py --universal "$app/Contents/MacOS/PicPaste"
+            codesign --verify --deep --strict "$app"
+            shasum -a 256 -c "$zip.sha256"
+            unzip -Z1 "$zip" | grep -q 'PicPaste.app/Contents/MacOS/PicPaste'
+            if [[ "$variant" == "Full" ]]; then
+              python3 scripts/universal_macho.py --universal "$app/Contents/Helpers/PicPasteOCR"
+              unzip -Z1 "$zip" | grep -q 'PicPaste.app/Contents/Helpers/PicPasteOCR'
+            else
+              test ! -e "$app/Contents/Helpers/PicPasteOCR"
+            fi
+            test ! -e "$app/Contents/MacOS/ns-panel-probe"
+          done
+          before="$(shasum -a 256 dist-universal2/Lite/PicPaste.app/Contents/MacOS/PicPaste | awk '{print $1}')"
+          if PICPASTE_DIST_DIR="$PWD/dist-universal2" \
+              PICPASTE_PACKAGE_ARCH=universal2 \
+              PICPASTE_BINARY="$PWD/target/x86_64-apple-darwin/release/shot-macos" \
+              PICPASTE_VARIANT=Lite bash scripts/package-macos.sh; then
+            echo "ERROR: a thin Intel binary was mislabelled as Universal 2" >&2
+            exit 1
+          fi
+          after="$(shasum -a 256 dist-universal2/Lite/PicPaste.app/Contents/MacOS/PicPaste | awk '{print $1}')"
+          test "$before" = "$after"
+      - name: Upload NON-DISTRIBUTABLE Universal 2 development archives
+        uses: actions/upload-artifact@v4
+        with:
+          name: picpaste-macos-universal2-UNSIGNED-DEV
+          path: |
+            dist-universal2/PicPaste-macos-universal2-Lite-UNSIGNED-DEV.zip
+            dist-universal2/PicPaste-macos-universal2-Lite-UNSIGNED-DEV.zip.sha256
+            dist-universal2/PicPaste-macos-universal2-Full-UNSIGNED-DEV.zip
+            dist-universal2/PicPaste-macos-universal2-Full-UNSIGNED-DEV.zip.sha256
+          if-no-files-found: error
