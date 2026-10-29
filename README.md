@@ -1,6 +1,8 @@
+> **2026-10-29 confirmed baseline:** `main` at `4083926` merges PR #52 (44 merged PRs in total). Post-merge [CI #40678378483](https://github.com/wuhunyu/pic-paste/actions/runs/40678378483) passed `core` and `rust` jobs. Native NSPanel automatic screenshot routing remains an opt-in developer canary; no physical macOS GUI acceptance or signed/notarized release is claimed.
+
 # PicPaste
 
-> **原生 NSPanel（仅实验 Feature）：** PR #45–#51 已在独立原生浮层实现八手柄选区、系统 Liquid Glass 控件、画笔/直线/箭头/矩形/椭圆/马赛克/模糊/Unicode 文字与本地 Undo/Redo；确认后通过有界 `PPANN001` 进入既有 eframe 标注历史及 PNG 保存/撤销/贴图链路。使用 `--features native-panel-probe` 才可访问；正式 Lite/Full 默认仍用 eframe/winit，不代表 macOS GUI、Retina、Spaces、TCC、IME 或性能已经真机验收。
+> **原生 NSPanel（仅实验 Feature）：** PR #45–#52 已在独立原生浮层实现八手柄选区、系统 Liquid Glass 控件、画笔/直线/箭头/矩形/椭圆/马赛克/模糊/Unicode 文字与本地 Undo/Redo；确认后通过有界 `PPANN001` 进入既有 eframe 标注历史及 PNG 保存/撤销/贴图链路。使用 `--features native-panel-probe` 才可访问；正式 Lite/Full 默认仍用 eframe/winit，不代表 macOS GUI、Retina、Spaces、TCC、IME 或性能已经真机验收。
 
 An offline, macOS-first screenshot and pinned-image utility written in Rust 2024, egui/eframe + wgpu and native ScreenCaptureKit. No Electron or WebView. **Development preview, not a signed/notarized public release.** Windows integration is planned after the macOS acceptance gates.
 
