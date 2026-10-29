@@ -259,3 +259,8 @@ collects source SHA, same-Team Developer ID/Notary evidence, ZIP checksums,
 quarantine flags and PNG/config preservation hashes. **It never installs,
 opens, signs or publishes any app automatically.** Complete physical evidence
 and a separately authorized release decision are still required.
+
+
+### One-click macOS ARM64 test installers (ad-hoc, not notarized)
+
+The latest successful [Rust CI workflow](https://github.com/wuhunyu/pic-paste/actions/workflows/ci.yml) uploads an extra `picpaste-macos-test-dmg-ARM64` Actions artifact with Lite and Full **`*-UNNOTARIZED-TEST.dmg`** disk images. Mount a DMG and drag `PicPaste.app` onto the `Applications` shortcut. The stable eframe backend is used and experimental native NSPanel Canary is excluded; Full has offline OCR embedded. macOS users may need to authorize the unnotarized test app in **System Settings → Privacy & Security → Open Anyway**, then grant Screen Recording separately. See [Chinese testing instructions](docs/unsigned-macos-test-install.md). **Do not disable Gatekeeper or publish these artifacts as v1.0.0.**
