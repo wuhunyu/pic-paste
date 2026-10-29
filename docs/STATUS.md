@@ -239,3 +239,10 @@
   macOS14/26 x Intel/arm64 四格证据汇总。详见
   [物理设备验收指南](physical-release-rehearsal.md)。**代码完成不代表已经执行
   真机操作，也不代表正式发行获批**；#9/#10 的外部阻塞仍存在。
+
+
+## 2026-10-29 — 非公证 macOS DMG 测试安装包
+
+- 在原 ARM64 `main` 开发版 Lite/Full 构建基础上增加 `package-macos-test-dmg.sh`，生成独立 `UNNOTARIZED-TEST.dmg`（含 PicPaste.app + Applications 快捷方式），不替换已有 ZIP，也不打入实验性 NSPanel Canary。
+- 只允许 ad-hoc 签名、正确 Bundle ID/版本/图标/嵌入式 OCR 的测试包；CI 以真实 Mach-O、codesign、DMG 创建/校验/挂载及 SHA256 拒绝错误产物。
+- 文件与人工允许步骤参见 [内测安装说明](unsigned-macos-test-install.md)。**这只是授权测试者自己允许打开的未公证开发包，不是 Developer ID 正式签名，也不能代替真实 macOS QA / Notary / 公共发行审批。**
