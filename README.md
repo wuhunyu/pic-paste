@@ -214,3 +214,13 @@ python3 scripts/native_acceptance.py verify --report native-acceptance.json
 仅在 `--features native-panel-probe` 开发构建中，设置页可以**当次运行**显式选择“下一次截图优先使用原生 NSPanel”。启动成功后，目标显示器冻结画面由同目录的独立 AppKit/Metal companion 展示并编辑；严格校验 `PPSEL001` / `PPANN001`、截图/编辑 revision 后，结果仍交回稳定 eframe 的 PNG-only 保存、Undo/Redo、剪贴板与贴图流程。原生启动/回包错误回到稳定编辑器，原生取消则关闭此次自动截图；菜单栏“显示窗口”可强制退出试运行并恢复编辑器，重启默认关闭。默认 Lite/Full 包**没有**这个开关或 companion。
 
 使用 `cargo build --release -p shot-macos --features native-panel-probe --bins --locked`，然后 `PICPASTE_NATIVE_CANARY=1 PICPASTE_VARIANT=Lite bash scripts/package-macos.sh` 或 `PICPASTE_VARIANT=Full` 生成单独的 **NATIVE-CANARY-UNSIGNED-DEV** ZIP。仅供开发测试；需要 [真实 Mac 验收](docs/native-macos-acceptance.md)，不代表已经完成默认 NSPanel 替换、macOS 14–26 Retina/Spaces/TCC/IME/性能、正式签名或公证。
+
+### macOS Universal 2 (development-only)
+
+For actual arm64 + x86_64 Lite/Full **UNSIGNED-DEV** packages on a macOS
+build host, use `bash scripts/build-macos-universal-dev.sh`. The dedicated
+[Universal 2 runbook](docs/universal2-dev-runbook.md) explains architecture
+verification, ZIP checks and the path-filtered macOS workflow. This does
+**not** produce a notarized release or prove Intel/Mac14 real-device QA;
+existing native-architecture and optional Canary development packages remain
+unchanged.

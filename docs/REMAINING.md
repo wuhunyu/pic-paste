@@ -161,3 +161,11 @@ NSPanel 代码已加入真正 AppKit 系统材质工具栏，画笔/箭头/矩�
 - 通过“显示窗口”菜单可手动结束正在等待回复的原生框选（包括非自动启动的实验框选）；截图后从稳定编辑器继续，普通生产包行为保持不变。
 - 纯 Rust 单元测试覆盖 request ID、时间边界、旧会话、错误 watchdog 参数；macOS 无 GUI 故障注入覆盖子进程没有 stdout 的强制关闭与 pipe reader 退出。
 - **此项只是软件安全措施和自动化回归**；macOS 14/26 真机应按 [验收清单](native-macos-acceptance.md) 第九节完成超时、输入法、显示器、权限和焦点测试；#5/#10 不关闭，不提前迁移生产默认 NSPanel。
+
+## 2026-10-29 — P6-T2 开发子任务：Universal 2 双架构开发包（待 PR CI）
+
+- 双架构构建脚本 `scripts/build-macos-universal-dev.sh` 为 Rust 主程序和 Swift OCR 编译 `arm64`、`x86_64` 两份，先验证薄片，再经 `lipo` 合并，并使用 `scripts/universal_macho.py` 严格核对 Fat Mach-O 的两个真实切片，排除缺失、重复、重叠、越界或 CPU 类型错误。
+- Lite/Full 仍复用现有 `scripts/package-macos.sh`，新增带安全校验的 `PICPASTE_PACKAGE_ARCH=universal2`；防止把单架构二进制伪装为 Universal 2，并在输入不正确时保留旧的工作包。
+- 两个生成包分别为 `PicPaste-macos-universal2-Lite-UNSIGNED-DEV.zip` 和 `Full-UNSIGNED-DEV.zip`，包含真实双架构主程序，Full 还包含双架构 OCR；原有 arm64 / Canary 打包不变。
+- 独立按需/发布文件变更触发的 CI 验证双架构编译、应用包、Code Sign（**仅 ad-hoc**）及 SHA256；其通过不等于双架构真机启动/授权/UI 验收。
+- #9 仍须完成 Developer ID、Notary、Staple、Gatekeeper、配套 Add-on 的正式签名/公证、真实 Intel/macOS14 及 macOS26 设备验证；**本子任务不创建任何正式 Release**。
