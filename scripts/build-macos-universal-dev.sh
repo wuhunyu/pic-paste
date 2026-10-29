@@ -63,7 +63,7 @@ lipo -create "$ARM_APP" "$INTEL_APP" -output "$STAGING/shot-macos"
 lipo -create "$ARM_OCR" "$INTEL_OCR" -output "$STAGING/PicPasteOCR"
 for name in shot-macos PicPasteOCR; do
   python3 "$ROOT/scripts/universal_macho.py" --universal "$STAGING/$name"
-  lipo -verify_arch arm64 x86_64 "$STAGING/$name"
+  lipo "$STAGING/$name" -verify_arch arm64 x86_64
 done
 
 if [[ "$("$STAGING/PicPasteOCR" --addon-info)" != "PICPASTE-OCR-ADDON/1 SHOC/1" ]]; then
