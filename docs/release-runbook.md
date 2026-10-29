@@ -102,3 +102,16 @@ Gatekeeper/TCC/upgrade/rollback testing and final release approval remain
 blocked in P6-T3. The standalone notarized OCR helper ZIP cannot have a
 stapler ticket attached to the raw executable. Keep private QA and Apple
 credentials out of the public repository and Actions artifacts.
+
+
+## P6-T3 candidate integrity / rollback hold
+
+See [candidate audit and physical rollback requirements](release-candidate-audit.md).
+Before moving a private signed candidate into its final staging directory,
+the signing script rechecks three exact ZIP SHA256s, approved macOS bundle
+contents, Notary Accepted records, matching human QA review hashes and
+native Developer ID/stapler/Gatekeeper checks. It always returns
+ready_for_public_release=false, and **does not** produce a public Release.
+A real first-download Gatekeeper and data-preserving rollback matrix on
+Mac14/Mac26 Intel/Apple Silicon plus separate human approval is still
+mandatory. No release automation has been authorized.
