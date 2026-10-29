@@ -199,3 +199,18 @@ NSPanel 代码已加入真正 AppKit 系统材质工具栏，画笔/箭头/矩�
 - 代码检查**始终不宣称**完成真正下载后 Gatekeeper 首次启动、Mac14/26
   Intel/ARM 安装、TCC 重授权、Lite/Full/独立 OCR 升级回退或最终发行审批。
   这些硬门槛继续保留于 #9/#10，且没有创建公共发布标签或附件。
+
+
+## 2026-10-29 — P6-T3 真实 Mac 下载/安装/回退测试工具增量（待 PR CI）
+
+- 新增 physical_release_rehearsal.py：真实 Mac14/26 上检查实际浏览器下载的
+  三个 CANDIDATE ZIP SHA256、quarantine 属性、Developer ID 同 Team、
+  Hardened Runtime、Universal 2、stapler/spctl；不删除 quarantine，不安装、
+  不运行 App，不自动标记任何真机用例为通过。
+- 七个手工案例（首次 Finder Gatekeeper、TCC、PNG Alpha、Pin/IME、
+  Lite/Full、可信 OCR Add-on、数据保留回退）必须附真实相对路径证据；
+  回退前后的测试 PNG/config 哈希一致；四格 macOS14/26 x arm64/Intel
+  报告必须对应同一发行 SHA/三个 ZIP 哈希。CI 仅验证合成用例。
+- **仍阻塞：** 尚无真实签名/公证与四格硬件首次安装报告，原始 OCR400、
+  长图50及真实性能未验收；需要人审及 Apple 凭据。#9/#10 继续 Open；
+  不创建公开 v1.0.0 Tag/Release。

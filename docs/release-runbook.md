@@ -115,3 +115,16 @@ ready_for_public_release=false, and **does not** produce a public Release.
 A real first-download Gatekeeper and data-preserving rollback matrix on
 Mac14/Mac26 Intel/Apple Silicon plus separate human approval is still
 mandatory. No release automation has been authorized.
+
+
+## P6-T3: actual downloaded-package Gatekeeper and rollback rehearsal
+
+See [physical release rehearsal](physical-release-rehearsal.md).
+The new CLI prepares a blank NOT-RUN report from a real non-CI Mac, checking
+all three downloaded candidate ZIP SHA256s, quarantine, matching Developer ID
+Team/hardened runtime, Universal 2 slices, stapled tickets and local spctl.
+Operator-marked evidence is then required for Finder first launch, Screen
+Recording permissions, PNG/Alpha, Pin/IME, Lite/Full switching, standalone OCR
+and a verified data-preserving rollback/reinstall. Only a four-combination
+macOS14/26 arm64/x86_64 matrix with unchanged candidate hashes can enter
+independent human review. **No stage creates a public Release or tag.**
