@@ -19,7 +19,11 @@ pub struct NativeSelectionWatchdog {
 }
 
 impl NativeSelectionWatchdog {
-    pub fn new(request_id: u64, started_at: Instant, timeout: Duration) -> Result<Self, &'static str> {
+    pub fn new(
+        request_id: u64,
+        started_at: Instant,
+        timeout: Duration,
+    ) -> Result<Self, &'static str> {
         if request_id == 0 || timeout.is_zero() {
             return Err("native selection watchdog requires a valid request and timeout");
         }
