@@ -2,6 +2,44 @@
 //! This state never grants a native reply authority over a screenshot: the
 //! caller must additionally validate its request ID and capture/edit revision.
 
+use std::time::{Duration, Instant};
+
+/// Bound the opt-in native selector if it stops replying. This is deliberately
+/// generous for manual annotations; it is NOT a deadline for normal capture.
+pub const NATIVE_SELECTION_TIMEOUT: Duration = Duration::from_secs(300);
+
+/// A deadline belongs to one immutable request, never to the last running
+/// subprocess or the current overlay. Old helper results cannot time out a
+/// new capture, even if the child exits after its request was cancelled.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct NativeSelectionWatchdog {
+    request_id: u64,
+    started_at: Instant,
+    timeout: Duration,
+}
+
+impl NativeSelectionWatchdog {
+    pub fn new(request_id: u64, started_at: Instant, timeout: Duration) -> Result<Self, &'static str> {
+        if request_id == 0 || timeout.is_zero() {
+            return Err("native selection watchdog requires a valid request and timeout");
+        }
+        Ok(Self {
+            request_id,
+            started_at,
+            timeout,
+        })
+    }
+
+    /// A missing session, a newer request, or an earlier clock reading cannot
+    /// authorize the watchdog to dismiss the trusted screenshot editor.
+    pub fn expired_for(self, active_id: Option<u64>, now: Instant) -> bool {
+        active_id == Some(self.request_id)
+            && now
+                .checked_duration_since(self.started_at)
+                .is_some_and(|elapsed| elapsed >= self.timeout)
+    }
+}
+
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum CanaryPhase {
     #[default]
