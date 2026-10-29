@@ -220,3 +220,12 @@
   但**未拥有或执行真实 Apple Developer ID/Notary 凭据，未提供真机
   证据，不能宣称 P6 已通过，更不能自动创建 v1.0.0 Release**。
 - [操作与剩余依赖](signed-release-candidate-runbook.md)。
+
+
+## 2026-10-29 — P6-T3 受控候选包审计准备
+
+- PR #58 已合并（`b65231f1`），[主线 CI #40816704159](https://github.com/wuhunyu/pic-paste/actions/runs/40816704159) 全部 success。
+- 为 P6-T3 新增 ZIP/Notary/签名/原始 QA 审批哈希的失败即拒绝审计器及
+  合成单测；签名脚本准备在保留候选包前调用。详见
+  [候选包审核与回退清单](release-candidate-audit.md)。该项目**仍不能
+  真正公测或发布**，因为实机、Apple 凭据、公证与用户数据回退验收未完成。
