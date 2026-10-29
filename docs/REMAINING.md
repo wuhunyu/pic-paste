@@ -1,6 +1,6 @@
 # PicPaste 未完成任务与 Issue 对账台账
 
-> **核对日期：2026-10-29** · 已合并基线扩展至 [PR #52](https://github.com/wuhunyu/pic-paste/pull/51)（#47 椭圆、#48 原生 Undo/Redo；#47 全量 CI #40655168318 success）。实验性原生标注已进入 PNG 保存链路，但 NSPanel/Retina/Spaces/TCC/IME/性能仍无真实设备验收。
+> **核对日期：2026-10-29** · 已合并基线扩展至 [PR #52](https://github.com/wuhunyu/pic-paste/pull/52)（#47 椭圆、#48 原生 Undo/Redo；#47 全量 CI #40655168318 success）。实验性原生标注已进入 PNG 保存链路，但 NSPanel/Retina/Spaces/TCC/IME/性能仍无真实设备验收。
 >
 > 此文档与 [TASKS.md](TASKS.md)、[STATUS.md](STATUS.md) 和 [Issues](https://github.com/wuhunyu/pic-paste/issues?q=is%3Aissue+is%3Aopen) 同步。以下任务状态指 **代码与证据**，不能将单元测试、编译成功等同于操作系统真机功能验收。独立的当前 Issue 正文是每项工作的逐条关闭清单。
 
@@ -151,3 +151,11 @@ NSPanel 代码已加入真正 AppKit 系统材质工具栏，画笔/箭头/矩�
 - 新增 `scripts/release_evidence_gate.py`，复用现有真实设备、OCR 和 P95 统计逻辑，对 macOS 14/26 双报告、原始延迟、≥400 OCR、≥50 长截图与源码 SHA 执行失败即阻断检查。
 - 新增 `tests/test_release_evidence_gate.py` 的合成数据拒绝测试，以及 [证据采集指南](release-evidence-runbook.md)，并将私密 `evidence/` 路径加入 gitignore。
 - **仅准备验收工具**：真实 macOS 14/26 GUI、CPU/RSS/P95、50 长图、400 OCR、签名/公证都仍缺实测数据；不能关闭 #5–#10，也不能把合成单测当真实测试通过。完整 CI 以本变更 PR 和 SHA 为准。
+
+## 2026-10-29 — P1-T3 原生试运行安全恢复（PR #55，待 CI）
+
+- 新增绑定请求 ID 的 `NativeSelectionWatchdog`：**仅在当前请求仍活跃、超出 300 秒时**触发，旧请求及已取消会话不能对当前截图发出超时回退。
+- eframe 主编辑器在开发 Canary 等待期间每秒安排一次轻量检查。超时会先清除会话修订号，再停止独立 NSPanel helper，让可能随后抵达的 pipe EOF / 旧回复自动失效；源 PNG/已保存的内容不被改写。
+- 通过“显示窗口”菜单可手动结束正在等待回复的原生框选（包括非自动启动的实验框选）；截图后从稳定编辑器继续，普通生产包行为保持不变。
+- 纯 Rust 单元测试覆盖 request ID、时间边界、旧会话、错误 watchdog 参数；macOS 无 GUI 故障注入覆盖子进程没有 stdout 的强制关闭与 pipe reader 退出。
+- **此项只是软件安全措施和自动化回归**；macOS 14/26 真机应按 [验收清单](native-macos-acceptance.md) 第九节完成超时、输入法、显示器、权限和焦点测试；#5/#10 不关闭，不提前迁移生产默认 NSPanel。
