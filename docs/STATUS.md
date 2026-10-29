@@ -1,5 +1,7 @@
 # PicPaste 开发与验收状态
 
+> **当前核对（2026-10-29）**：`main` [`2ba61d8`](https://github.com/wuhunyu/pic-paste/commit/2ba61d81c67637242eed5fdc932bc751177ac071) 已合并 PR #55；[主线 CI #40806711107](https://github.com/wuhunyu/pic-paste/actions/runs/40806711107) 成功；**共 47 个已合并 PR、6 个 Open Issue（#6–#11）**。#5 于 2026-10-29 由仓库所有者关闭，但原生 macOS 真实 GUI/IME/TCC/Retina 验收证据仍缺，继续由 #10 跟踪，不据此宣称 P1 通过。P6-T1 发布候选元数据、图标与验证正在独立分支实施；`1.0.0` 为候选版本标记，**不是正式发行件**。
+
 > **核对日期：2026-10-29。** 此文件以 [`main`](https://github.com/wuhunyu/pic-paste/tree/main) 中已合并的代码为依据；[REMAINING.md](REMAINING.md) 汇总当前七个未关闭 Issue，原始 v1.2 执行计划的 20 个任务逐项记录在 [TASKS.md](TASKS.md)。**代码完成、自动化测试成功、真机验收通过是三个不同的状态。**
 
 ## 当前基线
